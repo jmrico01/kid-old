@@ -6,6 +6,9 @@
 
 #define PI_F 3.14159265f
 
+inline int AbsInt(int n) {
+	return n >= 0 ? n : -n;
+}
 inline int MinInt(int a, int b) {
     return a < b ? a : b;
 }
