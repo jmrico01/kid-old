@@ -294,12 +294,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             DEBUG_PRINT("FreeType init error: %d\n", error);
         }
         gameState->fontFaceSmall = LoadFontFace(thread, gameState->ftLibrary,
-            "data/fonts/ibm-plex-mono/regular.ttf", 18,
+            "data/fonts/ocr-a/regular.ttf", 18,
             memory->transient,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         gameState->fontFaceMedium = LoadFontFace(thread, gameState->ftLibrary,
-            "data/fonts/ibm-plex-mono/regular.ttf", 24,
+            "data/fonts/ocr-a/regular.ttf", 24,
             memory->transient,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -432,11 +432,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     // ------------------------- Begin Rendering -------------------------
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    glClearColor(1.0f, 0.0f, 1.0f, 0.0f);
+    glClearColor(0.9f, 0.9f, 0.9f, 0.0f);
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Vec2 anchor = Vec2 { 0.5f, 0.5f };
+    Vec2 anchor = Vec2 { 0.5f, 0.0f };
     Vec2Int size = Vec2Int { 200, 200 };
     DrawTexturedRect(gameState->texturedRectGL, screenInfo,
         gameState->pos, anchor, size, gameState->testTexture);
@@ -474,8 +474,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             screenInfo.size.x - 10,
             screenInfo.size.y - 10,
         };
+        Vec4 color = Vec4 { 0.1f, 0.1f, 0.1f, 1.0f };
         DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, Vec4::one, memory->transient);
+            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, color, memory->transient);
     }
 
     OutputAudio(audio, gameState, input, memory->transient);
