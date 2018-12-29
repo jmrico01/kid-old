@@ -458,7 +458,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     glBindVertexArray(gameState->screenQuadVertexArray);
     glUseProgram(gameState->screenShader);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColor[0].color);
+    glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColorDepth[0].color);
     GLint loc = glGetUniformLocation(gameState->screenShader, "framebufferTexture");
     glUniform1i(loc, 0);
 
