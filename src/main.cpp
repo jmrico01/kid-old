@@ -440,6 +440,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         if (IsKeyPressed(input, KM_KEY_SPACE)) {
             gameState->vel.y = PLAYER_JUMP_SPEED;
             gameState->falling = true;
+            gameState->audioState.soundKick.playing = true;
+            gameState->audioState.soundKick.sampleIndex = 0;
         }
     }
 
@@ -451,6 +453,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     if (gameState->pos.y < FLOOR_LEVEL) {
         gameState->pos.y = FLOOR_LEVEL;
         gameState->falling = false;
+        gameState->audioState.soundSnare.playing = true;
+        gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
     // Toggle global mute
