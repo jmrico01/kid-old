@@ -265,15 +265,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         glFrontFace(GL_CCW);
         glCullFace(GL_BACK);
 
-        /*InitAudioState(thread, &gameState->audioState, audio,
+        InitAudioState(thread, &gameState->audioState, audio,
             &memory->transient,
             platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);*/
+            platformFuncs->DEBUGPlatformFreeFileMemory);
 
         // Game data
-		gameState->pos = Vec2Int { 0, 300 };
+        gameState->pos = Vec2Int { 0, 300 };
+        gameState->vel = Vec2Int { 0, 0 };
+        gameState->falling = true;
 
         gameState->grainTime = 0.0f;
+
+#if GAME_INTERNAL
+        gameState->debugView = true;
+#endif
 
         // Rendering stuff
         gameState->rectGL = InitRectGL(thread,
@@ -413,19 +419,42 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
-    int playerPixelsPerSecond = 500;
-    int playerSpeed = playerPixelsPerSecond * deltaTime;
-    Vec2Int vel = Vec2Int::zero;
+    const int FLOOR_LEVEL = 200;
+    const int PLAYER_WALK_SPEED = 500;
+    const int PLAYER_JUMP_SPEED = 1000;
+    const int GRAVITY_ACCEL = 2000;
+
+    gameState->vel.x = 0;
     if (IsKeyPressed(input, KM_KEY_A)) {
-        vel.x -= playerSpeed;
+        gameState->vel.x -= PLAYER_WALK_SPEED;
     }
     if (IsKeyPressed(input, KM_KEY_D)) {
-        vel.x += playerSpeed;
+        gameState->vel.x += PLAYER_WALK_SPEED;
     }
-    gameState->pos += vel;
+
+    if (gameState->falling) {
+        gameState->vel.y -= GRAVITY_ACCEL * deltaTime;
+    }
+    else {
+        gameState->vel.y = 0;
+        if (IsKeyPressed(input, KM_KEY_SPACE)) {
+            gameState->vel.y = PLAYER_JUMP_SPEED;
+            gameState->falling = true;
+        }
+    }
+
+    Vec2Int deltaPos = {
+        (int)((float32)gameState->vel.x * deltaTime),
+        (int)((float32)gameState->vel.y * deltaTime)
+    };
+    gameState->pos += deltaPos;
+    if (gameState->pos.y < FLOOR_LEVEL) {
+        gameState->pos.y = FLOOR_LEVEL;
+        gameState->falling = false;
+    }
 
     // Toggle global mute
-    if (WasKeyReleased(input, KM_KEY_M)) {
+    if (WasKeyPressed(input, KM_KEY_M)) {
         gameState->audioState.globalMute = !gameState->audioState.globalMute;
     }
 
@@ -467,58 +496,27 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     // -------------------------- End Rendering --------------------------
     glEnable(GL_BLEND);
 
-    {
-        char fpsStr[128];
-        sprintf(fpsStr, "FPS: %f", 1.0f / deltaTime);
-        Vec2Int fpsPos = {
-            screenInfo.size.x - 10,
-            screenInfo.size.y - 10,
-        };
-        Vec4 color = Vec4 { 0.1f, 0.1f, 0.1f, 1.0f };
-        DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, color, memory->transient);
-    }
-
     OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
-    if (gameState->audioState.debugView) {
-        char strBuf[128];
-        Vec2Int audioInfoStride = {
-            0,
-            -((int)gameState->fontFaceSmall.height + 6)
-        };
-        Vec2Int audioInfoPos = {
-            10,
+    Vec4 fontColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+
+    if (WasKeyPressed(input, KM_KEY_G)) {
+        gameState->debugView = !gameState->debugView;
+    }
+
+    if (gameState->debugView) {
+        char fpsStr[128];
+        sprintf(fpsStr, "%.2f FPS", 1.0f / deltaTime);
+        Vec2Int fpsPos = {
+            screenInfo.size.x - 15,
             screenInfo.size.y - 10,
         };
-        DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-            "Audio Engine", audioInfoPos, Vec2 { 0.0f, 1.0f },
-            Vec4::one,
-            memory->transient
-        );
-        sprintf(strBuf, "Sample Rate: %d", audio->sampleRate);
-        audioInfoPos += audioInfoStride;
-        DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-            strBuf, audioInfoPos, Vec2 { 0.0f, 1.0f },
-            Vec4::one,
-            memory->transient
-        );
-        sprintf(strBuf, "Channels: %d", audio->channels);
-        audioInfoPos += audioInfoStride;
-        DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-            strBuf, audioInfoPos, Vec2 { 0.0f, 1.0f },
-            Vec4::one,
-            memory->transient
-        );
-        sprintf(strBuf, "tWaveTable: %f", gameState->audioState.waveTable.tWaveTable);
-        audioInfoPos += audioInfoStride;
-        DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-            strBuf, audioInfoPos, Vec2 { 0.0f, 1.0f },
-            Vec4::one,
-            memory->transient
-        );
+        DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
+            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, fontColor, memory->transient);
     }
+
+    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient);
 #endif
 
 #if GAME_SLOW

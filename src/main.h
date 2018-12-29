@@ -31,11 +31,17 @@ struct GameState
 {
     AudioState audioState;
 
-    // Game data --------------------------
+    // GAME DATA --------------------------------------------------------------
     Vec2Int pos;
+    Vec2Int vel;
+    bool32 falling;
 
     float32 grainTime;
-    // ------------------------------------
+
+#if GAME_INTERNAL
+    bool32 debugView;
+#endif
+    // ------------------------------------------------------------------------
 
     RectGL rectGL;
     TexturedRectGL texturedRectGL;
