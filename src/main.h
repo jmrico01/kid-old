@@ -6,25 +6,35 @@
 #include "text.h"
 #include "particles.h"
 #include "audio.h"
-#include "load_obj.h"
 
-#define NUM_FRAMEBUFFERS_COLOR  3
-#define NUM_FRAMEBUFFERS_GRAY   2
+#define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
+#define NUM_FRAMEBUFFERS_COLOR        2
+#define NUM_FRAMEBUFFERS_GRAY         1
+
+enum FramebufferState
+{
+    FBSTATE_NONE,        // No setup has been done yet
+    FBSTATE_INITIALIZED, // Framebuffer object has been generated
+    FBSTATE_COLOR,       // Color attachment created, status is complete
+    FBSTATE_COLOR_DEPTH  // Color and depth attachments created, status is complete
+};
+
+struct Framebuffer
+{
+    GLuint framebuffer;
+    GLuint color;
+    GLuint depth;
+    FramebufferState state = FBSTATE_NONE;
+};
 
 struct GameState
 {
     AudioState audioState;
 
     // Game data --------------------------
-    Vec3 pos;
-    float32 yaw;
-    float32 pitch;
-
-    Quat lightRot;
+    Vec2Int pos;
 
     float32 grainTime;
-
-    MeshGL testMeshGL;
     // ------------------------------------
 
     RectGL rectGL;
@@ -36,33 +46,24 @@ struct GameState
     FontFace fontFaceSmall;
     FontFace fontFaceMedium;
 
-    GLuint framebuffersColor[NUM_FRAMEBUFFERS_COLOR];
-    GLuint colorBuffersColor[NUM_FRAMEBUFFERS_COLOR];
-    GLuint framebuffersGray[NUM_FRAMEBUFFERS_GRAY];
-    GLuint colorBuffersGray[NUM_FRAMEBUFFERS_GRAY];
-    GLuint depthBuffer;
-    GLuint gBuffer;
-    GLuint gPosition;
-    GLuint gNormal;
-    GLuint gColor;
+    Framebuffer framebuffersColorDepth[NUM_FRAMEBUFFERS_COLOR_DEPTH];
+    Framebuffer framebuffersColor[NUM_FRAMEBUFFERS_COLOR];
+    Framebuffer framebuffersGray[NUM_FRAMEBUFFERS_GRAY];
+    // TODO make a vertex array struct probably
     GLuint screenQuadVertexArray;
     GLuint screenQuadVertexBuffer;
     GLuint screenQuadUVBuffer;
 
-    GLuint gbufferShader;
-    GLuint deferredShader;
     GLuint screenShader;
-    GLuint ssaoShader;
-    GLuint ssaoBlurShader;
-    GLuint ssaoNoiseTexture;
-    GLuint fxaaShader;
     GLuint bloomExtractShader;
     GLuint bloomBlendShader;
     GLuint blurShader;
     GLuint grainShader;
     GLuint grainTexture;
 
-    GLuint pTexBase;
+    GLuint testTexture;
+
+    GLuint particleTextureBase;
     ParticleSystem ps;
 };
 

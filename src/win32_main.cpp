@@ -45,7 +45,6 @@ global_var GameInput* input_ = nullptr;             // for WndProc WM_CHAR
 global_var glViewportFunc* glViewport_ = nullptr;   // for WndProc WM_SIZE
 global_var ScreenInfo* screenInfo_ = nullptr;       // for WndProc WM_SIZE
 
-global_var bool32 DEBUGshowCursor_;
 global_var WINDOWPLACEMENT DEBUGwpPrev = { sizeof(DEBUGwpPrev) };
 
 // XInput functions
@@ -384,13 +383,6 @@ LRESULT CALLBACK WndProc(
                 screenInfo_->size.y = height;
                 screenInfo_->changed = true;
             }
-        } break;
-
-        case WM_SETCURSOR: {
-            if (DEBUGshowCursor_)
-                result = DefWindowProc(hWnd, message, wParam, lParam);
-            else
-                SetCursor(0);
         } break;
 
         case WM_SYSKEYDOWN: {
@@ -958,11 +950,6 @@ int CALLBACK WinMain(
         MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     gameAudio.sampleDelta = 0; // TODO revise this
     DEBUG_PRINT("Initialized Win32 audio\n");
-
-    // TODO probably remove this later
-#if GAME_INTERNAL
-    DEBUGshowCursor_ = true;
-#endif
 
 #if GAME_INTERNAL
     LPVOID baseAddress = (LPVOID)TERABYTES((uint64)2);;

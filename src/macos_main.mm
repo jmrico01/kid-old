@@ -746,7 +746,7 @@ int main(int argc, const char* argv[])
 		// if you want to support Snow Leopard
 		// NSPoint PointInWindow = [[self window]
 		//	convertScreenToBase:[NSEvent mouseLocation]];
-        CGAssociateMouseAndMouseCursorPosition(false);
+        // CGAssociateMouseAndMouseCursorPosition(false);
 
 		// We don't actually care what the mouse screen coordinates are,
 		// we just want the coordinates relative to the content view
