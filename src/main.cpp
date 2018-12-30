@@ -310,8 +310,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f; 
     const int FLOOR_LEVEL = 200;
     const int PLAYER_WALK_SPEED = (int)(250 * REF_SCALE_FACTOR);
-    const int PLAYER_JUMP_SPEED = 1000;
-    const int GRAVITY_ACCEL = 2000;
+    const int PLAYER_JUMP_SPEED = 500;
+    const int GRAVITY_ACCEL = 1000;
 
     gameState->vel.x = 0;
     if (IsKeyPressed(input, KM_KEY_A)) {
@@ -348,8 +348,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
-    gameState->animationKid.Update(deltaTime, gameState->vel.x != 0);
-    gameState->animationMe.Update(deltaTime, gameState->vel.x != 0);
+    bool32 isWalking = !gameState->falling && gameState->vel.x != 0;
+    gameState->animationKid.Update(deltaTime, isWalking);
+    gameState->animationMe.Update(deltaTime, isWalking);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
