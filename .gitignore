@@ -3,4 +3,4 @@ build
 .DS_Store
 .clang_complete
 *~
-env_settings.json
+compile/env_settings.json
