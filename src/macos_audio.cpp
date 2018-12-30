@@ -110,7 +110,7 @@ void MacOSInitCoreAudio(MacOSAudio* macAudio,
 		kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsNonInterleaved
 		| kAudioFormatFlagIsPacked; // TODO request float format
 	macAudio->audioDescriptor.mFramesPerPacket  = 1;
-	macAudio->audioDescriptor.mChannelsPerFrame = channels; // Stereo
+	macAudio->audioDescriptor.mChannelsPerFrame = channels;
 	macAudio->audioDescriptor.mBitsPerChannel   = sizeof(int16) * 8;
 	// don't multiply by channel count with non-interleaved!
 	macAudio->audioDescriptor.mBytesPerFrame    = sizeof(int16);

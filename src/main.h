@@ -74,7 +74,8 @@ struct GameState
     GLuint particleTextureBase;
     ParticleSystem ps;
 
-    Animation animation;
+    Animation animationKid;
+    Animation animationMe;
 };
 
 inline float32 RandFloat32();

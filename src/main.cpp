@@ -192,6 +192,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR, gameState->framebuffersColor);
         InitializeFramebuffers(NUM_FRAMEBUFFERS_GRAY, gameState->framebuffersGray);
 
+        glGenVertexArrays(1, &gameState->screenQuadVertexArray);
+        glBindVertexArray(gameState->screenQuadVertexArray);
+
+        glGenBuffers(1, &gameState->screenQuadVertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, gameState->screenQuadVertexBuffer);
         const GLfloat vertices[] = {
             -1.0f, -1.0f,
             1.0f, -1.0f,
@@ -200,20 +205,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             -1.0f, 1.0f,
             -1.0f, -1.0f
         };
-        const GLfloat uvs[] = {
-            0.0f, 0.0f,
-            1.0f, 0.0f,
-            1.0f, 1.0f,
-            1.0f, 1.0f,
-            0.0f, 1.0f,
-            0.0f, 0.0f
-        };
-
-        glGenVertexArrays(1, &gameState->screenQuadVertexArray);
-        glBindVertexArray(gameState->screenQuadVertexArray);
-
-        glGenBuffers(1, &gameState->screenQuadVertexBuffer);
-        glBindBuffer(GL_ARRAY_BUFFER, gameState->screenQuadVertexBuffer);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices,
             GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
@@ -228,6 +219,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
         glGenBuffers(1, &gameState->screenQuadUVBuffer);
         glBindBuffer(GL_ARRAY_BUFFER, gameState->screenQuadUVBuffer);
+        const GLfloat uvs[] = {
+            0.0f, 0.0f,
+            1.0f, 0.0f,
+            1.0f, 1.0f,
+            1.0f, 1.0f,
+            0.0f, 1.0f,
+            0.0f, 0.0f
+        };
         glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(
@@ -272,8 +271,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
-        gameState->animation = LoadAnimation(thread,
-            12, "data/textures/jon",
+        gameState->animationKid = LoadAnimation(thread,
+            8, "data/textures/kid",
+            2, (int[]){ 0, 4 },
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->animationMe = LoadAnimation(thread,
+            8, "data/textures/me",
+            2, (int[]){ 0, 4 },
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
@@ -302,8 +307,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
+    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f; 
     const int FLOOR_LEVEL = 200;
-    const int PLAYER_WALK_SPEED = 500;
+    const int PLAYER_WALK_SPEED = (int)(250 * REF_SCALE_FACTOR);
     const int PLAYER_JUMP_SPEED = 1000;
     const int GRAVITY_ACCEL = 2000;
 
@@ -342,16 +348,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
-    gameState->animation.Update(deltaTime, gameState->vel.x != 0);
+    gameState->animationKid.Update(deltaTime, gameState->vel.x != 0);
+    gameState->animationMe.Update(deltaTime, gameState->vel.x != 0);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
         gameState->audioState.globalMute = !gameState->audioState.globalMute;
     }
 
-    // ------------------------- Begin Rendering -------------------------
+    // ---------------------------- Begin Rendering ---------------------------
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
+    glEnable(GL_BLEND);
     glClearColor(0.9f, 0.9f, 0.9f, 0.0f);
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -362,12 +369,19 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     DrawTexturedRect(gameState->texturedRectGL, screenInfo,
         posTest, anchorTest, sizeTest, false, gameState->testTexture);*/
 
-    Vec2 anchor = Vec2 { 0.5f, 0.0f };
-    Vec2Int size = Vec2Int { 200, 200 };
-    gameState->animation.Draw(gameState->texturedRectGL, screenInfo,
+    Vec2Int ORIGINAL_SIZE = { 377, 393 };
+    Vec2 anchor = { 0.5f, 0.0f };
+    Vec2Int size = {
+        (int)((float32)ORIGINAL_SIZE.x * REF_SCALE_FACTOR),
+        (int)((float32)ORIGINAL_SIZE.y * REF_SCALE_FACTOR)
+    };
+    Vec2Int ME_TEXT_OFFSET = { -20, 20 };
+    gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
         gameState->pos, anchor, size, !gameState->facingRight);
+    gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
+        gameState->pos + ME_TEXT_OFFSET, anchor, size, false);
 
-    // --------------------- Post processing passes ---------------------
+    // ------------------------ Post processing passes ------------------------
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
@@ -390,7 +404,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // -------------------------- End Rendering --------------------------
+    // ---------------------------- End Rendering -----------------------------
     glEnable(GL_BLEND);
 
     OutputAudio(audio, gameState, input, memory->transient);

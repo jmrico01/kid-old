@@ -8,31 +8,21 @@
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
 
-Animation LoadAnimation(const ThreadContext* thread,
-	int frames, const char* path,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+bool32 Animation::IsIdleFrame(int frame)
 {
-	DEBUG_ASSERT(frames <= ANIMATION_MAX_FRAMES);
-
-	Animation animation;
-	animation.frames = frames;
-	animation.currentFrame = 0;
-	animation.currentFrameTime = 0.0f;
-
-	char framePath[PATH_MAX_LENGTH];
-	for (int i = 0; i < frames; i++) {
-		sprintf(framePath, "%s/%d.png", path, i);
-		animation.frameTextures[i] = LoadPNGOpenGL(thread, framePath,
-			DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+	bool32 isIdle = false;
+	for (int j = 0; j < numIdles; j++) {
+		if (frame == idles[j]) {
+			isIdle = true;
+			break;
+		}
 	}
-
-	return animation;
+	return isIdle;
 }
 
 void Animation::Update(float32 deltaTime, bool32 moving)
 {
-	if (!moving && currentFrame == 0) {
+	if (!moving && IsIdleFrame(currentFrame)) {
 		return;
 	}
 	
@@ -51,4 +41,31 @@ void Animation::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
 {
 	DrawTexturedRect(texturedRectGL, screenInfo,
 		pos, anchor, size, flipHorizontal, frameTextures[currentFrame]);
+}
+
+Animation LoadAnimation(const ThreadContext* thread,
+	int frames, const char* path,
+	int numIdles, int idles[],
+	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+{
+	DEBUG_ASSERT(frames <= ANIMATION_MAX_FRAMES);
+
+	Animation animation;
+	animation.frames = frames;
+	animation.currentFrame = 0;
+	animation.currentFrameTime = 0.0f;
+	animation.numIdles = numIdles;
+	for (int i = 0; i < numIdles; i++) {
+		animation.idles[i] = idles[i];
+	}
+
+	char framePath[PATH_MAX_LENGTH];
+	for (int i = 0; i < frames; i++) {
+		sprintf(framePath, "%s/%d.png", path, i);
+		animation.frameTextures[i] = LoadPNGOpenGL(thread, framePath,
+			DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+	}
+
+	return animation;
 }

@@ -5,15 +5,19 @@
 #include "main_platform.h"
 
 #define ANIMATION_MAX_FRAMES 32
-#define ANIMATION_FPS 24
+#define ANIMATION_FPS 8
 
 struct Animation
 {
 	int frames;
 	int currentFrame;
 	float32 currentFrameTime;
+	int numIdles;
+	int idles[ANIMATION_MAX_FRAMES];
 
 	GLuint frameTextures[ANIMATION_MAX_FRAMES];
+
+	bool32 IsIdleFrame(int frame);
 
 	void Update(float32 deltaTime, bool32 moving);
 
@@ -23,5 +27,6 @@ struct Animation
 
 Animation LoadAnimation(const ThreadContext* thread,
 	int frames, const char* path,
+	int numIdles, int idles[],
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);

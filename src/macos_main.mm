@@ -629,7 +629,7 @@ int main(int argc, const char* argv[])
 		backing:NSBackingStoreBuffered
 		defer:NO];
 
-	[window setBackgroundColor: NSColor.blackColor];
+	[window setBackgroundColor:NSColor.blackColor];
 	[window setDelegate:appDelegate];
 
 	NSView* cv = [window contentView];
