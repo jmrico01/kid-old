@@ -980,6 +980,8 @@ int CALLBACK WinMain(
     }
     DEBUG_PRINT("Initialized game memory\n");
 
+#if 0
+#if GAME_INTERNAL
     for (int replayIndex = 0;
     replayIndex < ARRAY_COUNT(state.replayBuffers);
     replayIndex++) {
@@ -1004,6 +1006,8 @@ int CALLBACK WinMain(
         // Debug, so not really that important
     }
     DEBUG_PRINT("Initialized input replay system\n");
+#endif
+#endif
 
     char gameCodeDLLPath[MAX_PATH];
     Win32BuildExePathFileName(&state, "kid_game.dll",
@@ -1144,6 +1148,7 @@ int CALLBACK WinMain(
             }
         }
 
+#if 0
 #if GAME_INTERNAL
         // Recording game input
         if (newInput->controllers[0].lShoulder.isDown
@@ -1182,6 +1187,7 @@ int CALLBACK WinMain(
         && newInput->controllers[0].y.transitions > 0) {
             gameMemory.isInitialized = false;
         }
+#endif
 #endif
 
         /*HRESULT hr;
