@@ -1,9 +1,0 @@
-{
-	"win32": {
-		"libs": "C:/Users/RicoJose/Documents/libs/final",
-		"vcvarsall": "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Auxiliary/Build/vcvarsall.bat"
-	},
-	"macos": {
-		"libs": "/Users/legionjr/Documents/dev-libs/build"
-	}
-}
