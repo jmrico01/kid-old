@@ -69,13 +69,14 @@ struct GameState
     GLuint grainShader;
     GLuint grainTexture;
 
-    GLuint testTexture;
-
     GLuint particleTextureBase;
     ParticleSystem ps;
 
+    GLuint backgroundTexture;
+
     Animation animationKid;
     Animation animationMe;
+    Animation animationGuys;
 };
 
 inline float32 RandFloat32();

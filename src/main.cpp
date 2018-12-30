@@ -148,7 +148,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
         // Game data
-        gameState->pos = Vec2Int { 0, 300 };
+        gameState->pos = Vec2Int { 0, 100 };
         gameState->vel = Vec2Int { 0, 0 };
         gameState->falling = true;
         gameState->facingRight = true;
@@ -261,24 +261,29 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
-        gameState->testTexture = LoadPNGOpenGL(thread,
-            "data/textures/jon.png",
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-
         gameState->particleTextureBase = LoadPNGOpenGL(thread,
             "data/textures/base.png",
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
+        gameState->backgroundTexture = LoadPNGOpenGL(thread,
+            "data/textures/bg.png",
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+
         gameState->animationKid = LoadAnimation(thread,
-            8, "data/textures/kid",
+            8, 8, "data/textures/kid",
             2, (int[]){ 0, 4 },
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         gameState->animationMe = LoadAnimation(thread,
-            8, "data/textures/me",
+            8, 8, "data/textures/me",
             2, (int[]){ 0, 4 },
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->animationGuys = LoadAnimation(thread,
+            3, 2, "data/textures/guys",
+            0, nullptr,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
@@ -308,8 +313,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
     const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f; 
-    const int FLOOR_LEVEL = 200;
-    const int PLAYER_WALK_SPEED = (int)(250 * REF_SCALE_FACTOR);
+    const int FLOOR_LEVEL = 0;
+    const int PLAYER_WALK_SPEED = (int)(220 * REF_SCALE_FACTOR);
     const int PLAYER_JUMP_SPEED = 500;
     const int GRAVITY_ACCEL = 1000;
 
@@ -351,6 +356,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     bool32 isWalking = !gameState->falling && gameState->vel.x != 0;
     gameState->animationKid.Update(deltaTime, isWalking);
     gameState->animationMe.Update(deltaTime, isWalking);
+    gameState->animationGuys.Update(deltaTime, true);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
@@ -360,15 +366,38 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     // ---------------------------- Begin Rendering ---------------------------
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glClearColor(0.9f, 0.9f, 0.9f, 0.0f);
+    glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    /*Vec2Int posTest = Vec2Int::zero;
-    Vec2 anchorTest = Vec2 { 0.0f, 0.0f };
-    Vec2Int sizeTest = screenInfo.size;
+    Vec2Int playerPos = { screenInfo.size.x / 2, screenInfo.size.y / 3 };
+    Vec2Int objectOffset = playerPos - gameState->pos;
+
+    Vec2Int backgroundPos = {
+        0,
+        (int)(-75 * REF_SCALE_FACTOR)
+    };
+    Vec2 backgroundAnchor = { 0.5f, 0.0f };
+    Vec2Int backgroundSize = {
+        (int)(4834 * REF_SCALE_FACTOR),
+        screenInfo.size.y
+    };
     DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-        posTest, anchorTest, sizeTest, false, gameState->testTexture);*/
+        backgroundPos + objectOffset, backgroundAnchor, backgroundSize, false,
+        gameState->backgroundTexture);
+
+    Vec2Int GUYS_SIZE = { 638, 602 };
+    Vec2Int guysPos = {
+        (int)(1300 * REF_SCALE_FACTOR),
+        (int)(-75 * REF_SCALE_FACTOR)
+    };
+    Vec2 guysAnchor = { 0.5f, 0.0f };
+    Vec2Int guysSize = {
+        (int)((float32)GUYS_SIZE.x * REF_SCALE_FACTOR),
+        (int)((float32)GUYS_SIZE.y * REF_SCALE_FACTOR)
+    };
+    gameState->animationGuys.Draw(gameState->texturedRectGL, screenInfo,
+        guysPos + objectOffset, guysAnchor, guysSize, false);
 
     Vec2Int ORIGINAL_SIZE = { 377, 393 };
     Vec2 anchor = { 0.5f, 0.0f };
@@ -378,9 +407,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     };
     Vec2Int ME_TEXT_OFFSET = { -20, 20 };
     gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
-        gameState->pos, anchor, size, !gameState->facingRight);
+        playerPos, anchor, size, !gameState->facingRight);
     gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
-        gameState->pos + ME_TEXT_OFFSET, anchor, size, false);
+        playerPos + ME_TEXT_OFFSET, anchor, size, false);
+
+    const float32 ASPECT_RATIO = 4.0f / 3.0f;
+    int targetWidth = (int)(screenInfo.size.y * ASPECT_RATIO);
+    int pillarboxWidth = (screenInfo.size.x - targetWidth) / 2;
+    Vec2Int pillarboxPos1 = Vec2Int::zero;
+    Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
+    Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
+    Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
+    Vec4 pillarboxColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+    DrawRect(gameState->rectGL, screenInfo,
+        pillarboxPos1, pillarboxAnchor, pillarboxSize, pillarboxColor);
+    DrawRect(gameState->rectGL, screenInfo,
+        pillarboxPos2, pillarboxAnchor, pillarboxSize, pillarboxColor);
 
     // ------------------------ Post processing passes ------------------------
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);

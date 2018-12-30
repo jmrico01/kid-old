@@ -27,7 +27,7 @@ void Animation::Update(float32 deltaTime, bool32 moving)
 	}
 	
 	currentFrameTime += deltaTime;
-	if (currentFrameTime > 1.0f / ANIMATION_FPS) {
+	if (currentFrameTime > 1.0f / fps) {
 		currentFrameTime = 0.0f;
 		currentFrame++;
 		if (currentFrame >= frames) {
@@ -44,7 +44,7 @@ void Animation::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
 }
 
 Animation LoadAnimation(const ThreadContext* thread,
-	int frames, const char* path,
+	int fps, int frames, const char* path,
 	int numIdles, int idles[],
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
@@ -52,6 +52,7 @@ Animation LoadAnimation(const ThreadContext* thread,
 	DEBUG_ASSERT(frames <= ANIMATION_MAX_FRAMES);
 
 	Animation animation;
+	animation.fps = fps;
 	animation.frames = frames;
 	animation.currentFrame = 0;
 	animation.currentFrameTime = 0.0f;

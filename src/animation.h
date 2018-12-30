@@ -5,10 +5,10 @@
 #include "main_platform.h"
 
 #define ANIMATION_MAX_FRAMES 32
-#define ANIMATION_FPS 8
 
 struct Animation
 {
+	int fps;
 	int frames;
 	int currentFrame;
 	float32 currentFrameTime;
@@ -26,7 +26,7 @@ struct Animation
 };
 
 Animation LoadAnimation(const ThreadContext* thread,
-	int frames, const char* path,
+	int fps, int frames, const char* path,
 	int numIdles, int idles[],
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
