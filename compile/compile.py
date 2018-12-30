@@ -1,33 +1,42 @@
-import sys
-import os
-import shutil
-import platform
-import string
 import hashlib
+import json
+import os
+import platform
 import random
+import shutil
+import sys
+import string
 
 PROJECT_NAME = "kid"
 
 def GetScriptPath():
     path = os.path.realpath(__file__)
-    lastSep = string.rfind(path, os.sep)
+    lastSep = path.rfind(os.sep)
     return path[:lastSep]
 
-def GetLastSlashPath(path):
+def GetEnclosingDir(path):
     """
     Returns the path before the last separating slash in path.
     (The path of the directory containing the given path.
     This is the equivalent of "path/..", but without the "..")
     """
-    lastSep = string.rfind(path, os.sep)
+    lastSep = path.rfind(os.sep)
     return path[:lastSep]
 
 def NormalizePathSlashes(pathDict):
     for name in pathDict:
         pathDict[name] = pathDict[name].replace("/", os.sep)
 
+def LoadEnvSettings(pathDict, envSettingsPath):
+    with open(envSettingsPath, "r") as envSettingsFile:
+        envSettings = json.loads(envSettingsFile.read())
+
+    for envOS in envSettings:
+        for envSetting in envSettings[envOS]:
+            pathDict[envOS + "-" + envSetting] = envSettings[envOS][envSetting]
+
 # Important directory & file paths
-paths = { "root": GetLastSlashPath(GetScriptPath()) }
+paths = { "root": GetEnclosingDir(GetScriptPath()) }
 
 paths["build"]          = paths["root"] + "/build"
 paths["data"]           = paths["root"] + "/data"
@@ -47,28 +56,34 @@ paths["win32-main-cpp"] = paths["src"] + "/win32_main.cpp"
 paths["src-hashes"]     = paths["build"] + "/src_hashes"
 paths["src-hashes-old"] = paths["build"] + "/src_hashes_old"
 
+paths["env-settings"]   = paths["root"] + "/compile/env_settings.json"
+
+NormalizePathSlashes(paths)
+LoadEnvSettings(paths, paths["env-settings"])
+NormalizePathSlashes(paths)
+
 # External dependencies
-# TODO think of a better way of doing this
-paths["win32-libs"] = "D:/Development/Libraries"
-paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
-paths["lib-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/objs/vc2010/x64"
+if os.name == "nt":
+    paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
+    paths["lib-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/lib"
 
-paths["include-libpng-win"] = paths["win32-libs"] + "/lpng1634"
-paths["lib-libpng-win-d"] = paths["win32-libs"] + "/lpng1634/projects/vstudio/x64/DebugLibrary"
-paths["lib-libpng-win-r"] = paths["win32-libs"] + "/lpng1634/projects/vstudio/x64/ReleaseLibrary"
+    paths["include-libpng-win"] = paths["win32-libs"] + "/lpng1634/include"
+    paths["lib-libpng-win-d"] = paths["win32-libs"] + "/lpng1634/lib-d"
+    paths["lib-libpng-win-r"] = paths["win32-libs"] + "/lpng1634/lib-r"
 
-paths["macos-libs"] = "/Users/legionjr/Documents/dev-libs/build"
-paths["include-freetype-mac"] = paths["macos-libs"] + "/include/freetype2"
-paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
+if os.name == "darwin":
+    paths["include-freetype-mac"] = paths["macos-libs"] + "/include/freetype2"
+    paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
 
-paths["include-libpng-mac"] = paths["macos-libs"] + "/include/libpng16"
-paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
+    paths["include-libpng-mac"] = paths["macos-libs"] + "/include/libpng16"
+    paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
 
-paths["include-freetype-linux"] = "/usr/local/include/freetype2"
-paths["lib-freetype-linux"] = "/usr/local/lib"
+if os.name == "linux":
+    paths["include-freetype-linux"] = "/usr/local/include/freetype2"
+    paths["lib-freetype-linux"] = "/usr/local/lib"
 
-paths["include-libpng-linux"] = "/usr/local/include/libpng16"
-paths["lib-libpng-linux"] = "/usr/local/lib"
+    paths["include-libpng-linux"] = "/usr/local/include/libpng16"
+    paths["lib-libpng-linux"] = "/usr/local/lib"
 
 NormalizePathSlashes(paths)
 
@@ -158,8 +173,7 @@ def WinCompileDebug():
         if sys.argv[2] == "devenv":
             devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
 
-    loadCompiler = "call \"C:\\Program Files (x86)" + \
-        "\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat\" x64"
+    loadCompiler = "call \"" + paths["win32-vcvarsall"] + "\" x64"
     os.system(" & ".join([
         "pushd " + paths["build"],
         loadCompiler,
@@ -254,8 +268,7 @@ def WinCompileRelease():
         if sys.argv[2] == "devenv":
             devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
 
-    loadCompiler = "call \"C:\\Program Files (x86)" + \
-        "\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat\" x64"
+    loadCompiler = "call \"" + paths["win32-vcvarsall"] + "\" x64"
     os.system(" & ".join([
         "pushd " + paths["build"],
         loadCompiler,

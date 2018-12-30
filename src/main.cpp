@@ -271,14 +271,16 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
+        const int numIdleFrames = 2;
+        const int idleFrames[numIdleFrames] = { 0, 4 };
         gameState->animationKid = LoadAnimation(thread,
             8, 8, "data/textures/kid",
-            2, (int[]){ 0, 4 },
+            numIdleFrames, idleFrames,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         gameState->animationMe = LoadAnimation(thread,
             8, 8, "data/textures/me",
-            2, (int[]){ 0, 4 },
+            numIdleFrames, idleFrames,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         gameState->animationGuys = LoadAnimation(thread,
@@ -329,7 +331,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     }
 
     if (gameState->falling) {
-        gameState->vel.y -= GRAVITY_ACCEL * deltaTime;
+        gameState->vel.y -= (int)(GRAVITY_ACCEL * deltaTime);
     }
     else {
         gameState->vel.y = 0;

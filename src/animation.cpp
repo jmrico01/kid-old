@@ -45,7 +45,7 @@ void Animation::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
 
 Animation LoadAnimation(const ThreadContext* thread,
 	int fps, int frames, const char* path,
-	int numIdles, int idles[],
+	int numIdles, const int idles[],
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
