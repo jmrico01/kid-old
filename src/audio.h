@@ -18,8 +18,6 @@ struct AudioState
     Sound soundSnare;
     Sound soundDeath;
 
-    Sound soundNotes[12];
-
     bool32 globalMute;
 
 #if GAME_INTERNAL

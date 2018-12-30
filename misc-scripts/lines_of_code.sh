@@ -1,0 +1,1 @@
+find ./src -name '*.h' -o -name '*.cpp' -o -name '*.vert' -o -name '*.frag' | xargs wc -l

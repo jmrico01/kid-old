@@ -6,6 +6,7 @@
 #include "text.h"
 #include "particles.h"
 #include "audio.h"
+#include "animation.h"
 
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
@@ -35,6 +36,7 @@ struct GameState
     Vec2Int pos;
     Vec2Int vel;
     bool32 falling;
+    bool32 facingRight;
 
     float32 grainTime;
 
@@ -71,6 +73,8 @@ struct GameState
 
     GLuint particleTextureBase;
     ParticleSystem ps;
+
+    Animation animation;
 };
 
 inline float32 RandFloat32();

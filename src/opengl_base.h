@@ -84,7 +84,7 @@ BoxGL InitBoxGL(const ThreadContext* thread,
 void DrawRect(RectGL rectGL, ScreenInfo screenInfo,
     Vec2Int pos, Vec2 anchor, Vec2Int size, Vec4 color);
 void DrawTexturedRect(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-    Vec2Int pos, Vec2 anchor, Vec2Int size, GLuint texture);
+    Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal, GLuint texture);
 void DrawPlane(PlaneGL,
     Mat4 vp, Vec3 point, Vec3 normal, Vec4 color);
 void DrawBox(BoxGL boxGL,

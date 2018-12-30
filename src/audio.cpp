@@ -113,7 +113,8 @@ void InitAudioState(const ThreadContext* thread,
     DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
     DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
-    audioState->globalMute = false;
+    // audioState->globalMute = false;
+    audioState->globalMute = true;
 
     const int KICK_VARIATIONS = 1;
     const char* kickSoundFiles[KICK_VARIATIONS] = {
@@ -144,16 +145,6 @@ void InitAudioState(const ThreadContext* thread,
         transient,
         DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
 
-    for (int i = 0; i < 12; i++) {
-        char buf[128];
-        sprintf(buf, "data/audio/note%d.wav", i);
-        SoundInit(thread, audio,
-            &audioState->soundNotes[i],
-            buf,
-            transient,
-            DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
-    }
-
 #if GAME_INTERNAL
     audioState->debugView = false;
 #endif
@@ -166,14 +157,9 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
     DEBUG_ASSERT(audio->channels == 2); // Stereo support only
     AudioState* audioState = &gameState->audioState;
 
-//#if 0
     SoundUpdate(audio, &audioState->soundKick);
     SoundUpdate(audio, &audioState->soundSnare);
     SoundUpdate(audio, &audioState->soundDeath);
-    for (int i = 0; i < 12; i++) {
-        SoundUpdate(audio, &audioState->soundNotes[i]);
-    }
-//#endif
 
     for (int i = 0; i < audio->fillLength; i++) {
         audio->buffer[i * audio->channels] = 0.0f;
@@ -184,14 +170,9 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
         return;
     }
 
-//#if 0
     SoundWriteSamples(&audioState->soundKick, 1.0f, audio);
     SoundWriteSamples(&audioState->soundSnare, 0.7f, audio);
     SoundWriteSamples(&audioState->soundDeath, 0.5f, audio);
-    for (int i = 0; i < 12; i++) {
-        SoundWriteSamples(&audioState->soundNotes[i], 0.2f, audio);
-    }
-//#endif
 }
 
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,

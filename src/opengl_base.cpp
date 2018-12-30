@@ -415,7 +415,7 @@ void DrawRect(RectGL rectGL, ScreenInfo screenInfo,
 }
 
 void DrawTexturedRect(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-    Vec2Int pos, Vec2 anchor, Vec2Int size, GLuint texture)
+    Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal, GLuint texture)
 {
     RectCoordsNDC ndc = ToRectCoordsNDC(pos, size, anchor, screenInfo);
 
@@ -431,6 +431,8 @@ void DrawTexturedRect(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
     glUniform3fv(loc, 1, &ndc.pos.e[0]);
     loc = glGetUniformLocation(texturedRectGL.programID, "size");
     glUniform2fv(loc, 1, &ndc.size.e[0]);
+    loc = glGetUniformLocation(texturedRectGL.programID, "flipHorizontal");
+    glUniform1i(loc, flipHorizontal);
 
     glBindVertexArray(texturedRectGL.vertexArray);
     glDrawArrays(GL_TRIANGLES, 0, 6);
