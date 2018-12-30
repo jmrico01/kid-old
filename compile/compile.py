@@ -63,7 +63,7 @@ LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
 # External dependencies
-if os.name == "nt":
+if platform.system() == "Windows":
     paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
     paths["lib-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/lib"
 
@@ -71,14 +71,14 @@ if os.name == "nt":
     paths["lib-libpng-win-d"] = paths["win32-libs"] + "/lpng1634/lib-d"
     paths["lib-libpng-win-r"] = paths["win32-libs"] + "/lpng1634/lib-r"
 
-if os.name == "darwin":
+if platform.system() == "Darwin":
     paths["include-freetype-mac"] = paths["macos-libs"] + "/include/freetype2"
     paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
 
     paths["include-libpng-mac"] = paths["macos-libs"] + "/include/libpng16"
     paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
 
-if os.name == "linux":
+if platform.system() == "Linux":
     paths["include-freetype-linux"] = "/usr/local/include/freetype2"
     paths["lib-freetype-linux"] = "/usr/local/lib"
 
