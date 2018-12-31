@@ -3,7 +3,6 @@
 #include <cstdio>
 
 #include "km_debug.h"
-#include "load_png.h"
 
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
@@ -40,7 +39,7 @@ void Animation::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
     Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal)
 {
 	DrawTexturedRect(texturedRectGL, screenInfo,
-		pos, anchor, size, flipHorizontal, frameTextures[currentFrame]);
+		pos, anchor, size, flipHorizontal, frameTextures[currentFrame].textureID);
 }
 
 Animation LoadAnimation(const ThreadContext* thread,

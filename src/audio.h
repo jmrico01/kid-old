@@ -36,5 +36,6 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
 
 #if GAME_INTERNAL
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
-    const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient);
+    const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient,
+    Vec4 debugFontColor);
 #endif

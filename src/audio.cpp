@@ -176,7 +176,8 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
 }
 
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
-    const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient)
+    const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient,
+    Vec4 debugFontColor)
 {
     AudioState* audioState = &gameState->audioState;
 
@@ -185,7 +186,6 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
     }
 
     if (audioState->debugView) {
-        const Vec4 COLOR = { 0.1f, 0.1f, 0.1f, 1.0f };
         const int MARGIN = 10;
         const Vec2 TEXT_ANCHOR = { 1.0f, 0.0f };
 
@@ -200,28 +200,28 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
         };
         DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
             "Audio Engine", audioInfoPos, TEXT_ANCHOR,
-            COLOR,
+            debugFontColor,
             transient
         );
         const char* muteStr = audioState->globalMute ? "Global Mute: ON" : "Global Mute: OFF";
         audioInfoPos += audioInfoStride;
         DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
             muteStr, audioInfoPos, TEXT_ANCHOR,
-            COLOR,
+            debugFontColor,
             transient
         );
         sprintf(strBuf, "Sample Rate: %d", audio->sampleRate);
         audioInfoPos += audioInfoStride;
         DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
             strBuf, audioInfoPos, TEXT_ANCHOR,
-            COLOR,
+            debugFontColor,
             transient
         );
         sprintf(strBuf, "Channels: %d", audio->channels);
         audioInfoPos += audioInfoStride;
         DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
             strBuf, audioInfoPos, TEXT_ANCHOR,
-            COLOR,
+            debugFontColor,
             transient
         );
 
@@ -229,14 +229,14 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
             audio->buffer, audio->fillLength, 0,
             nullptr, nullptr, 0,
             Vec3 { -1.0f, 0.5f, 0.0f }, Vec2 { 2.0f, 1.0f },
-            COLOR,
+            debugFontColor,
             transient
         );
         DrawAudioBuffer(gameState, audio,
             audio->buffer, audio->fillLength, 1,
             nullptr, nullptr, 0,
             Vec3 { -1.0f, -0.5f, 0.0f }, Vec2 { 2.0f, 1.0f },
-            COLOR,
+            debugFontColor,
             transient
         );
     }

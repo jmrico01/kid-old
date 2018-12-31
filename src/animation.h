@@ -3,6 +3,7 @@
 #include "opengl.h"
 #include "opengl_base.h"
 #include "main_platform.h"
+#include "load_png.h"
 
 #define ANIMATION_MAX_FRAMES 32
 
@@ -15,7 +16,7 @@ struct Animation
 	int numIdles;
 	int idles[ANIMATION_MAX_FRAMES];
 
-	GLuint frameTextures[ANIMATION_MAX_FRAMES];
+	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
 
 	bool32 IsIdleFrame(int frame);
 

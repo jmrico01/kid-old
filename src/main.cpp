@@ -13,7 +13,6 @@
 #include "opengl.h"
 #include "opengl_funcs.h"
 #include "opengl_base.h"
-#include "load_png.h"
 #include "post.h"
 
 inline float32 RandFloat32()
@@ -314,11 +313,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
-    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f; 
+    // Constants tuned for 1080p
     const int FLOOR_LEVEL = 0;
-    const int PLAYER_WALK_SPEED = (int)(220 * REF_SCALE_FACTOR);
+    const int PLAYER_WALK_SPEED = 220;
     const int PLAYER_JUMP_SPEED = 500;
     const int GRAVITY_ACCEL = 1000;
+    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
 
     gameState->vel.x = 0;
     if (IsKeyPressed(input, KM_KEY_A)) {
@@ -372,59 +372,35 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Vec2Int playerPos = { screenInfo.size.x / 2, screenInfo.size.y / 3 };
-    Vec2Int objectOffset = playerPos - gameState->pos;
+    Vec2Int playerPosScreen = { screenInfo.size.x / 2, screenInfo.size.y / 3 };
+    Vec2Int objectOffset = playerPosScreen - gameState->pos * REF_SCALE_FACTOR;
 
-    Vec2Int backgroundPos = {
-        0,
-        (int)(-75 * REF_SCALE_FACTOR)
-    };
-    Vec2 backgroundAnchor = { 0.5f, 0.0f };
+    Vec2Int backgroundPos = { -gameState->backgroundTexture.size.x / 2, -75 };
+    backgroundPos *= REF_SCALE_FACTOR;
+    Vec2 backgroundAnchor = { 0.0f, 0.0f };
     Vec2Int backgroundSize = {
-        (int)(4834 * REF_SCALE_FACTOR),
+        (int)(gameState->backgroundTexture.size.x * REF_SCALE_FACTOR),
         screenInfo.size.y
     };
     DrawTexturedRect(gameState->texturedRectGL, screenInfo,
         backgroundPos + objectOffset, backgroundAnchor, backgroundSize, false,
-        gameState->backgroundTexture);
+        gameState->backgroundTexture.textureID);
 
-    Vec2Int GUYS_SIZE = { 638, 602 };
-    Vec2Int guysPos = {
-        (int)(1300 * REF_SCALE_FACTOR),
-        (int)(-75 * REF_SCALE_FACTOR)
-    };
+    Vec2Int guysPos = { 1300, -75 };
+    guysPos *= REF_SCALE_FACTOR;
     Vec2 guysAnchor = { 0.5f, 0.0f };
-    Vec2Int guysSize = {
-        (int)((float32)GUYS_SIZE.x * REF_SCALE_FACTOR),
-        (int)((float32)GUYS_SIZE.y * REF_SCALE_FACTOR)
-    };
+    Vec2Int guysSize = gameState->animationGuys.frameTextures[0].size * REF_SCALE_FACTOR;
     gameState->animationGuys.Draw(gameState->texturedRectGL, screenInfo,
         guysPos + objectOffset, guysAnchor, guysSize, false);
 
-    Vec2Int ORIGINAL_SIZE = { 377, 393 };
     Vec2 anchor = { 0.5f, 0.0f };
-    Vec2Int size = {
-        (int)((float32)ORIGINAL_SIZE.x * REF_SCALE_FACTOR),
-        (int)((float32)ORIGINAL_SIZE.y * REF_SCALE_FACTOR)
-    };
+    Vec2Int size = gameState->animationKid.frameTextures[0].size * REF_SCALE_FACTOR;
     Vec2Int ME_TEXT_OFFSET = { -20, 20 };
+    ME_TEXT_OFFSET *= REF_SCALE_FACTOR;
     gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
-        playerPos, anchor, size, !gameState->facingRight);
+        playerPosScreen, anchor, size, !gameState->facingRight);
     gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
-        playerPos + ME_TEXT_OFFSET, anchor, size, false);
-
-    const float32 ASPECT_RATIO = 4.0f / 3.0f;
-    int targetWidth = (int)(screenInfo.size.y * ASPECT_RATIO);
-    int pillarboxWidth = (screenInfo.size.x - targetWidth) / 2;
-    Vec2Int pillarboxPos1 = Vec2Int::zero;
-    Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
-    Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
-    Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
-    Vec4 pillarboxColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-    DrawRect(gameState->rectGL, screenInfo,
-        pillarboxPos1, pillarboxAnchor, pillarboxSize, pillarboxColor);
-    DrawRect(gameState->rectGL, screenInfo,
-        pillarboxPos2, pillarboxAnchor, pillarboxSize, pillarboxColor);
+        playerPosScreen + ME_TEXT_OFFSET, anchor, size, false);
 
     // ------------------------ Post processing passes ------------------------
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -449,13 +425,29 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
+    // Render pillarbox
+    const float32 ASPECT_RATIO = 4.0f / 3.0f;
+    const Vec4 PILLARBOX_COLOR = { 0.0f, 0.0f, 0.0f, 1.0f }; 
+    int targetWidth = (int)(screenInfo.size.y * ASPECT_RATIO);
+    int pillarboxWidth = (screenInfo.size.x - targetWidth) / 2;
+    Vec2Int pillarboxPos1 = Vec2Int::zero;
+    Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
+    Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
+    Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
+    if (pillarboxWidth > 0) {
+        DrawRect(gameState->rectGL, screenInfo,
+            pillarboxPos1, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
+        DrawRect(gameState->rectGL, screenInfo,
+            pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
+    }
+
     // ---------------------------- End Rendering -----------------------------
     glEnable(GL_BLEND);
 
     OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
-    Vec4 fontColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+    const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
 
     if (WasKeyPressed(input, KM_KEY_G)) {
         gameState->debugView = !gameState->debugView;
@@ -465,14 +457,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         char fpsStr[128];
         sprintf(fpsStr, "%.2f FPS", 1.0f / deltaTime);
         Vec2Int fpsPos = {
-            screenInfo.size.x - 15,
+            screenInfo.size.x - pillarboxWidth - 15,
             screenInfo.size.y - 10,
         };
         DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, fontColor, memory->transient);
+            fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
     }
 
-    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient);
+    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
 #endif
 
 #if GAME_SLOW

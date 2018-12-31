@@ -7,6 +7,7 @@
 #include "particles.h"
 #include "audio.h"
 #include "animation.h"
+#include "load_png.h"
 
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
@@ -67,12 +68,11 @@ struct GameState
     GLuint bloomBlendShader;
     GLuint blurShader;
     GLuint grainShader;
-    GLuint grainTexture;
 
-    GLuint particleTextureBase;
+    TextureGL particleTextureBase;
     ParticleSystem ps;
 
-    GLuint backgroundTexture;
+    TextureGL backgroundTexture;
 
     Animation animationKid;
     Animation animationMe;
