@@ -1,13 +1,13 @@
 #pragma once
 
+#include "animation.h"
+#include "audio.h"
+#include "gui.h"
 #include "km_math.h"
+#include "load_png.h"
 #include "opengl.h"
 #include "opengl_base.h"
 #include "text.h"
-#include "particles.h"
-#include "audio.h"
-#include "animation.h"
-#include "load_png.h"
 
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
@@ -29,13 +29,32 @@ struct Framebuffer
     FramebufferState state = FBSTATE_NONE;
 };
 
+struct ObjectStatic
+{
+    Vec2Int pos;
+    Vec2 anchor;
+    TextureGL texture;
+};
+
+struct ObjectAnimated
+{
+    Vec2Int pos;
+    Vec2 anchor;
+    Animation animation;
+    
+#if GAME_INTERNAL
+    ClickableBox box;
+#endif
+};
+
 struct GameState
 {
     AudioState audioState;
 
     // GAME DATA --------------------------------------------------------------
-    Vec2Int pos;
-    Vec2Int vel;
+    Vec2Int cameraPos;
+    Vec2Int playerPos;
+    Vec2Int playerVel;
     bool32 falling;
     bool32 facingRight;
 
@@ -43,6 +62,7 @@ struct GameState
 
 #if GAME_INTERNAL
     bool32 debugView;
+    bool32 editor;
 #endif
     // ------------------------------------------------------------------------
 
@@ -69,14 +89,14 @@ struct GameState
     GLuint blurShader;
     GLuint grainShader;
 
-    TextureGL particleTextureBase;
-    ParticleSystem ps;
-
-    TextureGL backgroundTexture;
-
     Animation animationKid;
     Animation animationMe;
-    Animation animationGuys;
+
+    ObjectStatic background;
+    ObjectStatic clouds;
+
+    ObjectAnimated guys;
+    ObjectAnimated bush;
 };
 
 inline float32 RandFloat32();

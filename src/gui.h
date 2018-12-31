@@ -1,7 +1,7 @@
 #pragma once
 
 #include "km_math.h"
-#include "ogl_base.h"
+#include "opengl_base.h"
 #include "main.h"
 #include "text.h"
 
@@ -59,9 +59,11 @@ void DrawClickableBoxes(ClickableBox boxes[], uint32 n,
 void UpdateButtons(Button buttons[], uint32 n,
     const GameInput* input, void* data);
 void DrawButtons(Button buttons[], uint32 n,
-    RectGL rectGL, TextGL textGL, const FontFace& face, ScreenInfo screenInfo);
+    RectGL rectGL, TextGL textGL, const FontFace& face,
+    ScreenInfo screenInfo, MemoryBlock transient);
 
 void UpdateInputFields(InputField fields[], uint32 n,
     const GameInput* input, void* data);
 void DrawInputFields(InputField fields[], uint32 n,
-    RectGL rectGL, TextGL textGL, const FontFace& face, ScreenInfo screenInfo);
+    RectGL rectGL, TextGL textGL, const FontFace& face,
+    ScreenInfo screenInfo, MemoryBlock transient);

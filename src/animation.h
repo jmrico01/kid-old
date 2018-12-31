@@ -23,7 +23,7 @@ struct Animation
 	void Update(float32 deltaTime, bool32 moving);
 
 	void Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-		Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal);
+		Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal) const;
 };
 
 Animation LoadAnimation(const ThreadContext* thread,

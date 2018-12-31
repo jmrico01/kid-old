@@ -97,6 +97,52 @@ void UpdateFramebufferDepthAttachments(int n, Framebuffer framebuffers[],
     }
 }
 
+void PlayerInput(GameState* gameState, float32 deltaTime, const GameInput* input)
+{
+    // Constants tuned for 1080p
+    const int PLAYER_WALK_SPEED = 220;
+    const int PLAYER_JUMP_SPEED = 500;
+
+    if (IsKeyPressed(input, KM_KEY_A)) {
+        gameState->playerVel.x -= PLAYER_WALK_SPEED;
+        gameState->facingRight = false;
+    }
+    if (IsKeyPressed(input, KM_KEY_D)) {
+        gameState->playerVel.x += PLAYER_WALK_SPEED;
+        gameState->facingRight = true;
+    }
+
+    if (!gameState->falling) {
+        if (IsKeyPressed(input, KM_KEY_SPACE)) {
+            gameState->playerVel.y = PLAYER_JUMP_SPEED;
+            gameState->falling = true;
+            gameState->audioState.soundKick.playing = true;
+            gameState->audioState.soundKick.sampleIndex = 0;
+        }
+    }
+}
+
+void DrawObjectStatic(const ObjectStatic& objectStatic,
+    float32 scaleFactor, Vec2Int objectOffset,
+    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+{
+    Vec2Int pos = objectStatic.pos * scaleFactor;
+    Vec2Int size = objectStatic.texture.size * scaleFactor;
+    DrawTexturedRect(texturedRectGL, screenInfo,
+        pos + objectOffset, objectStatic.anchor, size, false,
+        objectStatic.texture.textureID);
+}
+
+void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
+    float32 scaleFactor, Vec2Int objectOffset,
+    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+{
+    Vec2Int pos = objectAnimated.pos * scaleFactor;
+    Vec2Int size = objectAnimated.animation.frameTextures[0].size * scaleFactor;
+    objectAnimated.animation.Draw(texturedRectGL, screenInfo,
+        pos + objectOffset, objectAnimated.anchor, size, false);
+}
+
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 {
     // NOTE: for clarity
@@ -147,8 +193,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
         // Game data
-        gameState->pos = Vec2Int { 0, 100 };
-        gameState->vel = Vec2Int { 0, 0 };
+        gameState->playerPos = Vec2Int { 0, 100 };
+        gameState->playerVel = Vec2Int { 0, 0 };
         gameState->falling = true;
         gameState->facingRight = true;
 
@@ -156,6 +202,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #if GAME_INTERNAL
         gameState->debugView = true;
+        gameState->editor = false;
 #endif
 
         // Rendering stuff
@@ -260,15 +307,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
-        gameState->particleTextureBase = LoadPNGOpenGL(thread,
-            "data/textures/base.png",
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-
-        gameState->backgroundTexture = LoadPNGOpenGL(thread,
+        gameState->background.texture = LoadPNGOpenGL(thread,
             "data/textures/bg.png",
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->background.pos = { -gameState->background.texture.size.x / 2, -75 };
+        gameState->background.anchor = { 0.0f, 0.0f };
+        gameState->clouds.texture = LoadPNGOpenGL(thread,
+            "data/textures/clouds.png",
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->clouds.pos = { -gameState->clouds.texture.size.x / 2, -75 };
+        gameState->clouds.anchor = { 0.0f, 0.0f };
 
         const int numIdleFrames = 2;
         const int idleFrames[numIdleFrames] = { 0, 4 };
@@ -282,11 +332,37 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             numIdleFrames, idleFrames,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
-        gameState->animationGuys = LoadAnimation(thread,
+
+        gameState->guys.animation = LoadAnimation(thread,
             3, 2, "data/textures/guys",
             0, nullptr,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->guys.pos = Vec2Int { 1300, -75 };
+        gameState->guys.anchor = Vec2 { 0.5f, 0.0f };
+
+        gameState->bush.animation = LoadAnimation(thread,
+            4, 6, "data/textures/bush",
+            0, nullptr,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->bush.pos = Vec2Int { -150, 20 };
+        gameState->bush.anchor = Vec2 { 0.5f, 0.0f };
+
+#if GAME_INTERNAL
+        gameState->guys.box = CreateClickableBox(gameState->guys.pos,
+            gameState->guys.animation.frameTextures[0].size,
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
+        );
+        gameState->bush.box = CreateClickableBox(gameState->bush.pos,
+            gameState->bush.animation.frameTextures[0].size,
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
+            Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
+        );
+#endif
 
 		memory->isInitialized = true;
 	}
@@ -313,52 +389,45 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
-    // Constants tuned for 1080p
-    const int FLOOR_LEVEL = 0;
-    const int PLAYER_WALK_SPEED = 220;
-    const int PLAYER_JUMP_SPEED = 500;
-    const int GRAVITY_ACCEL = 1000;
-    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-
-    gameState->vel.x = 0;
-    if (IsKeyPressed(input, KM_KEY_A)) {
-        gameState->vel.x -= PLAYER_WALK_SPEED;
-        gameState->facingRight = false;
-    }
-    if (IsKeyPressed(input, KM_KEY_D)) {
-        gameState->vel.x += PLAYER_WALK_SPEED;
-        gameState->facingRight = true;
-    }
-
-    if (gameState->falling) {
-        gameState->vel.y -= (int)(GRAVITY_ACCEL * deltaTime);
-    }
-    else {
-        gameState->vel.y = 0;
-        if (IsKeyPressed(input, KM_KEY_SPACE)) {
-            gameState->vel.y = PLAYER_JUMP_SPEED;
-            gameState->falling = true;
-            gameState->audioState.soundKick.playing = true;
-            gameState->audioState.soundKick.sampleIndex = 0;
+    gameState->playerVel.x = 0;
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        UpdateClickableBoxes(&gameState->guys.box, 1, input);
+        UpdateClickableBoxes(&gameState->bush.box, 1, input);
+        if (input->mouseButtons[0].isDown) {
+            gameState->cameraPos -= input->mouseDelta;
         }
     }
+    else {
+        PlayerInput(gameState, deltaTime, input);
+    }
+#else
+    PlayerInput(gameState, deltaTime, input);
+#endif
 
-    Vec2Int deltaPos = {
-        (int)((float32)gameState->vel.x * deltaTime),
-        (int)((float32)gameState->vel.y * deltaTime)
-    };
-    gameState->pos += deltaPos;
-    if (gameState->pos.y < FLOOR_LEVEL) {
-        gameState->pos.y = FLOOR_LEVEL;
+    const int FLOOR_LEVEL = 0;
+    const int GRAVITY_ACCEL = 1000;
+
+    if (gameState->falling) {
+        gameState->playerVel.y -= (int)(GRAVITY_ACCEL * deltaTime);
+    }
+    else {
+        gameState->playerVel.y = 0;
+    }
+    gameState->playerPos += gameState->playerVel * deltaTime;
+    if (gameState->playerPos.y < FLOOR_LEVEL) {
+        gameState->playerPos.y = FLOOR_LEVEL;
         gameState->falling = false;
         gameState->audioState.soundSnare.playing = true;
         gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
-    bool32 isWalking = !gameState->falling && gameState->vel.x != 0;
+    gameState->guys.animation.Update(deltaTime, true);
+    gameState->bush.animation.Update(deltaTime, true);
+
+    bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
     gameState->animationKid.Update(deltaTime, isWalking);
     gameState->animationMe.Update(deltaTime, isWalking);
-    gameState->animationGuys.Update(deltaTime, true);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
@@ -372,35 +441,46 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Vec2Int playerPosScreen = { screenInfo.size.x / 2, screenInfo.size.y / 3 };
-    Vec2Int objectOffset = playerPosScreen - gameState->pos * REF_SCALE_FACTOR;
+#if GAME_INTERNAL
+    if (!gameState->editor) {
+        gameState->cameraPos = gameState->playerPos;
+    }
+#else
+    gameState->cameraPos = gameState->playerPos;
+#endif
 
-    Vec2Int backgroundPos = { -gameState->backgroundTexture.size.x / 2, -75 };
-    backgroundPos *= REF_SCALE_FACTOR;
-    Vec2 backgroundAnchor = { 0.0f, 0.0f };
-    Vec2Int backgroundSize = {
-        (int)(gameState->backgroundTexture.size.x * REF_SCALE_FACTOR),
-        screenInfo.size.y
-    };
-    DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-        backgroundPos + objectOffset, backgroundAnchor, backgroundSize, false,
-        gameState->backgroundTexture.textureID);
+    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
+    const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 5 };
+    Vec2Int objectOffset = CAMERA_OFFSET - gameState->cameraPos * REF_SCALE_FACTOR;
 
-    Vec2Int guysPos = { 1300, -75 };
-    guysPos *= REF_SCALE_FACTOR;
-    Vec2 guysAnchor = { 0.5f, 0.0f };
-    Vec2Int guysSize = gameState->animationGuys.frameTextures[0].size * REF_SCALE_FACTOR;
-    gameState->animationGuys.Draw(gameState->texturedRectGL, screenInfo,
-        guysPos + objectOffset, guysAnchor, guysSize, false);
+    DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+    DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
 
-    Vec2 anchor = { 0.5f, 0.0f };
-    Vec2Int size = gameState->animationKid.frameTextures[0].size * REF_SCALE_FACTOR;
-    Vec2Int ME_TEXT_OFFSET = { -20, 20 };
-    ME_TEXT_OFFSET *= REF_SCALE_FACTOR;
-    gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
-        playerPosScreen, anchor, size, !gameState->facingRight);
-    gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
-        playerPosScreen + ME_TEXT_OFFSET, anchor, size, false);
+    DrawObjectAnimated(gameState->guys, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+    DrawObjectAnimated(gameState->bush, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+
+    { // kid & me text
+        Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
+        Vec2 anchor = { 0.5f, 0.0f };
+        Vec2Int size = gameState->animationKid.frameTextures[0].size * REF_SCALE_FACTOR;
+        Vec2Int meTextOffset = { -20, 20 };
+        meTextOffset *= REF_SCALE_FACTOR;
+        gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
+            pos + objectOffset, anchor, size, !gameState->facingRight);
+        gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
+            pos + meTextOffset + objectOffset, anchor, size, false);
+    }
+
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
+        DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
+    }
+#endif
 
     // ------------------------ Post processing passes ------------------------
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -447,11 +527,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
-    const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
-
     if (WasKeyPressed(input, KM_KEY_G)) {
         gameState->debugView = !gameState->debugView;
     }
+    if (WasKeyPressed(input, KM_KEY_H)) {
+        gameState->editor = !gameState->editor;
+    }
+
+    const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
 
     if (gameState->debugView) {
         char fpsStr[128];
@@ -462,6 +545,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         };
         DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
             fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+    }
+    if (gameState->editor) {
+        Vec2Int editorStrPos = {
+            pillarboxWidth + 15,
+            screenInfo.size.y - 10,
+        };
+        Vec4 editorFontColor = { 1.0f, 0.1f, 1.0f, 1.0f };
+        DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
+            "EDITOR", editorStrPos, Vec2 { 0.0f, 1.0f }, editorFontColor, memory->transient);
     }
 
     DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
@@ -476,14 +568,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 }
 
-#include "km_input.cpp"
-#include "km_string.cpp"
-#include "km_lib.cpp"
-#include "opengl_base.cpp"
-#include "text.cpp"
-#include "load_png.cpp"
-#include "particles.cpp"
-#include "load_wav.cpp"
-#include "audio.cpp"
 #include "animation.cpp"
+#include "audio.cpp"
+#include "gui.cpp"
+#include "km_input.cpp"
+#include "km_lib.cpp"
+#include "km_string.cpp"
+#include "load_png.cpp"
+#include "load_wav.cpp"
+#include "opengl_base.cpp"
+#include "particles.cpp"
+#include "text.cpp"
 #include "post.cpp"

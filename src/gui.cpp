@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "km_math.h"
-#include "ogl_base.h"
 #include "text.h"
 
 ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size,
@@ -115,7 +114,8 @@ void UpdateButtons(Button buttons[], uint32 n,
 }
 
 void DrawButtons(Button buttons[], uint32 n,
-    RectGL rectGL, TextGL textGL, const FontFace& face, ScreenInfo screenInfo)
+    RectGL rectGL, TextGL textGL, const FontFace& face,
+    ScreenInfo screenInfo, MemoryBlock transient)
 {
     for (uint32 i = 0; i < n; i++) {
         DrawClickableBoxes(&buttons[i].box, 1, rectGL, screenInfo);
@@ -123,7 +123,7 @@ void DrawButtons(Button buttons[], uint32 n,
         Vec2 anchor = { 0.5f, 0.5f };
         DrawText(textGL, face, screenInfo,
             buttons[i].text,
-            pos, anchor, buttons[i].textColor);
+            pos, anchor, buttons[i].textColor, transient);
     }
 }
 
@@ -188,7 +188,8 @@ void UpdateInputFields(InputField fields[], uint32 n,
 }
 
 void DrawInputFields(InputField fields[], uint32 n,
-    RectGL rectGL, TextGL textGL, const FontFace& face, ScreenInfo screenInfo)
+    RectGL rectGL, TextGL textGL, const FontFace& face,
+    ScreenInfo screenInfo, MemoryBlock transient)
 {
     for (uint32 i = 0; i < n; i++) {
         DrawClickableBoxes(&fields[i].box, 1, rectGL, screenInfo);
@@ -196,6 +197,6 @@ void DrawInputFields(InputField fields[], uint32 n,
         Vec2 anchor = { 0.5f, 0.5f };
         DrawText(textGL, face, screenInfo,
             fields[i].text,
-            pos, anchor, fields[i].textColor);
+            pos, anchor, fields[i].textColor, transient);
     }
 }

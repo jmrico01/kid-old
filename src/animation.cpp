@@ -36,7 +36,7 @@ void Animation::Update(float32 deltaTime, bool32 moving)
 }
 
 void Animation::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-    Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal)
+    Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal) const
 {
 	DrawTexturedRect(texturedRectGL, screenInfo,
 		pos, anchor, size, flipHorizontal, frameTextures[currentFrame].textureID);
