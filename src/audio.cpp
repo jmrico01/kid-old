@@ -3,54 +3,6 @@
 #include "main.h"
 #include "km_debug.h"
 
-internal inline float32 MidiNoteToFreq(int midiNote)
-{
-    return 261.625565f * powf(2.0f, (midiNote - 60.0f) / 12.0f);
-}
-
-internal void DrawAudioBuffer(
-    const GameState* gameState, const GameAudio* audio,
-    const float32* buffer, int bufferSizeSamples, int channel,
-    const int marks[], const Vec4 markColors[], int numMarks,
-    Vec3 origin, Vec2 size, Vec4 color,
-    MemoryBlock transient)
-{
-    DEBUG_ASSERT(transient.size >= sizeof(LineGLData));
-    DEBUG_ASSERT(bufferSizeSamples <= MAX_LINE_POINTS);
-
-    LineGLData* lineData = (LineGLData*)transient.memory;
-    Mat4 proj = Mat4::one;
-    Mat4 view = Mat4::one;
-    
-    lineData->count = bufferSizeSamples;
-    for (int i = 0; i < bufferSizeSamples; i++) {
-        float32 val = buffer[i * audio->channels + channel];
-        float32 t = (float32)i / (bufferSizeSamples - 1);
-        lineData->pos[i] = {
-            origin.x + t * size.x,
-            origin.y + size.y * val,
-            origin.z
-        };
-    }
-    DrawLine(gameState->lineGL, proj, view, lineData, color);
-
-    lineData->count = 2;
-    for (int i = 0; i < numMarks; i++) {
-        float32 tMark = (float32)marks[i] / (bufferSizeSamples - 1);
-        lineData->pos[0] = Vec3 {
-            origin.x + tMark * size.x,
-            origin.y,
-            origin.z
-        };
-        lineData->pos[1] = Vec3 {
-            origin.x + tMark * size.x,
-            origin.y + size.y,
-            origin.z
-        };
-        DrawLine(gameState->lineGL, proj, view, lineData, markColors[i]);
-    }
-}
-
 internal void SoundInit(const ThreadContext* thread,
     const GameAudio* audio, Sound* sound,
     const char* filePath,
@@ -175,6 +127,51 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
     SoundWriteSamples(&audioState->soundDeath, 0.5f, audio);
 }
 
+#if GAME_INTERNAL
+
+internal void DrawAudioBuffer(
+    const GameState* gameState, const GameAudio* audio,
+    const float32* buffer, int bufferSizeSamples, int channel,
+    const int marks[], const Vec4 markColors[], int numMarks,
+    Vec3 origin, Vec2 size, Vec4 color,
+    MemoryBlock transient)
+{
+    DEBUG_ASSERT(transient.size >= sizeof(LineGLData));
+    DEBUG_ASSERT(bufferSizeSamples <= MAX_LINE_POINTS);
+
+    LineGLData* lineData = (LineGLData*)transient.memory;
+    Mat4 proj = Mat4::one;
+    Mat4 view = Mat4::one;
+    
+    lineData->count = bufferSizeSamples;
+    for (int i = 0; i < bufferSizeSamples; i++) {
+        float32 val = buffer[i * audio->channels + channel];
+        float32 t = (float32)i / (bufferSizeSamples - 1);
+        lineData->pos[i] = {
+            origin.x + t * size.x,
+            origin.y + size.y * val,
+            origin.z
+        };
+    }
+    DrawLine(gameState->lineGL, proj, view, lineData, color);
+
+    lineData->count = 2;
+    for (int i = 0; i < numMarks; i++) {
+        float32 tMark = (float32)marks[i] / (bufferSizeSamples - 1);
+        lineData->pos[0] = Vec3 {
+            origin.x + tMark * size.x,
+            origin.y,
+            origin.z
+        };
+        lineData->pos[1] = Vec3 {
+            origin.x + tMark * size.x,
+            origin.y + size.y,
+            origin.z
+        };
+        DrawLine(gameState->lineGL, proj, view, lineData, markColors[i]);
+    }
+}
+
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
     const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient,
     Vec4 debugFontColor)
@@ -241,3 +238,5 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
         );
     }
 }
+
+#endif

@@ -14,48 +14,48 @@
 
 struct TextGL
 {
-    GLuint vertexArray;
-    GLuint vertexBuffer;
-    GLuint uvBuffer;
-    GLuint posBuffer;
-    GLuint sizeBuffer;
-    GLuint uvInfoBuffer;
-    GLuint programID;
+	GLuint vertexArray;
+	GLuint vertexBuffer;
+	GLuint uvBuffer;
+	GLuint posBuffer;
+	GLuint sizeBuffer;
+	GLuint uvInfoBuffer;
+	GLuint programID;
 };
 struct GlyphInfo
 {
-    uint32 width;
-    uint32 height;
-    int offsetX;
-    int offsetY;
-    int advanceX;
-    int advanceY;
-    Vec2 uvOrigin;
-    Vec2 uvSize;
+	uint32 width;
+	uint32 height;
+	int offsetX;
+	int offsetY;
+	int advanceX;
+	int advanceY;
+	Vec2 uvOrigin;
+	Vec2 uvSize;
 };
 struct FontFace
 {
-    GLuint atlasTexture;
-    uint32 height;
-    GlyphInfo glyphInfo[MAX_GLYPHS];
+	GLuint atlasTexture;
+	uint32 height;
+	GlyphInfo glyphInfo[MAX_GLYPHS];
 };
 
 TextGL InitTextGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 FontFace LoadFontFace(const ThreadContext* thread,
-    FT_Library library,
-    const char* path, uint32 height,
-    MemoryBlock transient,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+	FT_Library library,
+	const char* path, uint32 height,
+	MemoryBlock transient,
+	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 
 int GetTextWidth(const FontFace& face, const char* text);
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    const char* text,
-    Vec2Int pos, Vec4 color,
-    MemoryBlock transient);
+	const char* text,
+	Vec2Int pos, Vec4 color,
+	MemoryBlock transient);
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    const char* text,
-    Vec2Int pos, Vec2 anchor, Vec4 color,
-    MemoryBlock transient);
+	const char* text,
+	Vec2Int pos, Vec2 anchor, Vec4 color,
+	MemoryBlock transient);

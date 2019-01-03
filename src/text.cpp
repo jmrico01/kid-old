@@ -26,23 +26,16 @@ TextGL InitTextGL(const ThreadContext* thread,
     DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
     TextGL textGL;
-    // TODO probably use indexing for this
+
+    glGenVertexArrays(1, &textGL.vertexArray);
+    glBindVertexArray(textGL.vertexArray);
+
     const GLfloat vertices[] = {
         0.0f, 0.0f,
         1.0f, 0.0f,
         0.0f, 1.0f,
         1.0f, 1.0f
     };
-    const GLfloat uvs[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 1.0f
-    };
-
-    glGenVertexArrays(1, &textGL.vertexArray);
-    glBindVertexArray(textGL.vertexArray);
-
     glGenBuffers(1, &textGL.vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, textGL.vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -57,6 +50,12 @@ TextGL InitTextGL(const ThreadContext* thread,
     );
     glVertexAttribDivisor(0, 0);
 
+    const GLfloat uvs[] = {
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        0.0f, 1.0f,
+        1.0f, 1.0f
+    };
     glGenBuffers(1, &textGL.uvBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, textGL.uvBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);

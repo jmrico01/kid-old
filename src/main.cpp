@@ -535,21 +535,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     }
 
     const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
+    const Vec2Int MARGIN = { 15, 10 };
 
     if (gameState->debugView) {
         char fpsStr[128];
         sprintf(fpsStr, "%.2f FPS", 1.0f / deltaTime);
         Vec2Int fpsPos = {
-            screenInfo.size.x - pillarboxWidth - 15,
-            screenInfo.size.y - 10,
+            screenInfo.size.x - pillarboxWidth - MARGIN.x,
+            screenInfo.size.y - MARGIN.y,
         };
         DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
             fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
     }
     if (gameState->editor) {
         Vec2Int editorStrPos = {
-            pillarboxWidth + 15,
-            screenInfo.size.y - 10,
+            pillarboxWidth + MARGIN.x,
+            screenInfo.size.y - MARGIN.y,
         };
         Vec4 editorFontColor = { 1.0f, 0.1f, 1.0f, 1.0f };
         DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
@@ -578,5 +579,5 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "load_wav.cpp"
 #include "opengl_base.cpp"
 #include "particles.cpp"
-#include "text.cpp"
 #include "post.cpp"
+#include "text.cpp"

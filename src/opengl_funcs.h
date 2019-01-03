@@ -4,10 +4,10 @@
 // and defines them in global scope.
 // DO NOT include this in any platform layer,
 // this should only be used by game code.
+// TODO maybe there's a better way of doing this...
 
 #include "opengl.h"
 
-// TODO maybe there's a better way of doing this...
 #define FUNC(returntype, name, ...) global_var name##Func* name;
     GL_FUNCTIONS_BASE
     GL_FUNCTIONS_ALL

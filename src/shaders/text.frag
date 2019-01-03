@@ -9,6 +9,6 @@ uniform vec4 color;
 
 void main()
 {
-    outColor = vec4(1.0, 1.0, 1.0,
-        texture(textureSampler, fragUV).r) * color;
+	outColor = vec4(1.0, 1.0, 1.0,
+		texture(textureSampler, fragUV).r) * color;
 }
