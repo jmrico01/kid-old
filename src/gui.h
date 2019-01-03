@@ -16,6 +16,7 @@ struct ClickableBox
 {
     Vec2Int origin;
     Vec2Int size;
+    Vec2 anchor;
 
     bool32 hovered;
     bool32 pressed;
@@ -42,12 +43,12 @@ struct InputField
     Vec4 textColor;
 };
 
-ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size,
+ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size, Vec2 anchor,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor);
-Button CreateButton(Vec2Int origin, Vec2Int size,
+Button CreateButton(Vec2Int origin, Vec2Int size, Vec2 anchor,
     const char* text, ButtonCallback callback,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor, Vec4 textColor);
-InputField CreateInputField(Vec2Int origin, Vec2Int size,
+InputField CreateInputField(Vec2Int origin, Vec2Int size, Vec2 anchor,
     const char* text, InputFieldCallback callback,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor, Vec4 textColor);
 

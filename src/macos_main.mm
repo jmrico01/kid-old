@@ -753,14 +753,12 @@ int main(int argc, const char* argv[])
 		NSRect rectInWindow = [window convertRectFromScreen:NSMakeRect(mousePosInScreen.x, mousePosInScreen.y, 1, 1)];
 		NSPoint pointInWindow = rectInWindow.origin;
 
-        Vec2Int mousePosPrev = newInput->mousePos;
         newInput->mousePos.x = (int)pointInWindow.x;
         newInput->mousePos.y = (int)pointInWindow.y;
         int mouseDeltaX, mouseDeltaY;
         CGGetLastMouseDelta(&mouseDeltaX, &mouseDeltaY);
-        newInput->mousePos.x = mousePosPrev.x + mouseDeltaX;
-        newInput->mousePos.y = mousePosPrev.y - mouseDeltaY;
-        newInput->mouseDelta = newInput->mousePos - mousePosPrev;
+        newInput->mouseDelta.x = mouseDeltaX;
+        newInput->mouseDelta.y = -mouseDeltaY;
 	    if (!mouseInWindowFlag) {
             for (int i = 0; i < 5; i++) {
 	            int transitions = newInput->mouseButtons[i].isDown ? 1 : 0;

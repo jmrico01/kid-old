@@ -29,6 +29,12 @@ struct Framebuffer
     FramebufferState state = FBSTATE_NONE;
 };
 
+struct CollisionBox
+{
+    Vec2Int pos;
+    Vec2Int size;
+};
+
 struct ObjectStatic
 {
     Vec2Int pos;

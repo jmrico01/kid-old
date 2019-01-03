@@ -6,12 +6,13 @@
 #include "km_math.h"
 #include "text.h"
 
-ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size,
+ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size, Vec2 anchor,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor)
 {
     ClickableBox box = {};
     box.origin = origin;
     box.size = size;
+    box.anchor = anchor;
 
     box.hovered = false;
     box.pressed = false;
@@ -23,12 +24,12 @@ ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size,
     return box;
 }
 
-Button CreateButton(Vec2Int origin, Vec2Int size,
+Button CreateButton(Vec2Int origin, Vec2Int size, Vec2 anchor,
     const char* text, ButtonCallback callback,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor, Vec4 textColor)
 {
     Button button = {};
-    button.box = CreateClickableBox(origin, size,
+    button.box = CreateClickableBox(origin, size, anchor,
         color, hoverColor, pressColor);
 
     uint32 textLen = (uint32)strnlen(text, INPUT_BUFFER_SIZE - 1);
@@ -41,12 +42,12 @@ Button CreateButton(Vec2Int origin, Vec2Int size,
     return button;
 }
 
-InputField CreateInputField(Vec2Int origin, Vec2Int size,
+InputField CreateInputField(Vec2Int origin, Vec2Int size, Vec2 anchor,
     const char* text, InputFieldCallback callback,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor, Vec4 textColor)
 {
     InputField inputField = {};
-    inputField.box = CreateClickableBox(origin, size,
+    inputField.box = CreateClickableBox(origin, size, anchor,
         color, hoverColor, pressColor);
 
     inputField.textLen = (uint32)strnlen(text, INPUT_BUFFER_SIZE - 1);
@@ -67,11 +68,15 @@ void UpdateClickableBoxes(ClickableBox boxes[], uint32 n,
     for (uint32 i = 0; i < n; i++) {
         Vec2Int boxOrigin = boxes[i].origin;
         Vec2Int boxSize = boxes[i].size;
+        Vec2Int mousePosAnchored = {
+            (int)(mousePos.x + boxes[i].size.x * boxes[i].anchor.x),
+            (int)(mousePos.y + boxes[i].size.y * boxes[i].anchor.y)
+        };
 
-        if ((mousePos.x >= boxOrigin.x
-        && mousePos.x <= boxOrigin.x + boxSize.x) &&
-        (mousePos.y >= boxOrigin.y
-        && mousePos.y <= boxOrigin.y + boxSize.y)) {
+        if ((mousePosAnchored.x >= boxOrigin.x
+        && mousePosAnchored.x <= boxOrigin.x + boxSize.x) &&
+        (mousePosAnchored.y >= boxOrigin.y
+        && mousePosAnchored.y <= boxOrigin.y + boxSize.y)) {
             boxes[i].hovered = true;
             boxes[i].pressed = input->mouseButtons[0].isDown;
         }
@@ -95,7 +100,7 @@ void DrawClickableBoxes(ClickableBox boxes[], uint32 n,
         }
 
         DrawRect(rectGL, screenInfo,
-            boxes[i].origin, Vec2::zero, boxes[i].size, color);
+            boxes[i].origin, boxes[i].anchor, boxes[i].size, color);
     }
 }
 

@@ -97,7 +97,7 @@ void UpdateFramebufferDepthAttachments(int n, Framebuffer framebuffers[],
     }
 }
 
-void PlayerInput(GameState* gameState, float32 deltaTime, const GameInput* input)
+void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
     // Constants tuned for 1080p
     const int PLAYER_WALK_SPEED = 220;
@@ -120,6 +120,10 @@ void PlayerInput(GameState* gameState, float32 deltaTime, const GameInput* input
             gameState->audioState.soundKick.sampleIndex = 0;
         }
     }
+}
+
+void MovePlayer(GameState* gameState, float32 deltaTime)
+{
 }
 
 void DrawObjectStatic(const ObjectStatic& objectStatic,
@@ -352,12 +356,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #if GAME_INTERNAL
         gameState->guys.box = CreateClickableBox(gameState->guys.pos,
             gameState->guys.animation.frameTextures[0].size,
+            gameState->guys.anchor,
             Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
         );
         gameState->bush.box = CreateClickableBox(gameState->bush.pos,
             gameState->bush.animation.frameTextures[0].size,
+            gameState->bush.anchor,
             Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
@@ -399,10 +405,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         }
     }
     else {
-        PlayerInput(gameState, deltaTime, input);
+        PlayerMovementInput(gameState, deltaTime, input);
     }
 #else
-    PlayerInput(gameState, deltaTime, input);
+    PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
     const int FLOOR_LEVEL = 0;
@@ -477,7 +483,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #if GAME_INTERNAL
     if (gameState->editor) {
+        gameState->guys.box.origin = gameState->guys.pos * REF_SCALE_FACTOR + objectOffset;
+        gameState->guys.box.size = gameState->guys.animation.frameTextures[0].size * REF_SCALE_FACTOR;
+        DEBUG_PRINT("guys pos: %d, %d",
+            gameState->guys.box.origin.x, gameState->guys.box.origin.y);
+        DEBUG_PRINT("guys size: %d, %d",
+            gameState->guys.box.size.x, gameState->guys.box.size.y);
         DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
+        gameState->bush.box.origin = gameState->bush.pos * REF_SCALE_FACTOR + objectOffset;
+        gameState->bush.box.size = gameState->bush.animation.frameTextures[0].size * REF_SCALE_FACTOR;
         DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
     }
 #endif
@@ -520,6 +534,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         DrawRect(gameState->rectGL, screenInfo,
             pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
     }
+
+    DrawRect(gameState->rectGL, screenInfo,
+        input->mousePos, Vec2 { 0.5f, 0.5f }, Vec2Int { 5, 5 },
+        Vec4 { 0.1f, 0.1f, 0.1f, 1.0f });
 
     // ---------------------------- End Rendering -----------------------------
     glEnable(GL_BLEND);
