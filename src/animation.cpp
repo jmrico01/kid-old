@@ -114,8 +114,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 			char spritePath[PATH_MAX_LENGTH];
-			for (int i = 0; i < lastSlash; i++) {
-				spritePath[i] = filePath[i];
+			for (int j = 0; j < lastSlash; j++) {
+				spritePath[j] = filePath[j];
 			}
 			spritePath[lastSlash] = '/';
 			while (true) {
@@ -139,8 +139,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					break;
 				}
 				animation.frameTextures[frame] = frameTextureGL;
-				for (int i = 0; i < SPRITE_MAX_ANIMATIONS; i++) {
-					animation.frameExitTo[frame][i] = -1;
+				for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
+					animation.frameExitTo[frame][j] = -1;
 				}
 				animation.numFrames++;
 
@@ -177,13 +177,13 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		else if (StringCompare(keyword, "exit", 4)) {
 			int spaceInd1 = -1;
 			int spaceInd2 = -1;
-			for (int i = 0; i < valueI; i++) {
-				if (value[i] == ' ') {
+			for (int j = 0; j < valueI; j++) {
+				if (value[j] == ' ') {
 					if (spaceInd1 == -1) {
-						spaceInd1 = i;
+						spaceInd1 = j;
 					}
 					else if (spaceInd2 == -1) {
-						spaceInd2 = i;
+						spaceInd2 = j;
 						break;
 					}
 				}
@@ -243,16 +243,16 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	for (int a = 0; a < SPRITE_MAX_ANIMATIONS; a++) {
 		Animation& animation = outAnimatedSprite.animations[a];
 		for (int f = 0; f < animation.numFrames; f++) {
-			for (int i = 0; i < SPRITE_MAX_ANIMATIONS; i++) {
-				int exitTo = animation.frameExitTo[f][i];
-				if (exitTo >= 0) {
-					if (i >= outAnimatedSprite.numAnimations) {
+			for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
+				int exitToFrame = animation.frameExitTo[f][j];
+				if (exitToFrame >= 0) {
+					if (j >= outAnimatedSprite.numAnimations) {
 						DEBUG_PRINT("Animation file exit-to animation out of bounds %d (%s)\n",
-							i, filePath);
+							j, filePath);
 					}
-					if (exitTo >= outAnimatedSprite.animations[i].numFrames) {
+					if (exitToFrame >= outAnimatedSprite.animations[j].numFrames) {
 						DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
-							exitTo, filePath);
+							exitToFrame, filePath);
 					}
 				}
 			}
