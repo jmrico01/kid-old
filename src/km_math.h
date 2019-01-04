@@ -354,6 +354,11 @@ inline bool operator==(const Vec2Int& v1, const Vec2Int& v2)
     return v1.x == v2.x && v1.y == v2.y;
 }
 
+inline bool operator!=(const Vec2Int& v1, const Vec2Int& v2)
+{
+    return v1.x != v2.x || v1.y != v2.y;
+}
+
 inline int MagSq(Vec2Int v)
 {
 	return v.x*v.x + v.y*v.y;

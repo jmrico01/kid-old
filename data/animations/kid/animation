@@ -1,0 +1,9 @@
+anim Walk
+dir walk
+fps 8
+exit 0 3
+
+anim Idle
+dir idle
+fps 8
+exit 0

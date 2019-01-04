@@ -10,7 +10,7 @@ struct TextureGL
 	GLuint textureID;
 };
 
-TextureGL LoadPNGOpenGL(const ThreadContext* thread,
-    const char* fileName,
+bool32 LoadPNGOpenGL(const ThreadContext* thread,
+    const char* filePath, TextureGL& outTextureGL,
     DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
     DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);

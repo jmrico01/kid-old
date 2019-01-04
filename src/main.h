@@ -29,7 +29,7 @@ struct Framebuffer
     FramebufferState state = FBSTATE_NONE;
 };
 
-struct CollisionBox
+struct ColliderBox
 {
     Vec2Int pos;
     Vec2Int size;
@@ -46,7 +46,7 @@ struct ObjectAnimated
 {
     Vec2Int pos;
     Vec2 anchor;
-    Animation animation;
+    AnimatedSprite sprite;
     
 #if GAME_INTERNAL
     ClickableBox box;
@@ -95,8 +95,8 @@ struct GameState
     GLuint blurShader;
     GLuint grainShader;
 
-    Animation animationKid;
-    Animation animationMe;
+    AnimatedSprite spriteKid;
+    AnimatedSprite spriteMe;
 
     ObjectStatic background;
     ObjectStatic clouds;
@@ -104,6 +104,3 @@ struct GameState
     ObjectAnimated guys;
     ObjectAnimated bush;
 };
-
-inline float32 RandFloat32();
-inline float32 RandFloat32(float32 min, float32 max);

@@ -142,8 +142,8 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
     TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
 {
     Vec2Int pos = objectAnimated.pos * scaleFactor;
-    Vec2Int size = objectAnimated.animation.frameTextures[0].size * scaleFactor;
-    objectAnimated.animation.Draw(texturedRectGL, screenInfo,
+    Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor;
+    objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
         pos + objectOffset, objectAnimated.anchor, size, false);
 }
 
@@ -311,58 +311,70 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
-        gameState->background.texture = LoadPNGOpenGL(thread,
-            "data/textures/bg.png",
+        bool32 loadBackground = LoadPNGOpenGL(thread,
+            "data/textures/bg.png", gameState->background.texture,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadBackground) {
+            DEBUG_PANIC("Failed to load background");
+        }
         gameState->background.pos = { -gameState->background.texture.size.x / 2, -75 };
         gameState->background.anchor = { 0.0f, 0.0f };
-        gameState->clouds.texture = LoadPNGOpenGL(thread,
-            "data/textures/clouds.png",
+        bool32 loadClouds = LoadPNGOpenGL(thread,
+            "data/textures/clouds.png", gameState->clouds.texture,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadClouds) {
+            DEBUG_PANIC("Failed to load clouds");
+        }
         gameState->clouds.pos = { -gameState->clouds.texture.size.x / 2, -75 };
         gameState->clouds.anchor = { 0.0f, 0.0f };
 
-        const int numIdleFrames = 2;
-        const int idleFrames[numIdleFrames] = { 0, 4 };
-        gameState->animationKid = LoadAnimation(thread,
-            8, 8, "data/textures/kid",
-            numIdleFrames, idleFrames,
+        bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/animation",
+            gameState->spriteKid,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
-        gameState->animationMe = LoadAnimation(thread,
-            8, 8, "data/textures/me",
-            numIdleFrames, idleFrames,
+        if (!loadKidAnim) {
+            DEBUG_PANIC("Failed to load kid animation sprite");
+        }
+        bool32 loadMeAnim = LoadAnimatedSprite(thread, "data/animations/me/animation",
+            gameState->spriteMe,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadMeAnim) {
+            DEBUG_PANIC("Failed to load me animation sprite");
+        }
 
-        gameState->guys.animation = LoadAnimation(thread,
-            3, 2, "data/textures/guys",
-            0, nullptr,
+        bool32 loadGuysAnim = LoadAnimatedSprite(thread, "data/animations/guys/animation",
+            gameState->guys.sprite,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadGuysAnim) {
+            DEBUG_PANIC("Failed to load guys animation sprite");
+        }
         gameState->guys.pos = Vec2Int { 1300, -75 };
         gameState->guys.anchor = Vec2 { 0.5f, 0.0f };
 
-        gameState->bush.animation = LoadAnimation(thread,
-            4, 6, "data/textures/bush",
-            0, nullptr,
+        bool32 loadBushAnim = LoadAnimatedSprite(thread, "data/animations/bush/animation",
+            gameState->bush.sprite,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadBushAnim) {
+            DEBUG_PANIC("Failed to load bush animation sprite");
+        }
         gameState->bush.pos = Vec2Int { -150, 20 };
         gameState->bush.anchor = Vec2 { 0.5f, 0.0f };
 
 #if GAME_INTERNAL
         gameState->guys.box = CreateClickableBox(gameState->guys.pos,
-            gameState->guys.animation.frameTextures[0].size,
+            gameState->guys.sprite.textureSize,
             gameState->guys.anchor,
             Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
         );
         gameState->bush.box = CreateClickableBox(gameState->bush.pos,
-            gameState->bush.animation.frameTextures[0].size,
+            gameState->bush.sprite.textureSize,
             gameState->bush.anchor,
             Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
             Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
@@ -428,12 +440,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
-    gameState->guys.animation.Update(deltaTime, true);
-    gameState->bush.animation.Update(deltaTime, true);
+    gameState->guys.sprite.Update(deltaTime, true);
+    gameState->bush.sprite.Update(deltaTime, true);
 
     bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
-    gameState->animationKid.Update(deltaTime, isWalking);
-    gameState->animationMe.Update(deltaTime, isWalking);
+    gameState->spriteKid.Update(deltaTime, isWalking);
+    gameState->spriteMe.Update(deltaTime, isWalking);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
@@ -472,26 +484,23 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     { // kid & me text
         Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
         Vec2 anchor = { 0.5f, 0.0f };
-        Vec2Int size = gameState->animationKid.frameTextures[0].size * REF_SCALE_FACTOR;
+        Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR;
         Vec2Int meTextOffset = { -20, 20 };
         meTextOffset *= REF_SCALE_FACTOR;
-        gameState->animationKid.Draw(gameState->texturedRectGL, screenInfo,
+
+        gameState->spriteKid.Draw(gameState->texturedRectGL, screenInfo,
             pos + objectOffset, anchor, size, !gameState->facingRight);
-        gameState->animationMe.Draw(gameState->texturedRectGL, screenInfo,
+        gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
             pos + meTextOffset + objectOffset, anchor, size, false);
     }
 
 #if GAME_INTERNAL
     if (gameState->editor) {
         gameState->guys.box.origin = gameState->guys.pos * REF_SCALE_FACTOR + objectOffset;
-        gameState->guys.box.size = gameState->guys.animation.frameTextures[0].size * REF_SCALE_FACTOR;
-        DEBUG_PRINT("guys pos: %d, %d",
-            gameState->guys.box.origin.x, gameState->guys.box.origin.y);
-        DEBUG_PRINT("guys size: %d, %d",
-            gameState->guys.box.size.x, gameState->guys.box.size.y);
+        gameState->guys.box.size = gameState->guys.sprite.textureSize * REF_SCALE_FACTOR;
         DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
         gameState->bush.box.origin = gameState->bush.pos * REF_SCALE_FACTOR + objectOffset;
-        gameState->bush.box.size = gameState->bush.animation.frameTextures[0].size * REF_SCALE_FACTOR;
+        gameState->bush.box.size = gameState->bush.sprite.textureSize * REF_SCALE_FACTOR;
         DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
     }
 #endif

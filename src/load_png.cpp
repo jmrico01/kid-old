@@ -67,25 +67,24 @@ void LoadPNGReadData(png_structp pngPtr,
 }
 
 // TODO pass a custom allocator to libPNG
-TextureGL LoadPNGOpenGL(const ThreadContext* thread,
-    const char* filePath,
+bool32 LoadPNGOpenGL(const ThreadContext* thread,
+    const char* filePath, TextureGL& outTextureGL,
     DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
     DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
-    TextureGL textureGL;
-    textureGL.size = Vec2Int { 0, 0 };
+    outTextureGL.size = Vec2Int { 0, 0 };
 
     DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, filePath);
     if (!pngFile.data) {
         DEBUG_PRINT("Failed to open PNG file at: %s\n", filePath);
-        return textureGL;
+        return false;
     }
 
     const int headerSize = 8;
     if (png_sig_cmp((png_const_bytep)pngFile.data, 0, headerSize)) {
         DEBUG_PRINT("Invalid PNG file: %s\n", filePath);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
 
     PNGErrorData errorData;
@@ -97,14 +96,14 @@ TextureGL LoadPNGOpenGL(const ThreadContext* thread,
     if (!pngPtr) {
         DEBUG_PRINT("png_create_read_struct failed\n");
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
     png_infop infoPtr = png_create_info_struct(pngPtr);
     if (!infoPtr) {
         DEBUG_PRINT("png_create_info_struct failed\n");
         png_destroy_read_struct(&pngPtr, NULL, NULL);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
 
     PNGDataReadStream inputStream;
@@ -125,7 +124,7 @@ TextureGL LoadPNGOpenGL(const ThreadContext* thread,
         DEBUG_PRINT("Unsupported bit depth: %d\n", bitDepth);
         png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
     GLint format;
     switch (colorType) {
@@ -143,14 +142,14 @@ TextureGL LoadPNGOpenGL(const ThreadContext* thread,
             DEBUG_PRINT("Unsupported color type: %d\n", colorType);
             png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
             DEBUGPlatformFreeFileMemory(thread, &pngFile);
-            return textureGL;
+            return false;
         }
     }
     if (interlaceMethod != PNG_INTERLACE_NONE) {
         DEBUG_PRINT("Unsupported interlace method\n");
         png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
 
     png_read_update_info(pngPtr, infoPtr);
@@ -166,14 +165,14 @@ TextureGL LoadPNGOpenGL(const ThreadContext* thread,
         DEBUG_PRINT("Load PNG image data memory allocation failed\n");
         png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
     png_byte** rowPtrs = (png_byte**)malloc(height * sizeof(png_byte*));
     if (!rowPtrs) {
         DEBUG_PRINT("Load PNG row pointers memory allocation failed\n");
         png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
         DEBUGPlatformFreeFileMemory(thread, &pngFile);
-        return textureGL;
+        return false;
     }
     for (int i = 0; i < height; i++) {
         rowPtrs[height - 1 - i] = data + i * rowBytes;
@@ -192,7 +191,7 @@ TextureGL LoadPNGOpenGL(const ThreadContext* thread,
     png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
     DEBUGPlatformFreeFileMemory(thread, &pngFile);
 
-    textureGL.textureID = textureID;
-    textureGL.size = Vec2Int { width, height };
-    return textureGL;
+    outTextureGL.textureID = textureID;
+    outTextureGL.size = Vec2Int { width, height };
+    return true;
 }
