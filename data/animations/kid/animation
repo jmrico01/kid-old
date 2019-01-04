@@ -1,7 +1,7 @@
 anim Walk
 dir walk
 fps 8
-exit 0 3
+exit 0 4
 
 anim Idle
 dir idle
