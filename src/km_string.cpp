@@ -49,13 +49,22 @@ bool32 StringToIntBase10(const char* string, int n, int& outInt)
 		return false;
 	}
 
+	bool32 negative = false;
 	outInt = 0;
 	for (int i = 0; i < n; i++) {
 		char c = string[i];
+		if (i == 0 && c == '-') {
+			negative = true;
+			continue;
+		}
 		if (c < '0' || c > '9') {
 			return false;
 		}
 		outInt = outInt * 10 + (int)(c - '0');
+	}
+
+	if (negative) {
+		outInt = -outInt;
 	}
 	return true;
 }

@@ -312,7 +312,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
         bool32 loadBackground = LoadPNGOpenGL(thread,
-            "data/textures/bg.png", gameState->background.texture,
+            "data/sprites/bg.png", gameState->background.texture,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         if (!loadBackground) {
@@ -321,7 +321,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->background.pos = { -gameState->background.texture.size.x / 2, -75 };
         gameState->background.anchor = { 0.0f, 0.0f };
         bool32 loadClouds = LoadPNGOpenGL(thread,
-            "data/textures/clouds.png", gameState->clouds.texture,
+            "data/sprites/clouds.png", gameState->clouds.texture,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         if (!loadClouds) {
@@ -440,12 +440,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->audioState.soundSnare.sampleIndex = 0;
     }
 
-    gameState->guys.sprite.Update(deltaTime, true);
-    gameState->bush.sprite.Update(deltaTime, true);
+    const int NEXT_ANIMS[1] = { 0 };
+    gameState->guys.sprite.Update(deltaTime, 1, NEXT_ANIMS);
+    gameState->bush.sprite.Update(deltaTime, 1, NEXT_ANIMS);
 
+    // TODO ideally animation IDs would be strings
+    const int KID_IDLE_ANIMS[2] = { 0, 1 };
+    const int KID_WALK_ANIMS[1] = { 2 };
     bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
-    gameState->spriteKid.Update(deltaTime, isWalking);
-    gameState->spriteMe.Update(deltaTime, isWalking);
+    int numNextAnims = isWalking ? 1 : 2;
+    const int* nextAnims = isWalking ? KID_WALK_ANIMS : KID_IDLE_ANIMS;
+    gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
+    gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {

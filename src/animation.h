@@ -7,16 +7,14 @@
 
 #define ANIMATION_MAX_FRAMES 32
 #define SPRITE_MAX_ANIMATIONS 4
+#define ANIMATION_QUEUE_MAX_LENGTH 4
 
 struct Animation
 {
 	int fps;
 	int numFrames;
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
-	int numIdles;
-	int idles[ANIMATION_MAX_FRAMES];
-
-	bool32 IsIdleFrame(int frame);
+	int frameExitTo[ANIMATION_MAX_FRAMES][SPRITE_MAX_ANIMATIONS];
 };
 
 struct AnimatedSprite
@@ -30,7 +28,7 @@ struct AnimatedSprite
 
 	Vec2Int textureSize;
 
-	void Update(float32 deltaTime, bool32 moving);
+	void Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[]);
 
 	void Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
 		Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal) const;

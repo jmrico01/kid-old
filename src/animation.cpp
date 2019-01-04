@@ -6,29 +6,33 @@
 #include "km_string.h"
 
 #define KEYWORD_MAX_LENGTH 8
-#define VALUE_MAX_LENGTH 64
+#define VALUE_MAX_LENGTH 256
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
 
-bool32 Animation::IsIdleFrame(int frame)
-{
-	bool32 isIdle = false;
-	for (int j = 0; j < numIdles; j++) {
-		if (frame == idles[j]) {
-			isIdle = true;
-			break;
-		}
-	}
-	return isIdle;
-}
-
-void AnimatedSprite::Update(float32 deltaTime, bool32 moving)
+void AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[])
 {
 	Animation activeAnim = animations[activeAnimation];
-	if (!moving && activeAnim.IsIdleFrame(activeFrame)) {
-		return;
+
+	int nextAnim = -1;
+	int nextAnimStartFrame = 0;
+	for (int i = 0; i < numNextAnimations; i++) {
+		int exitToFrame = activeAnim.frameExitTo[activeFrame][nextAnimations[i]];
+		if (activeAnimation == nextAnimations[i]) {
+			nextAnim = -1;
+			break;
+		}
+		else if (exitToFrame >= 0) {
+			nextAnim = nextAnimations[i];
+			nextAnimStartFrame = exitToFrame;
+		}
 	}
-	
+	if (nextAnim != -1) {
+		activeAnimation = nextAnim;
+		activeAnim = animations[activeAnimation];
+		activeFrame = nextAnimStartFrame;
+	}
+
 	activeFrameTime += deltaTime;
 	if (activeFrameTime > 1.0f / activeAnim.fps) {
 		activeFrameTime = 0.0f;
@@ -53,7 +57,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
-	// TODO check exit frame for out of bounds
 	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!animFile.data) {
 		DEBUG_PRINT("Failed to open animation file at: %s\n", filePath);
@@ -98,7 +101,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 		}
 		else if (StringCompare(keyword, "dir", 3)) {
-			outAnimatedSprite.animations[animIndex].numFrames = 0;
+			Animation& animation = outAnimatedSprite.animations[animIndex];
+			animation.numFrames = 0;
 			int frame = 0;
 			int lastSlash = GetLastOccurrence(filePath, StringLength(filePath), '/');
 			if (lastSlash == -1) {
@@ -121,17 +125,24 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					DEBUG_PRINT("Failed to build animation sprite path for %s\n", filePath);
 					return false;
 				}
+				if (lastSlash + written + 1 >= PATH_MAX_LENGTH) {
+					DEBUG_PRINT("Sprite path too long in %s\n", filePath);
+					return false;
+				}
 				spritePath[lastSlash + 1 + written] = '\0';
 
 				TextureGL frameTextureGL;
-				// TODO probably have a DoesFileExist function?
+				// TODO probably make a DoesFileExist function?
 				bool32 frameResult = LoadPNGOpenGL(thread, spritePath, frameTextureGL,
 					DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
 				if (!frameResult) {
 					break;
 				}
-				outAnimatedSprite.animations[animIndex].frameTextures[frame] = frameTextureGL;
-				outAnimatedSprite.animations[animIndex].numFrames++;
+				animation.frameTextures[frame] = frameTextureGL;
+				for (int i = 0; i < SPRITE_MAX_ANIMATIONS; i++) {
+					animation.frameExitTo[frame][i] = -1;
+				}
+				animation.numFrames++;
 
 				if (animIndex == 0 && frame == 0) {
 					outAnimatedSprite.textureSize = frameTextureGL.size;
@@ -139,45 +150,77 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				else if (outAnimatedSprite.textureSize != frameTextureGL.size) {
 					DEBUG_PRINT("Animation sprite size mismatch for frame %s\n",
 						spritePath);
+					return false;
 				}
 
 				frame++;
 			}
+
+			if (animation.numFrames == 0) {
+				DEBUG_PRINT("Animation with no frames (%s)\n", filePath);
+				return false;
+			}
 		}
 		else if (StringCompare(keyword, "fps", 3)) {
-			bool32 result = StringToIntBase10(value, valueI,
-				outAnimatedSprite.animations[animIndex].fps);
+			int fps;
+			bool32 result = StringToIntBase10(value, valueI, fps);
 			if (!result) {
 				DEBUG_PRINT("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
+			if (fps < 0 && fps != -1) {
+				DEBUG_PRINT("Animation file invalid fps %d (%s)\n", fps, filePath);
+				return false;
+			}
+			outAnimatedSprite.animations[animIndex].fps = fps;
 		}
 		else if (StringCompare(keyword, "exit", 4)) {
-			// TODO support no-exit for single-animation sprites
-			outAnimatedSprite.animations[animIndex].numIdles = 0;
-			int numStart = 0;
+			int spaceInd1 = -1;
+			int spaceInd2 = -1;
 			for (int i = 0; i < valueI; i++) {
-				if (value[i] == ' ' || i == valueI - 1) {
-					int numLength = i - numStart;
-					if (i == valueI - 1) {
-						numLength++;
+				if (value[i] == ' ') {
+					if (spaceInd1 == -1) {
+						spaceInd1 = i;
 					}
-					int exitFrame;
-					bool32 result = StringToIntBase10(&value[numStart], numLength, exitFrame);
-					if (!result) {
-						DEBUG_PRINT("Animation file exit parse failed (%s)\n", filePath);
-						return false;
+					else if (spaceInd2 == -1) {
+						spaceInd2 = i;
+						break;
 					}
-					numStart = i + 1;
-
-					int numIdles = outAnimatedSprite.animations[animIndex].numIdles;
-					outAnimatedSprite.animations[animIndex].idles[numIdles] = exitFrame;
-					outAnimatedSprite.animations[animIndex].numIdles++;
 				}
 			}
+			if (spaceInd1 == -1 || spaceInd1 == spaceInd2 - 1
+			|| spaceInd2 == -1 || spaceInd2 == valueI - 1) {
+				DEBUG_PRINT("Animation file invalid exit value (%s)\n", filePath);
+				return false;
+			}
+			int exitFromFrame, exitToAnim, exitToFrame;
+			bool32 result;
+			result = StringToIntBase10(value, spaceInd1, exitFromFrame);
+			if (!result) {
+				DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
+				return false;
+			}
+			result = StringToIntBase10(&value[spaceInd1 + 1],
+				spaceInd2 - spaceInd1 - 1, exitToAnim);
+			if (!result) {
+				DEBUG_PRINT("Animation file invalid exit-to animation (%s)\n", filePath);
+				return false;
+			}
+			result = StringToIntBase10(&value[spaceInd2 + 1],
+				valueI - spaceInd2 - 1, exitToFrame);
+			if (!result) {
+				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
+				return false;
+			}
+			outAnimatedSprite.animations[animIndex]
+				.frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
+		}
+		else if (StringCompare(keyword, "//", 2)) {
+			// Comment, ignore
 		}
 		else {
 			DEBUG_PRINT("Animation file with unknown keyword (%s)\n", filePath);
+			return false;
 		}
 		// Gobble newline characters
 		while (i < animFile.size && (fileData[i] == '\n' || fileData[i] == '\r')) {
@@ -196,6 +239,25 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	outAnimatedSprite.activeFrameTime = 0.0f;
 
 	outAnimatedSprite.numAnimations = animIndex + 1;
+
+	for (int a = 0; a < SPRITE_MAX_ANIMATIONS; a++) {
+		Animation& animation = outAnimatedSprite.animations[a];
+		for (int f = 0; f < animation.numFrames; f++) {
+			for (int i = 0; i < SPRITE_MAX_ANIMATIONS; i++) {
+				int exitTo = animation.frameExitTo[f][i];
+				if (exitTo >= 0) {
+					if (i >= outAnimatedSprite.numAnimations) {
+						DEBUG_PRINT("Animation file exit-to animation out of bounds %d (%s)\n",
+							i, filePath);
+					}
+					if (exitTo >= outAnimatedSprite.animations[i].numFrames) {
+						DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
+							exitTo, filePath);
+					}
+				}
+			}
+		}
+	}
 
 	return true;
 }
