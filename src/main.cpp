@@ -28,7 +28,7 @@ inline float32 RandFloat32(float32 min, float32 max)
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
     // Constants tuned for 1080p
-    const int PLAYER_WALK_SPEED = 220;
+    const int PLAYER_WALK_SPEED = 190;
     const int PLAYER_JUMP_SPEED = 500;
 
     if (IsKeyPressed(input, KM_KEY_A)) {
@@ -93,7 +93,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
     PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-    const int FLOOR_LEVEL = 0;
+    const int FLOOR_LEVEL = 20;
     const int GRAVITY_ACCEL = 1000;
 
     if (gameState->falling) {
@@ -423,7 +423,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         if (!loadBackground) {
             DEBUG_PANIC("Failed to load background");
         }
-        gameState->background.pos = { -gameState->background.texture.size.x / 2, -300 };
+        gameState->background.pos = { -gameState->background.texture.size.x / 2, -270 };
         gameState->background.anchor = { 0.0f, 0.0f };
         bool32 loadClouds = LoadPNGOpenGL(thread,
             "data/sprites/clouds.png", gameState->clouds.texture,
@@ -435,14 +435,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->clouds.pos = { -gameState->clouds.texture.size.x / 2, -75 };
         gameState->clouds.anchor = { 0.0f, 0.0f };
 
-        bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/animation",
+        bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
             gameState->spriteKid,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         if (!loadKidAnim) {
             DEBUG_PANIC("Failed to load kid animation sprite");
         }
-        bool32 loadMeAnim = LoadAnimatedSprite(thread, "data/animations/me/animation",
+        bool32 loadMeAnim = LoadAnimatedSprite(thread, "data/animations/me/me.kma",
             gameState->spriteMe,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -450,7 +450,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             DEBUG_PANIC("Failed to load me animation sprite");
         }
 
-        bool32 loadGuysAnim = LoadAnimatedSprite(thread, "data/animations/guys/animation",
+        bool32 loadGuysAnim = LoadAnimatedSprite(thread, "data/animations/guys/guys.kma",
             gameState->guys.sprite,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -460,7 +460,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->guys.pos = Vec2Int { 1300, -75 };
         gameState->guys.anchor = Vec2 { 0.5f, 0.0f };
 
-        bool32 loadBushAnim = LoadAnimatedSprite(thread, "data/animations/bush/animation",
+        bool32 loadBushAnim = LoadAnimatedSprite(thread, "data/animations/bush/bush.kma",
             gameState->bush.sprite,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -536,9 +536,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     // ---------------------------- Begin Rendering ---------------------------
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    //glBlendFunc(GL_DST_COLOR, GL_ZERO);
-    glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
