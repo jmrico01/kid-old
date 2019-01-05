@@ -250,6 +250,7 @@ typedef ptrdiff_t   GLintptr;
     FUNC(void,  glEnable, GLenum cap) \
     FUNC(void,  glDisable, GLenum cap) \
     FUNC(void,  glBlendFunc, GLenum sfactor, GLenum dfactor) \
+    FUNC(void,  glBlendFuncSeparate, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) \
     FUNC(void,  glDepthFunc, GLenum func) \
     FUNC(void,  glDepthRange, GLdouble near, GLdouble far) \
 \

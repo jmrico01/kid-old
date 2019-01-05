@@ -77,7 +77,6 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-
     gameState->playerVel.x = 0;
 #if GAME_INTERNAL
     if (gameState->editor) {
@@ -136,18 +135,18 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 #endif
 
     const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-    const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 5 };
+    const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 4 };
     Vec2Int objectOffset = CAMERA_OFFSET - gameState->cameraPos * REF_SCALE_FACTOR;
 
     DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
         gameState->texturedRectGL, screenInfo);
-    DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
+    /*DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
         gameState->texturedRectGL, screenInfo);
 
     DrawObjectAnimated(gameState->guys, REF_SCALE_FACTOR, objectOffset,
         gameState->texturedRectGL, screenInfo);
     DrawObjectAnimated(gameState->bush, REF_SCALE_FACTOR, objectOffset,
-        gameState->texturedRectGL, screenInfo);
+        gameState->texturedRectGL, screenInfo);*/
 
     { // kid & me text
         Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
@@ -158,8 +157,8 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 
         gameState->spriteKid.Draw(gameState->texturedRectGL, screenInfo,
             pos + objectOffset, anchor, size, !gameState->facingRight);
-        gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
-            pos + meTextOffset + objectOffset, anchor, size, false);
+        /*gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
+            pos + meTextOffset + objectOffset, anchor, size, false);*/
     }
 
 #if GAME_INTERNAL
@@ -194,9 +193,9 @@ void UpdateFishing(GameState* gameState, float32 deltaTime, const GameInput* inp
 void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
 {
     const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-    const Vec2Int PLAYER_SIZE = { 150, 200 };
-    const Vec2Int NET_SIZE = { 250, 250 };
-    const int NET_DISTANCE = PLAYER_SIZE.y / 2 + NET_SIZE.y / 2 + 10;
+    const Vec2Int PLAYER_SIZE = { 80, 110 };
+    const Vec2Int NET_SIZE = { 120, 120 };
+    const int NET_DISTANCE = PLAYER_SIZE.y / 2 + NET_SIZE.y / 2 + 5;
 
     Vec2Int playerPos = screenInfo.size / 2;
     Vec2Int playerSize = PLAYER_SIZE;
@@ -212,11 +211,11 @@ void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
     if (gameState->rotation == FISHING_ROT_LEFT) {
         netDir = -Vec2Int::unitX;
     }
-    if (gameState->rotation == FISHING_ROT_RIGHT) {
-        netDir = Vec2Int::unitX;
-    }
     if (gameState->rotation == FISHING_ROT_DOWN) {
         netDir = -Vec2Int::unitY;
+    }
+    if (gameState->rotation == FISHING_ROT_RIGHT) {
+        netDir = Vec2Int::unitX;
     }
     Vec2Int netPos = netDir * NET_DISTANCE;
     netPos = netPos * REF_SCALE_FACTOR + playerPos;
@@ -228,6 +227,23 @@ void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
     DrawRect(gameState->rectGL, screenInfo,
         netPos, Vec2 { 0.5f, 0.5f }, netSize,
         Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
+
+#if GAME_INTERNAL
+    if (gameState->debugView) {
+        for (int i = 0; i < 20; i++) {
+            int offsetX = (-NET_SIZE.x * REF_SCALE_FACTOR) * (i - 10.5f) + playerPos.x;
+            int offsetY = (-NET_SIZE.y * REF_SCALE_FACTOR) * (i - 10.5f) + playerPos.y;
+            DrawRect(gameState->rectGL, screenInfo,
+                Vec2Int { offsetX, 0 }, Vec2 { 0.5f, 0.0f }, Vec2Int { 1, screenInfo.size.y },
+                Vec4 { 0.0f, 0.0f, 0.0f, 1.0f }
+            );
+            DrawRect(gameState->rectGL, screenInfo,
+                Vec2Int { 0, offsetY }, Vec2 { 0.0f, 0.5f }, Vec2Int { screenInfo.size.x, 1 },
+                Vec4 { 0.0f, 0.0f, 0.0f, 1.0f }
+            );
+        }
+    }
+#endif
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
@@ -282,11 +298,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         // Game data
         gameState->activeScene = SCENE_TOWN;
 
+        // town data init
         gameState->playerPos = Vec2Int { 0, 100 };
         gameState->playerVel = Vec2Int { 0, 0 };
         gameState->falling = true;
         gameState->facingRight = true;
 
+        // fishing data init
         gameState->rotation = FISHING_ROT_UP;
 
         gameState->grainTime = 0.0f;
@@ -405,7 +423,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         if (!loadBackground) {
             DEBUG_PANIC("Failed to load background");
         }
-        gameState->background.pos = { -gameState->background.texture.size.x / 2, -75 };
+        gameState->background.pos = { -gameState->background.texture.size.x / 2, -300 };
         gameState->background.anchor = { 0.0f, 0.0f };
         bool32 loadClouds = LoadPNGOpenGL(thread,
             "data/sprites/clouds.png", gameState->clouds.texture,
@@ -518,7 +536,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     // ---------------------------- Begin Rendering ---------------------------
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+    //glBlendFunc(GL_DST_COLOR, GL_ZERO);
+    glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -576,6 +597,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     // ---------------------------- End Rendering -----------------------------
     glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     OutputAudio(audio, gameState, input, memory->transient);
 

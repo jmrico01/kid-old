@@ -52,6 +52,12 @@ struct ObjectAnimated
 #endif
 };
 
+struct Fish
+{
+    Vec2Int pos;
+    Vec2Int size;
+};
+
 struct GameState
 {
     AudioState audioState;
@@ -65,8 +71,9 @@ struct GameState
     bool32 falling;
     bool32 facingRight;
 
-    // Town state
+    // Fishing state
     FishingRotation rotation;
+    Fish fish[10];
 
     float32 grainTime;
 
