@@ -25,78 +25,6 @@ inline float32 RandFloat32(float32 min, float32 max)
     return RandFloat32() * (max - min) + min;
 }
 
-void InitializeFramebuffers(int n, Framebuffer framebuffers[])
-{
-    for (int i = 0; i < n; i++) {
-        glGenFramebuffers(1, &framebuffers[i].framebuffer);
-        framebuffers[i].state = FBSTATE_INITIALIZED;
-    }
-}
-
-void UpdateFramebufferColorAttachments(int n, Framebuffer framebuffers[],
-    GLint internalFormat, GLsizei width, GLsizei height, GLenum format, GLenum type)
-{
-    for (int i = 0; i < n; i++) {
-        if (framebuffers[i].state == FBSTATE_COLOR
-        || framebuffers[i].state == FBSTATE_COLOR_DEPTH) {
-            glDeleteTextures(1, &framebuffers[i].color);
-        }
-        glGenTextures(1, &framebuffers[i].color);
-
-        glBindTexture(GL_TEXTURE_2D, framebuffers[i].color);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat,
-            width, height,
-            0,
-            format, type,
-            NULL
-        );
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[i].framebuffer);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-            GL_TEXTURE_2D, framebuffers[i].color, 0);
-
-        GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
-            DEBUG_PRINT("Incomplete framebuffer (%d), status %x\n",
-                i, fbStatus);
-        }
-    }
-}
-
-void UpdateFramebufferDepthAttachments(int n, Framebuffer framebuffers[],
-    GLint internalFormat, GLsizei width, GLsizei height, GLenum format, GLenum type)
-{
-    for (int i = 0; i < n; i++) {
-        if (framebuffers[i].state == FBSTATE_COLOR_DEPTH) {
-            glDeleteTextures(1, &framebuffers[i].depth);
-        }
-        glGenTextures(1, &framebuffers[i].depth);
-
-        glBindTexture(GL_TEXTURE_2D, framebuffers[i].depth);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat,
-            width, height,
-            0,
-            format, type,
-            NULL
-        );
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        // TODO FIX
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[i].framebuffer);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-            GL_TEXTURE_2D, framebuffers[i].depth, 0);
-
-        GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
-            DEBUG_PRINT("Incomplete framebuffer (%d), status %x\n",
-                i, fbStatus);
-        }
-    }
-}
-
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
     // Constants tuned for 1080p
@@ -145,6 +73,161 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
     Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor;
     objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
         pos + objectOffset, objectAnimated.anchor, size, false);
+}
+
+void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
+{
+
+    gameState->playerVel.x = 0;
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        UpdateClickableBoxes(&gameState->guys.box, 1, input);
+        UpdateClickableBoxes(&gameState->bush.box, 1, input);
+        if (input->mouseButtons[0].isDown) {
+            gameState->cameraPos -= input->mouseDelta;
+        }
+    }
+    else {
+        PlayerMovementInput(gameState, deltaTime, input);
+    }
+#else
+    PlayerMovementInput(gameState, deltaTime, input);
+#endif
+
+    const int FLOOR_LEVEL = 0;
+    const int GRAVITY_ACCEL = 1000;
+
+    if (gameState->falling) {
+        gameState->playerVel.y -= (int)(GRAVITY_ACCEL * deltaTime);
+    }
+    else {
+        gameState->playerVel.y = 0;
+    }
+    gameState->playerPos += gameState->playerVel * deltaTime;
+    if (gameState->playerPos.y < FLOOR_LEVEL) {
+        gameState->playerPos.y = FLOOR_LEVEL;
+        gameState->falling = false;
+        gameState->audioState.soundSnare.playing = true;
+        gameState->audioState.soundSnare.sampleIndex = 0;
+    }
+
+    const int NEXT_ANIMS[1] = { 0 };
+    gameState->guys.sprite.Update(deltaTime, 1, NEXT_ANIMS);
+    gameState->bush.sprite.Update(deltaTime, 1, NEXT_ANIMS);
+
+    // TODO ideally animation IDs would be strings
+    const int KID_IDLE_ANIMS[2] = { 0, 1 };
+    const int KID_WALK_ANIMS[1] = { 2 };
+    bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
+    int numNextAnims = isWalking ? 1 : 2;
+    const int* nextAnims = isWalking ? KID_WALK_ANIMS : KID_IDLE_ANIMS;
+    gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
+    gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
+}
+
+void DrawTown(GameState* gameState, ScreenInfo screenInfo)
+{
+#if GAME_INTERNAL
+    if (!gameState->editor) {
+        gameState->cameraPos = gameState->playerPos;
+    }
+#else
+    gameState->cameraPos = gameState->playerPos;
+#endif
+
+    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
+    const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 5 };
+    Vec2Int objectOffset = CAMERA_OFFSET - gameState->cameraPos * REF_SCALE_FACTOR;
+
+    DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+    DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+
+    DrawObjectAnimated(gameState->guys, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+    DrawObjectAnimated(gameState->bush, REF_SCALE_FACTOR, objectOffset,
+        gameState->texturedRectGL, screenInfo);
+
+    { // kid & me text
+        Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
+        Vec2 anchor = { 0.5f, 0.0f };
+        Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR;
+        Vec2Int meTextOffset = { -20, 20 };
+        meTextOffset *= REF_SCALE_FACTOR;
+
+        gameState->spriteKid.Draw(gameState->texturedRectGL, screenInfo,
+            pos + objectOffset, anchor, size, !gameState->facingRight);
+        gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
+            pos + meTextOffset + objectOffset, anchor, size, false);
+    }
+
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        gameState->guys.box.origin = gameState->guys.pos * REF_SCALE_FACTOR + objectOffset;
+        gameState->guys.box.size = gameState->guys.sprite.textureSize * REF_SCALE_FACTOR;
+        DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
+        gameState->bush.box.origin = gameState->bush.pos * REF_SCALE_FACTOR + objectOffset;
+        gameState->bush.box.size = gameState->bush.sprite.textureSize * REF_SCALE_FACTOR;
+        DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
+    }
+#endif
+}
+
+void UpdateFishing(GameState* gameState, float32 deltaTime, const GameInput* input)
+{
+    int delta = 0;
+    if (WasKeyPressed(input, KM_KEY_A)) {
+        delta = -1;
+    }
+    if (WasKeyPressed(input, KM_KEY_D)) {
+        delta = 1;
+    }
+    int newRot = (int)gameState->rotation + delta;
+    if (newRot < 0) {
+        newRot += 4;
+    }
+    newRot %= 4;
+    gameState->rotation = (FishingRotation)newRot;
+}
+
+void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
+{
+    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
+    const Vec2Int PLAYER_SIZE = { 150, 200 };
+    const Vec2Int NET_SIZE = { 250, 250 };
+    const int NET_DISTANCE = PLAYER_SIZE.y / 2 + NET_SIZE.y / 2 + 10;
+
+    Vec2Int playerPos = screenInfo.size / 2;
+    Vec2Int playerSize = PLAYER_SIZE;
+    if (gameState->rotation == FISHING_ROT_LEFT || gameState->rotation == FISHING_ROT_RIGHT) {
+        playerSize = Vec2Int { PLAYER_SIZE.y, PLAYER_SIZE.x };
+    }
+    playerSize *= REF_SCALE_FACTOR;
+    DrawRect(gameState->rectGL, screenInfo,
+        playerPos, Vec2 { 0.5f, 0.5f }, playerSize,
+        Vec4 { 1.0f, 0.0f, 1.0f, 1.0f });
+
+    Vec2Int netDir = Vec2Int::unitY;
+    if (gameState->rotation == FISHING_ROT_LEFT) {
+        netDir = -Vec2Int::unitX;
+    }
+    if (gameState->rotation == FISHING_ROT_RIGHT) {
+        netDir = Vec2Int::unitX;
+    }
+    if (gameState->rotation == FISHING_ROT_DOWN) {
+        netDir = -Vec2Int::unitY;
+    }
+    Vec2Int netPos = netDir * NET_DISTANCE;
+    netPos = netPos * REF_SCALE_FACTOR + playerPos;
+    Vec2Int netSize = NET_SIZE;
+    if (gameState->rotation == FISHING_ROT_LEFT || gameState->rotation == FISHING_ROT_RIGHT) {
+        netSize = Vec2Int { NET_SIZE.y, NET_SIZE.x };
+    }
+    netSize *= REF_SCALE_FACTOR;
+    DrawRect(gameState->rectGL, screenInfo,
+        netPos, Vec2 { 0.5f, 0.5f }, netSize,
+        Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
@@ -197,10 +280,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformFreeFileMemory);
 
         // Game data
+        gameState->activeScene = SCENE_TOWN;
+
         gameState->playerPos = Vec2Int { 0, 100 };
         gameState->playerVel = Vec2Int { 0, 0 };
         gameState->falling = true;
         gameState->facingRight = true;
+
+        gameState->rotation = FISHING_ROT_UP;
 
         gameState->grainTime = 0.0f;
 
@@ -405,57 +492,27 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         DEBUG_PRINT("Updated screen-size-dependent info\n");
     }
 
-    gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
+    // gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
-    gameState->playerVel.x = 0;
-#if GAME_INTERNAL
-    if (gameState->editor) {
-        UpdateClickableBoxes(&gameState->guys.box, 1, input);
-        UpdateClickableBoxes(&gameState->bush.box, 1, input);
-        if (input->mouseButtons[0].isDown) {
-            gameState->cameraPos -= input->mouseDelta;
-        }
+    if (WasKeyPressed(input, KM_KEY_1)) {
+        gameState->activeScene = SCENE_TOWN;
     }
-    else {
-        PlayerMovementInput(gameState, deltaTime, input);
+    if (WasKeyPressed(input, KM_KEY_2)) {
+        gameState->activeScene = SCENE_FISHING;
     }
-#else
-    PlayerMovementInput(gameState, deltaTime, input);
-#endif
-
-    const int FLOOR_LEVEL = 0;
-    const int GRAVITY_ACCEL = 1000;
-
-    if (gameState->falling) {
-        gameState->playerVel.y -= (int)(GRAVITY_ACCEL * deltaTime);
-    }
-    else {
-        gameState->playerVel.y = 0;
-    }
-    gameState->playerPos += gameState->playerVel * deltaTime;
-    if (gameState->playerPos.y < FLOOR_LEVEL) {
-        gameState->playerPos.y = FLOOR_LEVEL;
-        gameState->falling = false;
-        gameState->audioState.soundSnare.playing = true;
-        gameState->audioState.soundSnare.sampleIndex = 0;
-    }
-
-    const int NEXT_ANIMS[1] = { 0 };
-    gameState->guys.sprite.Update(deltaTime, 1, NEXT_ANIMS);
-    gameState->bush.sprite.Update(deltaTime, 1, NEXT_ANIMS);
-
-    // TODO ideally animation IDs would be strings
-    const int KID_IDLE_ANIMS[2] = { 0, 1 };
-    const int KID_WALK_ANIMS[1] = { 2 };
-    bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
-    int numNextAnims = isWalking ? 1 : 2;
-    const int* nextAnims = isWalking ? KID_WALK_ANIMS : KID_IDLE_ANIMS;
-    gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
-    gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
 
     // Toggle global mute
     if (WasKeyPressed(input, KM_KEY_M)) {
         gameState->audioState.globalMute = !gameState->audioState.globalMute;
+    }
+
+    switch (gameState->activeScene) {
+        case SCENE_TOWN: {
+            UpdateTown(gameState, deltaTime, input);
+        } break;
+        case SCENE_FISHING: {
+            UpdateFishing(gameState, deltaTime, input);
+        } break;
     }
 
     // ---------------------------- Begin Rendering ---------------------------
@@ -465,51 +522,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
     glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-#if GAME_INTERNAL
-    if (!gameState->editor) {
-        gameState->cameraPos = gameState->playerPos;
+    switch (gameState->activeScene) {
+        case SCENE_TOWN: {
+            DrawTown(gameState, screenInfo);
+        } break;
+        case SCENE_FISHING: {
+            DrawFishing(gameState, screenInfo);
+        } break;
     }
-#else
-    gameState->cameraPos = gameState->playerPos;
-#endif
-
-    const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-    const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 5 };
-    Vec2Int objectOffset = CAMERA_OFFSET - gameState->cameraPos * REF_SCALE_FACTOR;
-
-    DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
-        gameState->texturedRectGL, screenInfo);
-    DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
-        gameState->texturedRectGL, screenInfo);
-
-    DrawObjectAnimated(gameState->guys, REF_SCALE_FACTOR, objectOffset,
-        gameState->texturedRectGL, screenInfo);
-    DrawObjectAnimated(gameState->bush, REF_SCALE_FACTOR, objectOffset,
-        gameState->texturedRectGL, screenInfo);
-
-    { // kid & me text
-        Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
-        Vec2 anchor = { 0.5f, 0.0f };
-        Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR;
-        Vec2Int meTextOffset = { -20, 20 };
-        meTextOffset *= REF_SCALE_FACTOR;
-
-        gameState->spriteKid.Draw(gameState->texturedRectGL, screenInfo,
-            pos + objectOffset, anchor, size, !gameState->facingRight);
-        gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
-            pos + meTextOffset + objectOffset, anchor, size, false);
-    }
-
-#if GAME_INTERNAL
-    if (gameState->editor) {
-        gameState->guys.box.origin = gameState->guys.pos * REF_SCALE_FACTOR + objectOffset;
-        gameState->guys.box.size = gameState->guys.sprite.textureSize * REF_SCALE_FACTOR;
-        DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
-        gameState->bush.box.origin = gameState->bush.pos * REF_SCALE_FACTOR + objectOffset;
-        gameState->bush.box.size = gameState->bush.sprite.textureSize * REF_SCALE_FACTOR;
-        DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
-    }
-#endif
 
     // ------------------------ Post processing passes ------------------------
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -604,6 +624,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #include "animation.cpp"
 #include "audio.cpp"
+#include "framebuffer.cpp"
 #include "gui.cpp"
 #include "km_input.cpp"
 #include "km_lib.cpp"

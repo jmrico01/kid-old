@@ -65,6 +65,8 @@ union Vec2
 union Vec2Int
 {
     const static Vec2Int zero;
+    const static Vec2Int unitX;
+    const static Vec2Int unitY;
 
     struct
     {
@@ -258,6 +260,12 @@ inline Vec2 Normalize(Vec2 v)
 // ------------------ Vec2Int -------------------
 const Vec2Int Vec2Int::zero = {
     0, 0
+};
+const Vec2Int Vec2Int::unitX = {
+    1, 0
+};
+const Vec2Int Vec2Int::unitY = {
+    0, 1
 };
 
 inline Vec2 ToVec2(Vec2Int v)

@@ -2,6 +2,7 @@
 
 #include "animation.h"
 #include "audio.h"
+#include "framebuffer.h"
 #include "gui.h"
 #include "km_math.h"
 #include "load_png.h"
@@ -13,20 +14,18 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-enum FramebufferState
+enum Scene
 {
-    FBSTATE_NONE,        // No setup has been done yet
-    FBSTATE_INITIALIZED, // Framebuffer object has been generated
-    FBSTATE_COLOR,       // Color attachment created, status is complete
-    FBSTATE_COLOR_DEPTH  // Color and depth attachments created, status is complete
+    SCENE_TOWN,
+    SCENE_FISHING
 };
 
-struct Framebuffer
+enum FishingRotation
 {
-    GLuint framebuffer;
-    GLuint color;
-    GLuint depth;
-    FramebufferState state = FBSTATE_NONE;
+    FISHING_ROT_LEFT = 0,
+    FISHING_ROT_UP,
+    FISHING_ROT_RIGHT,
+    FISHING_ROT_DOWN
 };
 
 struct ColliderBox
@@ -57,12 +56,17 @@ struct GameState
 {
     AudioState audioState;
 
-    // GAME DATA --------------------------------------------------------------
+    Scene activeScene;
+
+    // Overworld state
     Vec2Int cameraPos;
     Vec2Int playerPos;
     Vec2Int playerVel;
     bool32 falling;
     bool32 facingRight;
+
+    // Town state
+    FishingRotation rotation;
 
     float32 grainTime;
 
@@ -70,12 +74,20 @@ struct GameState
     bool32 debugView;
     bool32 editor;
 #endif
-    // ------------------------------------------------------------------------
 
     RectGL rectGL;
     TexturedRectGL texturedRectGL;
     LineGL lineGL;
     TextGL textGL;
+
+    AnimatedSprite spriteKid;
+    AnimatedSprite spriteMe;
+
+    ObjectStatic background;
+    ObjectStatic clouds;
+
+    ObjectAnimated guys;
+    ObjectAnimated bush;
 
     FT_Library ftLibrary;
     FontFace fontFaceSmall;
@@ -94,13 +106,4 @@ struct GameState
     GLuint bloomBlendShader;
     GLuint blurShader;
     GLuint grainShader;
-
-    AnimatedSprite spriteKid;
-    AnimatedSprite spriteMe;
-
-    ObjectStatic background;
-    ObjectStatic clouds;
-
-    ObjectAnimated guys;
-    ObjectAnimated bush;
 };
