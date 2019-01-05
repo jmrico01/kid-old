@@ -15,11 +15,11 @@ struct MacOSState
 
 struct MacOSGameCode
 {
-    void* gameLibHandle;
-    ino_t gameLibId;
+	void* gameLibHandle;
+	ino_t gameLibId;
 
-    // NOTE: Callbacks can be 0!  You must check before calling
-    GameUpdateAndRenderFunc* gameUpdateAndRender;
+	// NOTE: Callbacks can be 0!  You must check before calling
+	GameUpdateAndRenderFunc* gameUpdateAndRender;
 
-    bool32 isValid;
+	bool32 isValid;
 };

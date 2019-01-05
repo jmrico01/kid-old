@@ -80,7 +80,7 @@ void MidiInputCallback(const MIDIPacketList* packetList,
 }
 
 void MacOSInitCoreAudio(MacOSAudio* macAudio,
-    int sampleRate, int channels, int bufferSizeSamples)
+	int sampleRate, int channels, int bufferSizeSamples)
 {
 	macAudio->sampleRate = sampleRate;
 	macAudio->channels = channels;

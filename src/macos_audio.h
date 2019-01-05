@@ -14,9 +14,9 @@ struct MacOSAudio
 	AudioStreamBasicDescription audioDescriptor;
 	AudioUnit audioUnit;
 
-    int sampleRate;
-    int channels;
-    int bufferSizeSamples;
+	int sampleRate;
+	int channels;
+	int bufferSizeSamples;
 	int16* buffer;
 
 	int readCursor;
@@ -29,7 +29,7 @@ struct MacOSAudio
 };
 
 void MacOSInitCoreAudio(MacOSAudio* macOSAudio,
-    int sampleRate, int channels, int bufferSizeSamples);
+	int sampleRate, int channels, int bufferSizeSamples);
 void MacOSStopCoreAudio(MacOSAudio* macOSAudio);
 
 void MacOSWriteSamples(MacOSAudio* macAudio,
