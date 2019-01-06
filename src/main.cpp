@@ -178,7 +178,7 @@ void UpdateFishing(GameState* gameState, float32 deltaTime,
 {
 	const int PLAYER_MOVE_SPEED = 600;
 	const Vec2Int PLAYER_SIZE = { 170, 250 };
-	const int REF_X = screenInfo.size.x * 1080.0f / screenInfo.size.y;
+	const int REF_X = (int)(screenInfo.size.x * 1080.0f / screenInfo.size.y);
 	const int MARGIN_X = (REF_X - 1440) / 2;
 
 	gameState->obstacleTimer += deltaTime;
@@ -197,10 +197,10 @@ void UpdateFishing(GameState* gameState, float32 deltaTime,
 	}
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
-		gameState->playerPosX -= PLAYER_MOVE_SPEED * deltaTime;
+		gameState->playerPosX -= (int)(PLAYER_MOVE_SPEED * deltaTime);
 	}
 	if (IsKeyPressed(input, KM_KEY_D)) {
-		gameState->playerPosX += PLAYER_MOVE_SPEED * deltaTime;
+		gameState->playerPosX += (int)(PLAYER_MOVE_SPEED * deltaTime);
 	}
 
 	int minX = MARGIN_X + PLAYER_SIZE.x / 2;
