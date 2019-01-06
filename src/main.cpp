@@ -173,77 +173,67 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 #endif
 }
 
-void UpdateFishing(GameState* gameState, float32 deltaTime, const GameInput* input)
+void UpdateFishing(GameState* gameState, float32 deltaTime,
+	const GameInput* input, ScreenInfo screenInfo)
 {
-	int delta = 0;
-	if (WasKeyPressed(input, KM_KEY_A)) {
-		delta = -1;
+	const int PLAYER_MOVE_SPEED = 600;
+	const Vec2Int PLAYER_SIZE = { 170, 250 };
+	const int REF_X = screenInfo.size.x * 1080.0f / screenInfo.size.y;
+	const int MARGIN_X = (REF_X - 1440) / 2;
+
+	gameState->obstacleTimer += deltaTime;
+	if (gameState->obstacleTimer >= 0.25f) {
+		if (gameState->numObstacles < FISHING_OBSTACLES_MAX) {
+			FishingObstacle& newObstacle = gameState->obstacles[gameState->numObstacles];
+			newObstacle.pos = Vec2Int { rand() % REF_X, 0 };
+			newObstacle.vel = Vec2Int { 0, PLAYER_MOVE_SPEED - 100 + (rand() % 400) };
+			newObstacle.size = Vec2Int { 100, 100 };
+			gameState->numObstacles++;
+			gameState->obstacleTimer = 0.0f;
+		}
 	}
-	if (WasKeyPressed(input, KM_KEY_D)) {
-		delta = 1;
+	for (int i = 0; i < gameState->numObstacles; i++) {
+		gameState->obstacles[i].pos += gameState->obstacles[i].vel * deltaTime;
 	}
-	int newRot = (int)gameState->rotation + delta;
-	if (newRot < 0) {
-		newRot += 4;
+
+	if (IsKeyPressed(input, KM_KEY_A)) {
+		gameState->playerPosX -= PLAYER_MOVE_SPEED * deltaTime;
 	}
-	newRot %= 4;
-	gameState->rotation = (FishingRotation)newRot;
+	if (IsKeyPressed(input, KM_KEY_D)) {
+		gameState->playerPosX += PLAYER_MOVE_SPEED * deltaTime;
+	}
+
+	int minX = MARGIN_X + PLAYER_SIZE.x / 2;
+	int maxX = REF_X - MARGIN_X - PLAYER_SIZE.x / 2;
+	if (gameState->playerPosX < minX) {
+		gameState->playerPosX = minX;
+	}
+	if (gameState->playerPosX > maxX) {
+		gameState->playerPosX = maxX;
+	}
 }
 
 void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
 {
 	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-	const Vec2Int PLAYER_SIZE = { 80, 110 };
-	const Vec2Int NET_SIZE = { 120, 120 };
-	const int NET_DISTANCE = PLAYER_SIZE.y / 2 + NET_SIZE.y / 2 + 5;
+	const Vec2Int PLAYER_SIZE = { 170, 250 };
 
-	Vec2Int playerPos = screenInfo.size / 2;
-	Vec2Int playerSize = PLAYER_SIZE;
-	if (gameState->rotation == FISHING_ROT_LEFT || gameState->rotation == FISHING_ROT_RIGHT) {
-		playerSize = Vec2Int { PLAYER_SIZE.y, PLAYER_SIZE.x };
-	}
-	playerSize *= REF_SCALE_FACTOR;
+	Vec2Int playerPos = { gameState->playerPosX, 700 };
+	playerPos *= REF_SCALE_FACTOR;
+	Vec2Int playerSize = PLAYER_SIZE * REF_SCALE_FACTOR;
 	DrawRect(gameState->rectGL, screenInfo,
-		playerPos, Vec2 { 0.5f, 0.5f }, playerSize,
+		playerPos, Vec2 { 0.5f, 0.0f }, playerSize,
 		Vec4 { 1.0f, 0.0f, 1.0f, 1.0f });
 
-	Vec2Int netDir = Vec2Int::unitY;
-	if (gameState->rotation == FISHING_ROT_LEFT) {
-		netDir = -Vec2Int::unitX;
+	for (int i = 0; i < gameState->numObstacles; i++) {
+		Vec2Int obstaclePos = gameState->obstacles[i].pos;
+		obstaclePos *= REF_SCALE_FACTOR;
+		Vec2Int obstacleSize = gameState->obstacles[i].size;
+		obstacleSize *= REF_SCALE_FACTOR;
+		DrawRect(gameState->rectGL, screenInfo,
+			obstaclePos, Vec2 { 0.5f, 1.0f }, obstacleSize,
+			Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
 	}
-	if (gameState->rotation == FISHING_ROT_DOWN) {
-		netDir = -Vec2Int::unitY;
-	}
-	if (gameState->rotation == FISHING_ROT_RIGHT) {
-		netDir = Vec2Int::unitX;
-	}
-	Vec2Int netPos = netDir * NET_DISTANCE;
-	netPos = netPos * REF_SCALE_FACTOR + playerPos;
-	Vec2Int netSize = NET_SIZE;
-	if (gameState->rotation == FISHING_ROT_LEFT || gameState->rotation == FISHING_ROT_RIGHT) {
-		netSize = Vec2Int { NET_SIZE.y, NET_SIZE.x };
-	}
-	netSize *= REF_SCALE_FACTOR;
-	DrawRect(gameState->rectGL, screenInfo,
-		netPos, Vec2 { 0.5f, 0.5f }, netSize,
-		Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-
-#if GAME_INTERNAL
-	if (gameState->debugView) {
-		for (int i = 0; i < 20; i++) {
-			int offsetX = (-NET_SIZE.x * REF_SCALE_FACTOR) * (i - 10.5f) + playerPos.x;
-			int offsetY = (-NET_SIZE.y * REF_SCALE_FACTOR) * (i - 10.5f) + playerPos.y;
-			DrawRect(gameState->rectGL, screenInfo,
-				Vec2Int { offsetX, 0 }, Vec2 { 0.5f, 0.0f }, Vec2Int { 1, screenInfo.size.y },
-				Vec4 { 0.0f, 0.0f, 0.0f, 1.0f }
-			);
-			DrawRect(gameState->rectGL, screenInfo,
-				Vec2Int { 0, offsetY }, Vec2 { 0.0f, 0.5f }, Vec2Int { screenInfo.size.x, 1 },
-				Vec4 { 0.0f, 0.0f, 0.0f, 1.0f }
-			);
-		}
-	}
-#endif
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
@@ -284,8 +274,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// Depth buffer transforms -1 to 1 range to 0 to 1 range
 		glDepthRange(0.0, 1.0);
 
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 		glEnable(GL_CULL_FACE);
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
@@ -305,7 +293,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->facingRight = true;
 
 		// fishing data init
-		gameState->rotation = FISHING_ROT_UP;
+		gameState->playerPosX = screenInfo.size.x;
+		gameState->obstacleTimer = 0.0f;
+		gameState->numObstacles = 0;
 
 		gameState->grainTime = 0.0f;
 
@@ -529,7 +519,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			UpdateTown(gameState, deltaTime, input);
 		} break;
 		case SCENE_FISHING: {
-			UpdateFishing(gameState, deltaTime, input);
+			UpdateFishing(gameState, deltaTime, input, screenInfo);
 		} break;
 	}
 

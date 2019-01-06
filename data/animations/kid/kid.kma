@@ -1,6 +1,6 @@
 // This is a comment
 
-// fps == -1 means that the animation will run at the game's framerate
+// fps -1 means that the animation will run at the game's framerate
 // This is useful for static animations that require an immediate exit response
 
 anim Idle1

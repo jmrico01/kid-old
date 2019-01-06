@@ -20,14 +20,6 @@ enum Scene
 	SCENE_FISHING
 };
 
-enum FishingRotation
-{
-	FISHING_ROT_LEFT = 0,
-	FISHING_ROT_UP,
-	FISHING_ROT_RIGHT,
-	FISHING_ROT_DOWN
-};
-
 struct ColliderBox
 {
 	Vec2Int pos;
@@ -52,9 +44,12 @@ struct ObjectAnimated
 #endif
 };
 
-struct Fish
+#define FISHING_OBSTACLES_MAX 1000
+
+struct FishingObstacle
 {
 	Vec2Int pos;
+	Vec2Int vel;
 	Vec2Int size;
 };
 
@@ -72,8 +67,10 @@ struct GameState
 	bool32 facingRight;
 
 	// Fishing state
-	FishingRotation rotation;
-	Fish fish[10];
+	int playerPosX;
+	float32 obstacleTimer;
+	int numObstacles;
+	FishingObstacle obstacles[FISHING_OBSTACLES_MAX];
 
 	float32 grainTime;
 
