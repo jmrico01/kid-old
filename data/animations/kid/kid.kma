@@ -5,13 +5,23 @@
 
 anim Idle1
 dir idle1
-fps -1
+fps 8
 exit 0 2 0
+exit 1 2 0
+exit 2 2 0
+exit 3 2 0
+exit 4 2 0
+exit 5 2 0
 
 anim Idle2
 dir idle2
-fps -1
+fps 8
 exit 0 2 4
+exit 1 2 4
+exit 2 2 4
+exit 3 2 4
+exit 4 2 4
+exit 5 2 4
 
 anim Walk
 dir walk

@@ -93,7 +93,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-	const int FLOOR_LEVEL = 20;
+	const int FLOOR_LEVEL = 70;
 	const int GRAVITY_ACCEL = 1000;
 
 	if (gameState->falling) {
