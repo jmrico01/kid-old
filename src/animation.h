@@ -6,7 +6,7 @@
 #include "load_png.h"
 
 #define ANIMATION_MAX_FRAMES 32
-#define SPRITE_MAX_ANIMATIONS 4
+#define SPRITE_MAX_ANIMATIONS 8
 #define ANIMATION_QUEUE_MAX_LENGTH 4
 
 struct Animation
