@@ -28,6 +28,10 @@ def NormalizePathSlashes(pathDict):
         pathDict[name] = pathDict[name].replace("/", os.sep)
 
 def LoadEnvSettings(pathDict, envSettingsPath):
+    """
+    You must create a file called "env_settings.json" in the same directory as this script.
+    It must contain at least a "osName": { "libs": "<path-to-external-libs>" } entry
+    """
     with open(envSettingsPath, "r") as envSettingsFile:
         envSettings = json.loads(envSettingsFile.read())
 
@@ -65,7 +69,8 @@ NormalizePathSlashes(paths)
 # External dependencies
 if platform.system() == "Windows":
     paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
-    paths["lib-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/lib"
+    paths["lib-freetype-win-d"] = paths["win32-libs"] + "/freetype-2.8.1/lib-d"
+    paths["lib-freetype-win-r"] = paths["win32-libs"] + "/freetype-2.8.1/lib-r"
 
     paths["include-libpng-win"] = paths["win32-libs"] + "/lpng1634/include"
     paths["lib-libpng-win-d"] = paths["win32-libs"] + "/lpng1634/lib-d"
@@ -134,7 +139,7 @@ def WinCompileDebug():
         "winmm.lib"
     ])
     libPathsGame = " ".join([
-        "/LIBPATH:" + paths["lib-freetype-win"],
+        "/LIBPATH:" + paths["lib-freetype-win-d"],
         "/LIBPATH:" + paths["lib-libpng-win-d"]
     ])
     libsGame = " ".join([
@@ -229,7 +234,7 @@ def WinCompileRelease():
         "winmm.lib"
     ])
     libPathsGame = " ".join([
-        "/LIBPATH:" + paths["lib-freetype-win"],
+        "/LIBPATH:" + paths["lib-freetype-win-r"],
         "/LIBPATH:" + paths["lib-libpng-win-r"]
     ])
     libsGame = " ".join([

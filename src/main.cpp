@@ -28,7 +28,7 @@ inline float32 RandFloat32(float32 min, float32 max)
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	// Constants tuned for 1080p
-	const int PLAYER_WALK_SPEED = 190;
+	const int PLAYER_WALK_SPEED = 185;
 	const int PLAYER_JUMP_SPEED = 500;
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
