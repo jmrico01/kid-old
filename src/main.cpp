@@ -117,9 +117,17 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	// TODO ideally animation IDs would be strings
 	const int KID_IDLE_ANIMS[2] = { 0, 1 };
 	const int KID_WALK_ANIMS[1] = { 2 };
-	bool32 isWalking = !gameState->falling && gameState->playerVel.x != 0;
-	int numNextAnims = isWalking ? 1 : 2;
-	const int* nextAnims = isWalking ? KID_WALK_ANIMS : KID_IDLE_ANIMS;
+	const int KID_JUMP_ANIMS[2] = { 3, 4 };
+	const int* nextAnims = KID_IDLE_ANIMS;
+	int numNextAnims = 2;
+	if (gameState->falling) {
+		nextAnims = KID_JUMP_ANIMS;
+		numNextAnims = 2;
+	}
+	else if (gameState->playerVel.x != 0) {
+		nextAnims = KID_WALK_ANIMS;
+		numNextAnims = 1;
+	}
 	gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
 	gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
 }

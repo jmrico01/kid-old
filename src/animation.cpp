@@ -93,6 +93,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			value[valueI++] = fileData[i++];
 		}
 
+		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword, "anim", 4)) {
 			animIndex++;
 			if (animIndex >= SPRITE_MAX_ANIMATIONS) {
@@ -195,10 +196,16 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			int exitFromFrame, exitToAnim, exitToFrame;
 			bool32 result;
-			result = StringToIntBase10(value, spaceInd1, exitFromFrame);
-			if (!result) {
-				DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
-				return false;
+			if (spaceInd1 == 1 && value[0] == '*') {
+				// wildcard
+				exitFromFrame = -1;
+			}
+			else {
+				result = StringToIntBase10(value, spaceInd1, exitFromFrame);
+				if (!result) {
+					DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
+					return false;
+				}
 			}
 			result = StringToIntBase10(&value[spaceInd1 + 1],
 				spaceInd2 - spaceInd1 - 1, exitToAnim);
@@ -212,8 +219,15 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
 				return false;
 			}
-			outAnimatedSprite.animations[animIndex]
-				.frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
+			Animation& anim = outAnimatedSprite.animations[animIndex];
+			if (exitFromFrame == -1) {
+				for (int j = 0; j < anim.numFrames; j++) {
+					anim.frameExitTo[j][exitToAnim] = exitToFrame;
+				}
+			}
+			else {
+				anim.frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
+			}
 		}
 		else if (StringCompare(keyword, "//", 2)) {
 			// Comment, ignore
