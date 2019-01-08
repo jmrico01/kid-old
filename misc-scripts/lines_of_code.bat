@@ -12,7 +12,7 @@ set /a totalNumLines = 0
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 pushd %SRC_PATH%
-for /r %%f in (*.cpp *.h ) do (
+for /r %%f in (*.cpp *.h *.vert *.frag ) do (
 for /f %%C in ('Find /V /C "" ^< %%f') do set Count=%%C
 echo !Count! lines in %%f
 set /a totalNumLines+=!Count!
