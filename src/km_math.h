@@ -10,50 +10,50 @@ inline int AbsInt(int n) {
 	return n >= 0 ? n : -n;
 }
 inline int MinInt(int a, int b) {
-    return a < b ? a : b;
+	return a < b ? a : b;
 }
 inline int MaxInt(int a, int b) {
-    return a > b ? a : b;
+	return a > b ? a : b;
 }
 inline int ClampInt(int a, int min, int max) {
-    return MinInt(MaxInt(a, min), max);
+	return MinInt(MaxInt(a, min), max);
 }
 inline uint32 MinUInt32(uint32 a, uint32 b) {
-    return a < b ? a : b;
+	return a < b ? a : b;
 }
 inline uint32 MaxUInt32(uint32 a, uint32 b) {
-    return a > b ? a : b;
+	return a > b ? a : b;
 }
 inline uint32 ClampUInt32(uint32 a, uint32 min, uint32 max) {
-    return MinUInt32(MaxUInt32(a, min), max);
+	return MinUInt32(MaxUInt32(a, min), max);
 }
 inline float32 MinFloat32(float32 a, float32 b) {
-    return a < b ? a : b;
+	return a < b ? a : b;
 }
 inline float32 MaxFloat32(float32 a, float32 b) {
-    return a > b ? a : b;
+	return a > b ? a : b;
 }
 inline float32 ClampFloat32(float32 a, float32 min, float32 max) {
-    return MinFloat32(MaxFloat32(a, min), max);
+	return MinFloat32(MaxFloat32(a, min), max);
 }
 // TODO quick and dirty round implementation
 inline int RoundFloat32Fast(float32 a) {
-    if (a < 0.0) {
-        return (int)(a - 0.5);
-    }
-    else {
-        return (int)(a + 0.5);
-    }
+	if (a < 0.0) {
+		return (int)(a - 0.5);
+	}
+	else {
+		return (int)(a + 0.5);
+	}
 }
 
 // ========== MATH TYPES ==========
 
 union Vec2
 {
-    const static Vec2 zero;
-    const static Vec2 one;
-    const static Vec2 unitX;
-    const static Vec2 unitY;
+	const static Vec2 zero;
+	const static Vec2 one;
+	const static Vec2 unitX;
+	const static Vec2 unitY;
 
 	struct
 	{
@@ -64,44 +64,44 @@ union Vec2
 
 union Vec2Int
 {
-    const static Vec2Int zero;
-    const static Vec2Int unitX;
-    const static Vec2Int unitY;
+	const static Vec2Int zero;
+	const static Vec2Int unitX;
+	const static Vec2Int unitY;
 
-    struct
-    {
-        int x, y;
-    };
-    int e[2];
+	struct
+	{
+		int x, y;
+	};
+	int e[2];
 };
 
 union Vec3
 {
-    const static Vec3 zero;
-    const static Vec3 one;
-    const static Vec3 unitX;
-    const static Vec3 unitY;
-    const static Vec3 unitZ;
+	const static Vec3 zero;
+	const static Vec3 one;
+	const static Vec3 unitX;
+	const static Vec3 unitY;
+	const static Vec3 unitZ;
 
 	struct
 	{
 		float32 x, y, z;
-    };
+	};
 	struct
 	{
 		float32 r, g, b;
-    };
+	};
 	float32 e[3];
 };
 
 union Vec4
 {
-    const static Vec4 zero;
-    const static Vec4 one;
-    const static Vec4 black;
-    const static Vec4 red;
-    const static Vec4 green;
-    const static Vec4 blue;
+	const static Vec4 zero;
+	const static Vec4 one;
+	const static Vec4 black;
+	const static Vec4 red;
+	const static Vec4 green;
+	const static Vec4 blue;
 
 	struct
 	{
@@ -124,7 +124,7 @@ union Vec4
 */
 struct Mat4
 {
-    const static Mat4 zero;
+	const static Mat4 zero;
 	const static Mat4 one;
 
 	float32 e[4][4];
@@ -142,24 +142,29 @@ struct Quat
 
 inline float32 Lerp(float32 a, float32 b, float32 t)
 {
-    return a + (b - a) * t;
+	return a + (b - a) * t;
 }
 
 // ========== OPERATORS & FUNCTIONS ==========
 
 // -------------------- Vec2 --------------------
 const Vec2 Vec2::zero = {
-    0.0f, 0.0f
+	0.0f, 0.0f
 };
 const Vec2 Vec2::one = {
-    1.0f, 1.0f
+	1.0f, 1.0f
 };
 const Vec2 Vec2::unitX = {
-    1.0f, 0.0f
+	1.0f, 0.0f
 };
 const Vec2 Vec2::unitY = {
-    0.0f, 1.0f
+	0.0f, 1.0f
 };
+
+inline Vec2Int ToVec2Int(Vec2 v)
+{
+	return Vec2Int { (int)v.x, (int)v.y };
+}
 
 inline Vec2 operator-(Vec2 v)
 {
@@ -227,16 +232,16 @@ inline Vec2& operator/=(Vec2& v, float32 s)
 
 inline bool operator==(const Vec2& v1, const Vec2& v2)
 {
-    return v1.x == v2.x && v1.y == v2.y;
+	return v1.x == v2.x && v1.y == v2.y;
 }
 
 inline Vec2 Lerp(Vec2 v1, Vec2 v2, float t)
 {
-    Vec2 result = {
-        Lerp(v1.x, v2.x, t),
-        Lerp(v1.y, v2.y, t)
-    };
-    return result;
+	Vec2 result = {
+		Lerp(v1.x, v2.x, t),
+		Lerp(v1.y, v2.y, t)
+	};
+	return result;
 }
 
 inline float32 Dot(Vec2 v1, Vec2 v2)
@@ -259,21 +264,18 @@ inline Vec2 Normalize(Vec2 v)
 
 // ------------------ Vec2Int -------------------
 const Vec2Int Vec2Int::zero = {
-    0, 0
+	0, 0
 };
 const Vec2Int Vec2Int::unitX = {
-    1, 0
+	1, 0
 };
 const Vec2Int Vec2Int::unitY = {
-    0, 1
+	0, 1
 };
 
 inline Vec2 ToVec2(Vec2Int v)
 {
-    Vec2 result;
-    result.x = (float32)v.x;
-    result.y = (float32)v.y;
-    return result;
+	return Vec2 { (float32)v.x, (float32)v.y };
 }
 
 inline Vec2Int operator-(Vec2Int v)
@@ -359,12 +361,12 @@ inline Vec2Int& operator*=(Vec2Int& v, float32 s)
 
 inline bool operator==(const Vec2Int& v1, const Vec2Int& v2)
 {
-    return v1.x == v2.x && v1.y == v2.y;
+	return v1.x == v2.x && v1.y == v2.y;
 }
 
 inline bool operator!=(const Vec2Int& v1, const Vec2Int& v2)
 {
-    return v1.x != v2.x || v1.y != v2.y;
+	return v1.x != v2.x || v1.y != v2.y;
 }
 
 inline int MagSq(Vec2Int v)
@@ -378,36 +380,36 @@ inline int Mag(Vec2Int v)
 
 // -------------------- Vec3 --------------------
 const Vec3 Vec3::zero = {
-    0.0f, 0.0f, 0.0f
+	0.0f, 0.0f, 0.0f
 };
 const Vec3 Vec3::one = {
-    1.0f, 1.0f, 1.0f
+	1.0f, 1.0f, 1.0f
 };
 const Vec3 Vec3::unitX = {
-    1.0f, 0.0f, 0.0f
+	1.0f, 0.0f, 0.0f
 };
 const Vec3 Vec3::unitY = {
-    0.0f, 1.0f, 0.0f
+	0.0f, 1.0f, 0.0f
 };
 const Vec3 Vec3::unitZ = {
-    0.0f, 0.0f, 1.0f
+	0.0f, 0.0f, 1.0f
 };
 
 inline Vec2 ToVec2(Vec3 v)
 {
-    Vec2 result;
-    result.x = v.x;
-    result.y = v.y;
-    return result;
+	Vec2 result;
+	result.x = v.x;
+	result.y = v.y;
+	return result;
 }
 inline Vec4 ToVec4(Vec3 v, float32 w)
 {
-    Vec4 result;
-    result.x = v.x;
-    result.y = v.y;
-    result.z = v.z;
-    result.w = w;
-    return result;
+	Vec4 result;
+	result.x = v.x;
+	result.y = v.y;
+	result.z = v.z;
+	result.w = w;
+	return result;
 }
 
 inline Vec3 operator-(Vec3 v)
@@ -481,17 +483,17 @@ inline Vec3& operator/=(Vec3& v, float32 s)
 
 inline bool operator==(const Vec3& v1, const Vec3& v2)
 {
-    return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
+	return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
 }
 
 inline Vec3 Lerp(Vec3 v1, Vec3 v2, float t)
 {
-    Vec3 result = {
-        Lerp(v1.x, v2.x, t),
-        Lerp(v1.y, v2.y, t),
-        Lerp(v1.z, v2.z, t)
-    };
-    return result;
+	Vec3 result = {
+		Lerp(v1.x, v2.x, t),
+		Lerp(v1.y, v2.y, t),
+		Lerp(v1.z, v2.z, t)
+	};
+	return result;
 }
 
 inline float32 Dot(Vec3 v1, Vec3 v2)
@@ -501,10 +503,10 @@ inline float32 Dot(Vec3 v1, Vec3 v2)
 inline Vec3 Cross(Vec3 v1, Vec3 v2)
 {
 	return Vec3 {
-        v1.y * v2.z - v1.z * v2.y,
-        v1.z * v2.x - v1.x * v2.z,
-        v1.x * v2.y - v1.y * v2.x
-    };
+		v1.y * v2.z - v1.z * v2.y,
+		v1.z * v2.x - v1.x * v2.z,
+		v1.x * v2.y - v1.y * v2.x
+	};
 }
 
 inline float32 MagSq(Vec3 v)
@@ -522,22 +524,22 @@ inline Vec3 Normalize(Vec3 v)
 
 // -------------------- Vec4 --------------------
 const Vec4 Vec4::zero = {
-    0.0f, 0.0f, 0.0f, 0.0f
+	0.0f, 0.0f, 0.0f, 0.0f
 };
 const Vec4 Vec4::one = {
-    1.0f, 1.0f, 1.0f, 1.0f
+	1.0f, 1.0f, 1.0f, 1.0f
 };
 const Vec4 Vec4::black = {
-    0.0f, 0.0f, 0.0f, 1.0f
+	0.0f, 0.0f, 0.0f, 1.0f
 };
 const Vec4 Vec4::red = {
-    1.0f, 0.0f, 0.0f, 1.0f
+	1.0f, 0.0f, 0.0f, 1.0f
 };
 const Vec4 Vec4::green = {
-    0.0f, 1.0f, 0.0f, 1.0f
+	0.0f, 1.0f, 0.0f, 1.0f
 };
 const Vec4 Vec4::blue = {
-    0.0f, 0.0f, 1.0f, 1.0f
+	0.0f, 0.0f, 1.0f, 1.0f
 };
 
 inline Vec4 operator-(Vec4 v)
@@ -616,18 +618,18 @@ inline Vec4& operator/=(Vec4& v, float32 s)
 
 inline bool operator==(const Vec4& v1, const Vec4& v2)
 {
-    return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z && v1.w == v2.w;
+	return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z && v1.w == v2.w;
 }
 
 inline Vec4 Lerp(Vec4 v1, Vec4 v2, float t)
 {
-    Vec4 result = {
-        Lerp(v1.x, v2.x, t),
-        Lerp(v1.y, v2.y, t),
-        Lerp(v1.z, v2.z, t),
-        Lerp(v1.w, v2.w, t)
-    };
-    return result;
+	Vec4 result = {
+		Lerp(v1.x, v2.x, t),
+		Lerp(v1.y, v2.y, t),
+		Lerp(v1.z, v2.z, t),
+		Lerp(v1.w, v2.w, t)
+	};
+	return result;
 }
 
 // -------------------- Mat4 --------------------
@@ -695,10 +697,10 @@ inline Mat4 operator*(Mat4 m1, Mat4 m2)
 		for (int colM1 = 0; colM1 < 4; colM1++) {
 			for (int rowM1 = 0; rowM1 < 4; rowM1++) {
 				result.e[colM2][rowM1] += 
-                    m2.e[colM2][colM1] * m1.e[colM1][rowM1];
-            }
-        }
-    }
+					m2.e[colM2][colM1] * m1.e[colM1][rowM1];
+			}
+		}
+	}
 
 	return result;
 }
@@ -707,11 +709,11 @@ inline Vec4 operator*(Mat4 m, Vec4 v)
 {
 	Vec4 result = Vec4::zero;
 
-    for (int row = 0; row < 4; row++) {
-        for (int col = 0; col < 4; col++) {
-            result.e[row] += m.e[col][row] * v.e[col];
-        }
-    }
+	for (int row = 0; row < 4; row++) {
+		for (int col = 0; col < 4; col++) {
+			result.e[row] += m.e[col][row] * v.e[col];
+		}
+	}
 
 	return result;
 }
@@ -753,49 +755,49 @@ Mat4 Scale(Vec3 v)
 
 Mat4 Rotate(Vec3 r)
 {
-    Mat4 rx = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, cosf(r.x), -sinf(r.x), 0.0f,
-        0.0f, sinf(r.x), cosf(r.x), 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-    Mat4 ry = {
-        cosf(r.y), 0.0f, sinf(r.y), 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        -sinf(r.y), 0.0f, cosf(r.y), 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
-    Mat4 rz = {
-        cosf(r.z), -sinf(r.z), 0.0f, 0.0f,
-        sinf(r.z), cosf(r.z), 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
+	Mat4 rx = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, cosf(r.x), -sinf(r.x), 0.0f,
+		0.0f, sinf(r.x), cosf(r.x), 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+	Mat4 ry = {
+		cosf(r.y), 0.0f, sinf(r.y), 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		-sinf(r.y), 0.0f, cosf(r.y), 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+	Mat4 rz = {
+		cosf(r.z), -sinf(r.z), 0.0f, 0.0f,
+		sinf(r.z), cosf(r.z), 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
 
-    // Order: <- yaw <- pitch <- roll <-
-    return rz * ry * rx;
+	// Order: <- yaw <- pitch <- roll <-
+	return rz * ry * rx;
 }
 
 Mat4 Projection(float32 fov, float32 aspect,
 	float32 nearZ, float32 farZ)
 {
-    float32 degToRad = PI_F / 180.0f;
-    float32 yScale = 1.0f / tanf(degToRad * fov / 2.0f);
-    float32 xScale = yScale / aspect;
-    float32 nearMinusFar = nearZ - farZ;
+	float32 degToRad = PI_F / 180.0f;
+	float32 yScale = 1.0f / tanf(degToRad * fov / 2.0f);
+	float32 xScale = yScale / aspect;
+	float32 nearMinusFar = nearZ - farZ;
 	Mat4 proj = {
-        xScale, 0.0f, 0.0f, 0.0f,
-        0.0f, yScale, 0.0f, 0.0f,
-        0.0f, 0.0f, (farZ + nearZ) / nearMinusFar, -1.0f,
-        0.0f, 0.0f, 2.0f*farZ*nearZ / nearMinusFar, 0.0f
-    };
+		xScale, 0.0f, 0.0f, 0.0f,
+		0.0f, yScale, 0.0f, 0.0f,
+		0.0f, 0.0f, (farZ + nearZ) / nearMinusFar, -1.0f,
+		0.0f, 0.0f, 2.0f*farZ*nearZ / nearMinusFar, 0.0f
+	};
 
 	return proj;
 }
 
 // -------------------- Quat --------------------
 const Quat Quat::one = {
-    0.0f, 0.0f, 0.0f, 1.0f
+	0.0f, 0.0f, 0.0f, 1.0f
 };
 
 // Compounds two rotations q1 and q2 (like matrices: q2 first, then q1)
@@ -819,13 +821,13 @@ inline float32 Mag(Quat q)
 }
 inline Quat Normalize(Quat q)
 {
-    Quat result = q;
-    float32 mag = Mag(q);
-    result.x /= mag;
-    result.y /= mag;
-    result.z /= mag;
-    result.w /= mag;
-    return result;
+	Quat result = q;
+	float32 mag = Mag(q);
+	result.x /= mag;
+	result.y /= mag;
+	result.z /= mag;
+	result.w /= mag;
+	return result;
 }
 
 // Returns a new quaternion qInv such that q * qInv = Quat::one
@@ -848,7 +850,7 @@ inline Vec3 operator*(Quat q, Vec3 v)
 	qv.y = q.w*v.y + q.z*v.x - q.x*v.z;
 	qv.z = q.w*v.z + q.x*v.y - q.y*v.x;
 	qv.w = -q.x*v.x - q.y*v.y - q.z*v.z;*/
-    Quat qv = q * vQuat;
+	Quat qv = q * vQuat;
 
 	Quat qInv = Inverse(q);
 	Quat qvqInv = qv * qInv;
@@ -884,21 +886,21 @@ Quat QuatFromEulerAngles(Vec3 euler)
 	q.z = sinYaw*cosRoll*cosPitch - cosYaw*sinRoll*sinPitch;
 	q.w = cosYaw*cosRoll*cosPitch + sinYaw*sinRoll*sinPitch;
 	return q;*/
-    Quat quat = QuatFromAngleUnitAxis(euler.x, Vec3 { 1.0f, 0.0f, 0.0f });
-    quat = QuatFromAngleUnitAxis(euler.y, Vec3 { 0.0f, 1.0f, 0.0f }) * quat;
-    quat = QuatFromAngleUnitAxis(euler.z, Vec3 { 0.0f, 0.0f, 1.0f }) * quat;
-    return quat;
+	Quat quat = QuatFromAngleUnitAxis(euler.x, Vec3 { 1.0f, 0.0f, 0.0f });
+	quat = QuatFromAngleUnitAxis(euler.y, Vec3 { 0.0f, 1.0f, 0.0f }) * quat;
+	quat = QuatFromAngleUnitAxis(euler.z, Vec3 { 0.0f, 0.0f, 1.0f }) * quat;
+	return quat;
 }
 
 Quat QuatRotBetweenVectors(Vec3 v1, Vec3 v2)
 {
-    Vec3 axis = Cross(v1, v2);
-    float angle = asinf(Mag(axis) / (Mag(v1) * Mag(v2)));
-    if (axis == Vec3::zero) {
-        return Quat::one;
-    }
+	Vec3 axis = Cross(v1, v2);
+	float angle = asinf(Mag(axis) / (Mag(v1) * Mag(v2)));
+	if (axis == Vec3::zero) {
+		return Quat::one;
+	}
 
-    return QuatFromAngleUnitAxis(angle, Normalize(axis));
+	return QuatFromAngleUnitAxis(angle, Normalize(axis));
 }
 
 // q, as always, must be a unit quaternion

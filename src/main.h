@@ -28,14 +28,14 @@ struct ColliderBox
 
 struct ObjectStatic
 {
-	Vec2Int pos;
+	Vec2 pos;
 	Vec2 anchor;
 	TextureGL texture;
 };
 
 struct ObjectAnimated
 {
-	Vec2Int pos;
+	Vec2 pos;
 	Vec2 anchor;
 	AnimatedSprite sprite;
 	
@@ -60,9 +60,9 @@ struct GameState
 	Scene activeScene;
 
 	// Overworld state
-	Vec2Int cameraPos;
-	Vec2Int playerPos;
-	Vec2Int playerVel;
+	Vec2 cameraPos;
+	Vec2 playerPos;
+	Vec2 playerVel;
 	bool32 falling;
 	bool32 facingRight;
 

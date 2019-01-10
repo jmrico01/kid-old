@@ -15,6 +15,8 @@
 #include "opengl_base.h"
 #include "post.h"
 
+#define PIXELS_PER_UNIT 120
+
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -27,9 +29,8 @@ inline float32 RandFloat32(float32 min, float32 max)
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	// Constants tuned for 1080p
-	const int PLAYER_WALK_SPEED = 185;
-	const int PLAYER_JUMP_SPEED = 500;
+	const float32 PLAYER_WALK_SPEED = 1.54f;
+	const float32 PLAYER_JUMP_SPEED = 4.2f;
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
 		gameState->playerVel.x -= PLAYER_WALK_SPEED;
@@ -58,8 +59,8 @@ void DrawObjectStatic(const ObjectStatic& objectStatic,
 	float32 scaleFactor, Vec2Int objectOffset,
 	TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
 {
-	Vec2Int pos = objectStatic.pos * scaleFactor;
-	Vec2Int size = objectStatic.texture.size * scaleFactor;
+	Vec2Int pos = ToVec2Int(objectStatic.pos * scaleFactor);
+	Vec2Int size = objectStatic.texture.size * scaleFactor / PIXELS_PER_UNIT;
 	DrawTexturedRect(texturedRectGL, screenInfo,
 		pos + objectOffset, objectStatic.anchor, size, false,
 		objectStatic.texture.textureID);
@@ -69,21 +70,22 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
 	float32 scaleFactor, Vec2Int objectOffset,
 	TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
 {
-	Vec2Int pos = objectAnimated.pos * scaleFactor;
-	Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor;
+	Vec2Int pos = ToVec2Int(objectAnimated.pos * scaleFactor);
+	Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor / PIXELS_PER_UNIT;
+    DEBUG_PRINT("size: %d, %d\n", size.x, size.y);
 	objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
 		pos + objectOffset, objectAnimated.anchor, size, false);
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	gameState->playerVel.x = 0;
+	gameState->playerVel.x = 0.0f;
 #if GAME_INTERNAL
 	if (gameState->editor) {
 		UpdateClickableBoxes(&gameState->guys.box, 1, input);
 		UpdateClickableBoxes(&gameState->bush.box, 1, input);
 		if (input->mouseButtons[0].isDown) {
-			gameState->cameraPos -= input->mouseDelta;
+			//gameState->cameraPos -= input->mouseDelta;
 		}
 	}
 	else {
@@ -93,14 +95,14 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-	const int FLOOR_LEVEL = 70;
-	const int GRAVITY_ACCEL = 1000;
+	const float32 FLOOR_LEVEL = 0.58f;
+	const float32 GRAVITY_ACCEL = 8.3f;
 
 	if (gameState->falling) {
-		gameState->playerVel.y -= (int)(GRAVITY_ACCEL * deltaTime);
+		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
 	}
 	else {
-		gameState->playerVel.y = 0;
+		gameState->playerVel.y = 0.0f;
 	}
 	gameState->playerPos += gameState->playerVel * deltaTime;
 	if (gameState->playerPos.y < FLOOR_LEVEL) {
@@ -142,9 +144,9 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 	gameState->cameraPos = gameState->playerPos;
 #endif
 
-	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
+	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f * PIXELS_PER_UNIT;
 	const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 4 };
-	Vec2Int objectOffset = CAMERA_OFFSET - gameState->cameraPos * REF_SCALE_FACTOR;
+	Vec2Int objectOffset = CAMERA_OFFSET - ToVec2Int(gameState->cameraPos * REF_SCALE_FACTOR);
 
 	DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
 		gameState->texturedRectGL, screenInfo);
@@ -157,9 +159,9 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 		gameState->texturedRectGL, screenInfo);*/
 
 	{ // kid & me text
-		Vec2Int pos = gameState->playerPos * REF_SCALE_FACTOR;
+		Vec2Int pos = ToVec2Int(gameState->playerPos * REF_SCALE_FACTOR);
 		Vec2 anchor = { 0.5f, 0.0f };
-		Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR;
+		Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR / PIXELS_PER_UNIT;
 		Vec2Int meTextOffset = { -20, 20 };
 		meTextOffset *= REF_SCALE_FACTOR;
 
@@ -171,10 +173,12 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
-		gameState->guys.box.origin = gameState->guys.pos * REF_SCALE_FACTOR + objectOffset;
+		gameState->guys.box.origin = ToVec2Int(gameState->guys.pos * REF_SCALE_FACTOR)
+            + objectOffset;
 		gameState->guys.box.size = gameState->guys.sprite.textureSize * REF_SCALE_FACTOR;
 		DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
-		gameState->bush.box.origin = gameState->bush.pos * REF_SCALE_FACTOR + objectOffset;
+		gameState->bush.box.origin = ToVec2Int(gameState->bush.pos * REF_SCALE_FACTOR)
+            + objectOffset;
 		gameState->bush.box.size = gameState->bush.sprite.textureSize * REF_SCALE_FACTOR;
 		DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
 	}
@@ -295,8 +299,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->activeScene = SCENE_TOWN;
 
 		// town data init
-		gameState->playerPos = Vec2Int { 0, 100 };
-		gameState->playerVel = Vec2Int { 0, 0 };
+		gameState->playerPos = Vec2 { 0.0f, 1.0f };
+		gameState->playerVel = Vec2 { 0.0f, 0.0f };
 		gameState->falling = true;
 		gameState->facingRight = true;
 
@@ -421,7 +425,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadBackground) {
 			DEBUG_PANIC("Failed to load background");
 		}
-		gameState->background.pos = { -gameState->background.texture.size.x / 2, -270 };
+		gameState->background.pos = { -20.0f, -2.25f };
 		gameState->background.anchor = { 0.0f, 0.0f };
 		bool32 loadClouds = LoadPNGOpenGL(thread,
 			"data/sprites/clouds.png", gameState->clouds.texture,
@@ -430,7 +434,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadClouds) {
 			DEBUG_PANIC("Failed to load clouds");
 		}
-		gameState->clouds.pos = { -gameState->clouds.texture.size.x / 2, -75 };
+		gameState->clouds.pos = { -20.0f, -75 };
 		gameState->clouds.anchor = { 0.0f, 0.0f };
 
 		bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
@@ -455,7 +459,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadGuysAnim) {
 			DEBUG_PANIC("Failed to load guys animation sprite");
 		}
-		gameState->guys.pos = Vec2Int { 1300, -75 };
+		gameState->guys.pos = Vec2 { 11.0f, -0.58f };
 		gameState->guys.anchor = Vec2 { 0.5f, 0.0f };
 
 		bool32 loadBushAnim = LoadAnimatedSprite(thread, "data/animations/bush/bush.kma",
@@ -465,11 +469,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadBushAnim) {
 			DEBUG_PANIC("Failed to load bush animation sprite");
 		}
-		gameState->bush.pos = Vec2Int { -150, 20 };
+		gameState->bush.pos = Vec2 { -1.0f, 0.2f };
 		gameState->bush.anchor = Vec2 { 0.5f, 0.0f };
 
 #if GAME_INTERNAL
-		gameState->guys.box = CreateClickableBox(gameState->guys.pos,
+		/*gameState->guys.box = CreateClickableBox(gameState->guys.pos,
 			gameState->guys.sprite.textureSize,
 			gameState->guys.anchor,
 			Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
@@ -482,7 +486,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec4 { 0.0f, 0.0f, 0.0f, 0.1f },
 			Vec4 { 0.0f, 0.0f, 0.0f, 0.4f },
 			Vec4 { 0.0f, 0.0f, 0.0f, 0.7f }
-		);
+		);*/
 #endif
 
 		memory->isInitialized = true;
