@@ -27,6 +27,28 @@ inline float32 RandFloat32(float32 min, float32 max)
 	return RandFloat32() * (max - min) + min;
 }
 
+void DrawObjectStatic(const ObjectStatic& objectStatic,
+    float32 scaleFactor, Vec2Int objectOffset,
+    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+{
+    Vec2Int pos = ToVec2Int(objectStatic.pos * scaleFactor);
+    Vec2Int size = objectStatic.texture.size * scaleFactor / PIXELS_PER_UNIT;
+    DrawTexturedRect(texturedRectGL, screenInfo,
+        pos + objectOffset, objectStatic.anchor, size, false,
+        objectStatic.texture.textureID);
+}
+
+void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
+    float32 scaleFactor, Vec2Int objectOffset,
+    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+{
+    Vec2Int pos = ToVec2Int(objectAnimated.pos * scaleFactor);
+    Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor / PIXELS_PER_UNIT;
+    DEBUG_PRINT("size: %d, %d\n", size.x, size.y);
+    objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
+        pos + objectOffset, objectAnimated.anchor, size, false);
+}
+
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	const float32 PLAYER_WALK_SPEED = 1.54f;
@@ -49,32 +71,6 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 			gameState->audioState.soundKick.sampleIndex = 0;
 		}
 	}
-}
-
-void MovePlayer(GameState* gameState, float32 deltaTime)
-{
-}
-
-void DrawObjectStatic(const ObjectStatic& objectStatic,
-	float32 scaleFactor, Vec2Int objectOffset,
-	TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
-{
-	Vec2Int pos = ToVec2Int(objectStatic.pos * scaleFactor);
-	Vec2Int size = objectStatic.texture.size * scaleFactor / PIXELS_PER_UNIT;
-	DrawTexturedRect(texturedRectGL, screenInfo,
-		pos + objectOffset, objectStatic.anchor, size, false,
-		objectStatic.texture.textureID);
-}
-
-void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
-	float32 scaleFactor, Vec2Int objectOffset,
-	TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
-{
-	Vec2Int pos = ToVec2Int(objectAnimated.pos * scaleFactor);
-	Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor / PIXELS_PER_UNIT;
-    DEBUG_PRINT("size: %d, %d\n", size.x, size.y);
-	objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
-		pos + objectOffset, objectAnimated.anchor, size, false);
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
