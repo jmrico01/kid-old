@@ -21,7 +21,7 @@
 
 #define FLOOR_LEVEL 0.0f
 
-#define LINE_COLLIDER_WIDTH 0.1f
+#define LINE_COLLIDER_WIDTH 0.25f
 
 inline float32 RandFloat32()
 {
@@ -195,7 +195,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix
 	DrawObjectStatic(gameState->background, spriteDataGL);
 
 	{ // kid & me text
-		Vec2 anchor = { 0.5f, 0.08f };
+		Vec2 anchor = { 0.5f, 0.15f };
 		Vec2 size = ToVec2(gameState->spriteKid.textureSize) / REF_PIXELS_PER_UNIT;
 		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
@@ -339,7 +339,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->activeScene = SCENE_TOWN;
 
 		// town data init
-		gameState->playerPos = Vec2 { 0.0f, 5.0f };
+		gameState->playerPos = Vec2 { 0.0f, 10.0f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
 		gameState->falling = true;
 		gameState->facingRight = true;
