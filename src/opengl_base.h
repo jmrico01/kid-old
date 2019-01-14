@@ -50,8 +50,8 @@ struct RectCoordsNDC
 
 struct LineGLData
 {
-    Vec3 pos[MAX_LINE_POINTS];
     int count;
+    Vec3 pos[MAX_LINE_POINTS];
 };
 
 RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size,

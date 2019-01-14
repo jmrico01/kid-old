@@ -14,16 +14,25 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
+#define LINE_COLLIDER_MAX_VERTICES 32
+#define LINE_COLLIDERS_MAX 4
+
 enum Scene
 {
 	SCENE_TOWN,
 	SCENE_FISHING
 };
 
+struct ColliderLine
+{
+    int numVertices;
+    Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
+};
+
 struct ColliderBox
 {
-	Vec2Int pos;
-	Vec2Int size;
+	Vec2 pos;
+	Vec2 size;
 };
 
 struct ObjectStatic
@@ -66,18 +75,28 @@ struct GameState
 	bool32 falling;
 	bool32 facingRight;
 
+    int numLineColliders;
+    ColliderLine lineColliders[LINE_COLLIDERS_MAX];
+
+#if GAME_INTERNAL
+    float32 floorHeight;
+#endif
+
 	// Fishing state
 	int playerPosX;
 	float32 obstacleTimer;
 	int numObstacles;
 	FishingObstacle obstacles[FISHING_OBSTACLES_MAX];
 
+    // Other
 	float32 grainTime;
 
 #if GAME_INTERNAL
 	bool32 debugView;
 	bool32 editor;
 #endif
+
+    RenderState renderState;
 
 	RectGL rectGL;
 	TexturedRectGL texturedRectGL;
@@ -88,10 +107,6 @@ struct GameState
 	AnimatedSprite spriteMe;
 
 	ObjectStatic background;
-	ObjectStatic clouds;
-
-	ObjectAnimated guys;
-	ObjectAnimated bush;
 
 	FT_Library ftLibrary;
 	FontFace fontFaceSmall;

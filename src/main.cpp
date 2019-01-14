@@ -14,8 +14,12 @@
 #include "opengl_funcs.h"
 #include "opengl_base.h"
 #include "post.h"
+#include "render.h"
 
-#define PIXELS_PER_UNIT 120
+#define REF_PIXEL_SCREEN_HEIGHT 1080
+#define REF_PIXELS_PER_UNIT     120
+
+#define FLOOR_LEVEL 0.0f
 
 inline float32 RandFloat32()
 {
@@ -27,26 +31,39 @@ inline float32 RandFloat32(float32 min, float32 max)
 	return RandFloat32() * (max - min) + min;
 }
 
-void DrawObjectStatic(const ObjectStatic& objectStatic,
-    float32 scaleFactor, Vec2Int objectOffset,
-    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 {
-    Vec2Int pos = ToVec2Int(objectStatic.pos * scaleFactor);
-    Vec2Int size = objectStatic.texture.size * scaleFactor / PIXELS_PER_UNIT;
-    DrawTexturedRect(texturedRectGL, screenInfo,
-        pos + objectOffset, objectStatic.anchor, size, false,
-        objectStatic.texture.textureID);
+	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
+	const float32 CAMERA_HEIGHT = (float32)REF_PIXEL_SCREEN_HEIGHT / REF_PIXELS_PER_UNIT;
+	const Vec3 CAMERA_OFFSET = { 0.0f, -CAMERA_HEIGHT / 3.0f, 0.0f };
+	const Vec3 SCREEN_CENTER = {
+		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
+		CAMERA_HEIGHT / 2.0f,
+		0.0f
+	};
+
+	Vec3 scale = {
+		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT / ASPECT_RATIO,
+		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT,
+		1.0f
+	};
+	return Translate(Vec3 { -1.0f, -1.0f, 0.0f })
+		* Scale(scale) * Translate(SCREEN_CENTER + CAMERA_OFFSET);
 }
 
-void DrawObjectAnimated(const ObjectAnimated& objectAnimated,
-    float32 scaleFactor, Vec2Int objectOffset,
-    TexturedRectGL texturedRectGL, ScreenInfo screenInfo)
+void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
 {
-    Vec2Int pos = ToVec2Int(objectAnimated.pos * scaleFactor);
-    Vec2Int size = objectAnimated.sprite.textureSize * scaleFactor / PIXELS_PER_UNIT;
-    DEBUG_PRINT("size: %d, %d\n", size.x, size.y);
-    objectAnimated.sprite.Draw(texturedRectGL, screenInfo,
-        pos + objectOffset, objectAnimated.anchor, size, false);
+	Vec2 size = ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
+	PushSpriteWorldSpace(spriteDataGL, objectStatic.pos, size,
+		objectStatic.anchor, false,
+		objectStatic.texture.textureID);
+}
+
+void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spriteDataGL)
+{
+	Vec2 size = ToVec2(objectAnimated.sprite.textureSize) / REF_PIXELS_PER_UNIT;
+	objectAnimated.sprite.Draw(spriteDataGL,
+		objectAnimated.pos, size, objectAnimated.anchor, false);
 }
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -78,9 +95,8 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	gameState->playerVel.x = 0.0f;
 #if GAME_INTERNAL
 	if (gameState->editor) {
-		UpdateClickableBoxes(&gameState->guys.box, 1, input);
-		UpdateClickableBoxes(&gameState->bush.box, 1, input);
 		if (input->mouseButtons[0].isDown) {
+			// TODO fix (screen to world)
 			//gameState->cameraPos -= input->mouseDelta;
 		}
 	}
@@ -91,8 +107,30 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-	const float32 FLOOR_LEVEL = 0.58f;
 	const float32 GRAVITY_ACCEL = 8.3f;
+
+	Vec2 playerPos = gameState->playerPos;
+	float32 floorHeight = -1e9f;
+	for (int i = 0; i < gameState->numLineColliders; i++) {
+		const ColliderLine& lineCollider = gameState->lineColliders[i];
+		float32 matchHeight = -1e9f;
+		for (int j = 1; j < lineCollider.numVertices; j++) {
+			Vec2 vertPrev = lineCollider.vertices[j - 1];
+			Vec2 vert = lineCollider.vertices[j];
+			if (vertPrev.x <= playerPos.x && vert.x >= playerPos.x) {
+				float32 t = (playerPos.x - vertPrev.x) / (vert.x - vertPrev.x);
+				float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
+				if (height <= playerPos.y) {
+					matchHeight = height;
+					break;
+				}
+			}
+		}
+
+		if (matchHeight > floorHeight) {
+			floorHeight = matchHeight;
+		}
+	}
 
 	if (gameState->falling) {
 		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
@@ -101,16 +139,12 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		gameState->playerVel.y = 0.0f;
 	}
 	gameState->playerPos += gameState->playerVel * deltaTime;
-	if (gameState->playerPos.y < FLOOR_LEVEL) {
-		gameState->playerPos.y = FLOOR_LEVEL;
+	if (gameState->playerPos.y < floorHeight) {
+		gameState->playerPos.y = floorHeight;
 		gameState->falling = false;
 		gameState->audioState.soundSnare.playing = true;
 		gameState->audioState.soundSnare.sampleIndex = 0;
 	}
-
-	const int NEXT_ANIMS[1] = { 0 };
-	gameState->guys.sprite.Update(deltaTime, 1, NEXT_ANIMS);
-	gameState->bush.sprite.Update(deltaTime, 1, NEXT_ANIMS);
 
 	// TODO ideally animation IDs would be strings
 	const int KID_IDLE_ANIMS[2] = { 0, 1 };
@@ -128,9 +162,13 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
 	gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
+
+#if GAME_INTERNAL
+	gameState->floorHeight = floorHeight;
+#endif
 }
 
-void DrawTown(GameState* gameState, ScreenInfo screenInfo)
+void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
 {
 #if GAME_INTERNAL
 	if (!gameState->editor) {
@@ -140,44 +178,34 @@ void DrawTown(GameState* gameState, ScreenInfo screenInfo)
 	gameState->cameraPos = gameState->playerPos;
 #endif
 
-	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f * PIXELS_PER_UNIT;
-	const Vec2Int CAMERA_OFFSET = { screenInfo.size.x / 2, screenInfo.size.y / 4 };
-	Vec2Int objectOffset = CAMERA_OFFSET - ToVec2Int(gameState->cameraPos * REF_SCALE_FACTOR);
-
-	DrawObjectStatic(gameState->background, REF_SCALE_FACTOR, objectOffset,
-		gameState->texturedRectGL, screenInfo);
-	/*DrawObjectStatic(gameState->clouds, REF_SCALE_FACTOR, objectOffset,
-		gameState->texturedRectGL, screenInfo);
-
-	DrawObjectAnimated(gameState->guys, REF_SCALE_FACTOR, objectOffset,
-		gameState->texturedRectGL, screenInfo);
-	DrawObjectAnimated(gameState->bush, REF_SCALE_FACTOR, objectOffset,
-		gameState->texturedRectGL, screenInfo);*/
+	DrawObjectStatic(gameState->background, spriteDataGL);
 
 	{ // kid & me text
-		Vec2Int pos = ToVec2Int(gameState->playerPos * REF_SCALE_FACTOR);
-		Vec2 anchor = { 0.5f, 0.0f };
-		Vec2Int size = gameState->spriteKid.textureSize * REF_SCALE_FACTOR / PIXELS_PER_UNIT;
-		Vec2Int meTextOffset = { -20, 20 };
-		meTextOffset *= REF_SCALE_FACTOR;
+		Vec2 anchor = { 0.5f, 0.08f };
+		Vec2 size = ToVec2(gameState->spriteKid.textureSize) / REF_PIXELS_PER_UNIT;
+		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
-		gameState->spriteKid.Draw(gameState->texturedRectGL, screenInfo,
-			pos + objectOffset, anchor, size, !gameState->facingRight);
-		/*gameState->spriteMe.Draw(gameState->texturedRectGL, screenInfo,
-			pos + meTextOffset + objectOffset, anchor, size, false);*/
+		gameState->spriteKid.Draw(spriteDataGL, gameState->playerPos, size,
+			anchor, !gameState->facingRight);
 	}
 
+	Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
+	Mat4 view = Translate(-cameraPos);
+	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+
+#if 0
 #if GAME_INTERNAL
 	if (gameState->editor) {
 		gameState->guys.box.origin = ToVec2Int(gameState->guys.pos * REF_SCALE_FACTOR)
-            + objectOffset;
+			+ objectOffset;
 		gameState->guys.box.size = gameState->guys.sprite.textureSize * REF_SCALE_FACTOR;
 		DrawClickableBoxes(&gameState->guys.box, 1, gameState->rectGL, screenInfo);
 		gameState->bush.box.origin = ToVec2Int(gameState->bush.pos * REF_SCALE_FACTOR)
-            + objectOffset;
+			+ objectOffset;
 		gameState->bush.box.size = gameState->bush.sprite.textureSize * REF_SCALE_FACTOR;
 		DrawClickableBoxes(&gameState->bush.box, 1, gameState->rectGL, screenInfo);
 	}
+#endif
 #endif
 }
 
@@ -221,7 +249,7 @@ void UpdateFishing(GameState* gameState, float32 deltaTime,
 	}
 }
 
-void DrawFishing(GameState* gameState, ScreenInfo screenInfo)
+void DrawFishing(GameState* gameState, SpriteDataGL* spriteDataGL, ScreenInfo screenInfo)
 {
 	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
 	const Vec2Int PLAYER_SIZE = { 170, 250 };
@@ -286,6 +314,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
 
+		glLineWidth(2.0f);
+
 		InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -300,6 +330,26 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->falling = true;
 		gameState->facingRight = true;
 
+		gameState->numLineColliders = 0;
+
+		gameState->numLineColliders++;
+		gameState->lineColliders[0].numVertices = 5;
+		gameState->lineColliders[0].vertices[0] = { -20.0f, FLOOR_LEVEL };
+		gameState->lineColliders[0].vertices[1] = { -10.0f, FLOOR_LEVEL };
+		gameState->lineColliders[0].vertices[2] = { 0.0f, FLOOR_LEVEL };
+		gameState->lineColliders[0].vertices[3] = { 10.0f, FLOOR_LEVEL };
+		gameState->lineColliders[0].vertices[4] = { 20.0f, FLOOR_LEVEL };
+
+		gameState->numLineColliders++;
+		gameState->lineColliders[1].numVertices = 2;
+		gameState->lineColliders[1].vertices[0] = { 2.0f, 0.5f };
+		gameState->lineColliders[1].vertices[1] = { 6.0f, 2.0f };
+
+		gameState->numLineColliders++;
+		gameState->lineColliders[2].numVertices = 2;
+		gameState->lineColliders[2].vertices[0] = { -6.0f, 2.0f };
+		gameState->lineColliders[2].vertices[1] = { -2.0f, 0.5f };
+
 		// fishing data init
 		gameState->playerPosX = screenInfo.size.x;
 		gameState->obstacleTimer = 0.0f;
@@ -313,6 +363,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 
 		// Rendering stuff
+		InitRenderState(gameState->renderState, thread,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+
 		gameState->rectGL = InitRectGL(thread,
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -414,6 +468,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
+		gameState->background.pos = { 0.0f, -3.05f };
+		gameState->background.anchor = { 0.5f, 0.0f };
 		bool32 loadBackground = LoadPNGOpenGL(thread,
 			"data/sprites/bg.png", gameState->background.texture,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -421,17 +477,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadBackground) {
 			DEBUG_PANIC("Failed to load background");
 		}
-		gameState->background.pos = { -20.0f, -2.25f };
-		gameState->background.anchor = { 0.0f, 0.0f };
-		bool32 loadClouds = LoadPNGOpenGL(thread,
-			"data/sprites/clouds.png", gameState->clouds.texture,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadClouds) {
-			DEBUG_PANIC("Failed to load clouds");
-		}
-		gameState->clouds.pos = { -20.0f, -75 };
-		gameState->clouds.anchor = { 0.0f, 0.0f };
 
 		bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
 			gameState->spriteKid,
@@ -447,26 +492,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (!loadMeAnim) {
 			DEBUG_PANIC("Failed to load me animation sprite");
 		}
-
-		bool32 loadGuysAnim = LoadAnimatedSprite(thread, "data/animations/guys/guys.kma",
-			gameState->guys.sprite,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadGuysAnim) {
-			DEBUG_PANIC("Failed to load guys animation sprite");
-		}
-		gameState->guys.pos = Vec2 { 11.0f, -0.58f };
-		gameState->guys.anchor = Vec2 { 0.5f, 0.0f };
-
-		bool32 loadBushAnim = LoadAnimatedSprite(thread, "data/animations/bush/bush.kma",
-			gameState->bush.sprite,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadBushAnim) {
-			DEBUG_PANIC("Failed to load bush animation sprite");
-		}
-		gameState->bush.pos = Vec2 { -1.0f, 0.2f };
-		gameState->bush.anchor = Vec2 { 0.5f, 0.0f };
 
 #if GAME_INTERNAL
 		/*gameState->guys.box = CreateClickableBox(gameState->guys.pos,
@@ -539,12 +564,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	Mat4 worldMatrix = CalculateWorldMatrix(screenInfo);
+
+	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
+	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
+	spriteDataGL->numSprites = 0;
+
 	switch (gameState->activeScene) {
 		case SCENE_TOWN: {
-			DrawTown(gameState, screenInfo);
+			DrawTown(gameState, spriteDataGL, worldMatrix);
 		} break;
 		case SCENE_FISHING: {
-			DrawFishing(gameState, screenInfo);
+			DrawFishing(gameState, spriteDataGL, screenInfo);
 		} break;
 	}
 
@@ -609,14 +640,88 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	const Vec2Int MARGIN = { 15, 10 };
 
 	if (gameState->debugView) {
-		char fpsStr[128];
-		sprintf(fpsStr, "%.2f FPS", 1.0f / deltaTime);
-		Vec2Int fpsPos = {
+		FontFace& textFont = gameState->fontFaceMedium;
+		char textStr[128];
+		sprintf(textStr, "%.2f FPS", 1.0f / deltaTime);
+		Vec2Int textPos = {
 			screenInfo.size.x - pillarboxWidth - MARGIN.x,
 			screenInfo.size.y - MARGIN.y,
 		};
-		DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-			fpsStr, fpsPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPos.y -= textFont.height;
+
+		textPos.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f POS", gameState->playerPos.x, gameState->playerPos.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPos.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f VEL", gameState->playerVel.x, gameState->playerVel.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPos.y -= textFont.height;
+		textPos.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f CAM", gameState->cameraPos.x, gameState->cameraPos.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
+		LineGLData* lineData = (LineGLData*)memory->transient.memory;
+
+		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
+		Mat4 view = Translate(-cameraPos);
+		Vec4 lineColliderColor = { 0.0f, 1.0f, 1.0f, 1.0f };
+
+		for (int i = 0; i < gameState->numLineColliders; i++) {
+			ColliderLine& line = gameState->lineColliders[i];
+			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
+
+			lineData->count = line.numVertices;
+			for (int v = 0; v < line.numVertices; v++) {
+				lineData->pos[v] = Vec3 {
+					line.vertices[v].x,
+					line.vertices[v].y,
+					0.0f
+				};
+			}
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
+		}
+
+		// Player position cross
+		lineData->count = 2;
+		float32 crossSize = 0.1f;
+		Vec3 playerPos = { gameState->playerPos.x, gameState->playerPos.y, 0.0f };
+		Vec4 playerPosColor = { 1.0f, 0.0f, 1.0f, 1.0f };
+
+		lineData->pos[0] = playerPos;
+		lineData->pos[0].x -= crossSize;
+		lineData->pos[1] = playerPos;
+		lineData->pos[1].x += crossSize;
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
+
+		lineData->pos[0] = playerPos;
+		lineData->pos[0].y -= crossSize;
+		lineData->pos[1] = playerPos;
+		lineData->pos[1].y += crossSize;
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
+
+		Vec3 floorPos = { gameState->playerPos.x, gameState->floorHeight, 0.0f };
+		Vec4 floorPosColor = { 1.0f, 1.0f, 0.0f, 1.0f };
+
+		lineData->pos[0] = floorPos;
+		lineData->pos[0].x -= crossSize;
+		lineData->pos[1] = floorPos;
+		lineData->pos[1].x += crossSize;
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorPosColor);
+
+		lineData->pos[0] = floorPos;
+		lineData->pos[0].y -= crossSize;
+		lineData->pos[1] = floorPos;
+		lineData->pos[1].y += crossSize;
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorPosColor);
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {
@@ -652,4 +757,5 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "opengl_base.cpp"
 #include "particles.cpp"
 #include "post.cpp"
+#include "render.cpp"
 #include "text.cpp"

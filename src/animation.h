@@ -1,9 +1,9 @@
 #pragma once
 
 #include "opengl.h"
-#include "opengl_base.h"
 #include "main_platform.h"
 #include "load_png.h"
+#include "render.h"
 
 #define ANIMATION_MAX_FRAMES 32
 #define SPRITE_MAX_ANIMATIONS 8
@@ -30,8 +30,8 @@ struct AnimatedSprite
 
 	void Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[]);
 
-	void Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-		Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal) const;
+    void Draw(SpriteDataGL* spriteDataGL,
+        Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const;
 };
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,

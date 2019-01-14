@@ -1,6 +1,6 @@
 #include "animation.h"
 
-#include <cstdio>
+//#include <cstdio>
 
 #include "km_debug.h"
 #include "km_string.h"
@@ -43,13 +43,12 @@ void AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int 
 	}
 }
 
-void AnimatedSprite::Draw(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-	Vec2Int pos, Vec2 anchor, Vec2Int size, bool32 flipHorizontal) const
+void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
+		Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const
 {
-	DrawTexturedRect(texturedRectGL, screenInfo,
-		pos, anchor, size, flipHorizontal,
-		animations[activeAnimation].frameTextures[activeFrame].textureID
-	);
+	PushSpriteWorldSpace(spriteDataGL, pos, size,
+		anchor, flipHorizontal,
+		animations[activeAnimation].frameTextures[activeFrame].textureID);
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
