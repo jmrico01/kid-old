@@ -72,7 +72,7 @@ struct GameState
 	Vec2 cameraPos;
 	Vec2 playerPos;
 	Vec2 playerVel;
-	bool32 falling;
+    bool32 falling;
 	bool32 facingRight;
 
     int numLineColliders;

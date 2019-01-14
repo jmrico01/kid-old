@@ -21,6 +21,8 @@
 
 #define FLOOR_LEVEL 0.0f
 
+#define LINE_COLLIDER_WIDTH 0.1f
+
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -81,11 +83,11 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	}
 
 	if (!gameState->falling) {
-		if (IsKeyPressed(input, KM_KEY_SPACE)) {
+		if (WasKeyPressed(input, KM_KEY_SPACE)) {
 			gameState->playerVel.y = PLAYER_JUMP_SPEED;
 			gameState->falling = true;
-			gameState->audioState.soundKick.playing = true;
-			gameState->audioState.soundKick.sampleIndex = 0;
+			gameState->audioState.soundSnare.playing = true;
+			gameState->audioState.soundSnare.sampleIndex = 0;
 		}
 	}
 }
@@ -109,6 +111,14 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	const float32 GRAVITY_ACCEL = 8.3f;
 
+	if (gameState->falling) {
+		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
+	}
+	else {
+		gameState->playerVel.y = 0.0f;
+	}
+	gameState->playerPos += gameState->playerVel * deltaTime;
+
 	Vec2 playerPos = gameState->playerPos;
 	float32 floorHeight = -1e9f;
 	for (int i = 0; i < gameState->numLineColliders; i++) {
@@ -120,7 +130,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			if (vertPrev.x <= playerPos.x && vert.x >= playerPos.x) {
 				float32 t = (playerPos.x - vertPrev.x) / (vert.x - vertPrev.x);
 				float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
-				if (height <= playerPos.y) {
+				if (height - LINE_COLLIDER_WIDTH <= playerPos.y) {
 					matchHeight = height;
 					break;
 				}
@@ -133,17 +143,21 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	if (gameState->falling) {
-		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
+		if (gameState->playerPos.y < floorHeight) {
+			gameState->playerPos.y = floorHeight;
+			gameState->playerVel.y = 0.0f;
+			gameState->falling = false;
+		}
 	}
 	else {
-		gameState->playerVel.y = 0.0f;
-	}
-	gameState->playerPos += gameState->playerVel * deltaTime;
-	if (gameState->playerPos.y < floorHeight) {
-		gameState->playerPos.y = floorHeight;
-		gameState->falling = false;
-		gameState->audioState.soundSnare.playing = true;
-		gameState->audioState.soundSnare.sampleIndex = 0;
+		if (gameState->playerPos.y > floorHeight - LINE_COLLIDER_WIDTH
+		&& gameState->playerPos.y < floorHeight + LINE_COLLIDER_WIDTH) {
+			gameState->playerPos.y = floorHeight;
+		}
+		else if (gameState->playerPos.y > floorHeight + LINE_COLLIDER_WIDTH) {
+			gameState->falling = true;
+			gameState->playerVel.y = 0.0f;
+		}
 	}
 
 	// TODO ideally animation IDs would be strings
@@ -325,30 +339,38 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->activeScene = SCENE_TOWN;
 
 		// town data init
-		gameState->playerPos = Vec2 { 0.0f, 1.0f };
+		gameState->playerPos = Vec2 { 0.0f, 5.0f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
 		gameState->falling = true;
 		gameState->facingRight = true;
 
 		gameState->numLineColliders = 0;
+		ColliderLine* lineCollider;
 
-		gameState->numLineColliders++;
-		gameState->lineColliders[0].numVertices = 5;
-		gameState->lineColliders[0].vertices[0] = { -20.0f, FLOOR_LEVEL };
-		gameState->lineColliders[0].vertices[1] = { -10.0f, FLOOR_LEVEL };
-		gameState->lineColliders[0].vertices[2] = { 0.0f, FLOOR_LEVEL };
-		gameState->lineColliders[0].vertices[3] = { 10.0f, FLOOR_LEVEL };
-		gameState->lineColliders[0].vertices[4] = { 20.0f, FLOOR_LEVEL };
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->numVertices = 2;
+		lineCollider->vertices[0] = { -16.0f, FLOOR_LEVEL };
+		lineCollider->vertices[1] = { 16.0f, FLOOR_LEVEL };
 
-		gameState->numLineColliders++;
-		gameState->lineColliders[1].numVertices = 2;
-		gameState->lineColliders[1].vertices[0] = { 2.0f, 0.5f };
-		gameState->lineColliders[1].vertices[1] = { 6.0f, 2.0f };
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->numVertices = 2;
+		lineCollider->vertices[0] = { 2.0f, 0.5f };
+		lineCollider->vertices[1] = { 6.0f, 2.0f };
 
-		gameState->numLineColliders++;
-		gameState->lineColliders[2].numVertices = 2;
-		gameState->lineColliders[2].vertices[0] = { -6.0f, 2.0f };
-		gameState->lineColliders[2].vertices[1] = { -2.0f, 0.5f };
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->numVertices = 7;
+		lineCollider->vertices[0] = { 5.0f, 1.5f };
+		lineCollider->vertices[1] = { 7.0f, 1.8f };
+		lineCollider->vertices[2] = { 9.0f, 1.5f };
+		lineCollider->vertices[3] = { 11.0f, 2.0f };
+		lineCollider->vertices[4] = { 13.0f, 3.0f };
+		lineCollider->vertices[5] = { 15.0f, 5.0f };
+		lineCollider->vertices[6] = { 25.0f, 10.0f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->numVertices = 2;
+		lineCollider->vertices[0] = { -16.0f, 10.0f };
+		lineCollider->vertices[1] = { -2.0f, 2.0f };
 
 		// fishing data init
 		gameState->playerPosX = screenInfo.size.x;
