@@ -92,6 +92,21 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	}
 }
 
+float32 LineColliderFloorHeight(const LineCollider& lineCollider, Vec2 refPos)
+{
+	for (int j = 1; j < lineCollider.numVertices; j++) {
+		Vec2 vertPrev = lineCollider.vertices[j - 1];
+		Vec2 vert = lineCollider.vertices[j];
+		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
+			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
+			float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
+			return height;
+		}
+	}
+
+	return -1e9;
+}
+
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	gameState->playerVel.x = 0.0f;
@@ -119,27 +134,29 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->playerPos += gameState->playerVel * deltaTime;
 
-	Vec2 playerPos = gameState->playerPos;
-	float32 floorHeight = -1e9f;
+	int matchCollider = -1;
+	float32 matchHeight = -1e9;
 	for (int i = 0; i < gameState->numLineColliders; i++) {
-		const ColliderLine& lineCollider = gameState->lineColliders[i];
-		float32 matchHeight = -1e9f;
-		for (int j = 1; j < lineCollider.numVertices; j++) {
-			Vec2 vertPrev = lineCollider.vertices[j - 1];
-			Vec2 vert = lineCollider.vertices[j];
-			if (vertPrev.x <= playerPos.x && vert.x >= playerPos.x) {
-				float32 t = (playerPos.x - vertPrev.x) / (vert.x - vertPrev.x);
-				float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
-				if (height - LINE_COLLIDER_WIDTH <= playerPos.y) {
-					matchHeight = height;
-					break;
-				}
-			}
+		float32 height = LineColliderFloorHeight(
+			gameState->lineColliders[i],
+			gameState->playerPos
+		);
+		if (height > matchHeight) {
+			matchCollider = i;
+			matchHeight = height;
 		}
+	}
+	if (gameState->currentLineCollider != matchCollider) {
+		// TODO more complicated logic here
+		gameState->currentLineCollider = matchCollider;
+	}
 
-		if (matchHeight > floorHeight) {
-			floorHeight = matchHeight;
-		}
+	float32 floorHeight = -1e9;
+	if (gameState->currentLineCollider >= 0) {
+		floorHeight = LineColliderFloorHeight(
+			gameState->lineColliders[gameState->currentLineCollider],
+			gameState->playerPos
+		);
 	}
 
 	if (gameState->falling) {
@@ -176,10 +193,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
 	gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
-
-#if GAME_INTERNAL
-	gameState->floorHeight = floorHeight;
-#endif
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
@@ -341,11 +354,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// town data init
 		gameState->playerPos = Vec2 { 0.0f, 10.0f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
+		gameState->currentLineCollider = -1;
 		gameState->falling = true;
 		gameState->facingRight = true;
 
 		gameState->numLineColliders = 0;
-		ColliderLine* lineCollider;
+		LineCollider* lineCollider;
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
 		lineCollider->numVertices = 2;
@@ -698,7 +712,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		Vec4 lineColliderColor = { 0.0f, 1.0f, 1.0f, 1.0f };
 
 		for (int i = 0; i < gameState->numLineColliders; i++) {
-			ColliderLine& line = gameState->lineColliders[i];
+			LineCollider& line = gameState->lineColliders[i];
 			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
 
 			lineData->count = line.numVertices;
@@ -730,7 +744,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineData->pos[1].y += crossSize;
 		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
 
-		Vec3 floorPos = { gameState->playerPos.x, gameState->floorHeight, 0.0f };
+		float32 floorHeight = LineColliderFloorHeight(
+			gameState->lineColliders[gameState->currentLineCollider],
+			gameState->playerPos
+		);
+		Vec3 floorPos = { gameState->playerPos.x, floorHeight, 0.0f };
 		Vec4 floorPosColor = { 1.0f, 1.0f, 0.0f, 1.0f };
 
 		lineData->pos[0] = floorPos;

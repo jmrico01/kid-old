@@ -23,7 +23,7 @@ enum Scene
 	SCENE_FISHING
 };
 
-struct ColliderLine
+struct LineCollider
 {
     int numVertices;
     Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
@@ -72,11 +72,12 @@ struct GameState
 	Vec2 cameraPos;
 	Vec2 playerPos;
 	Vec2 playerVel;
+	int currentLineCollider;
     bool32 falling;
 	bool32 facingRight;
 
     int numLineColliders;
-    ColliderLine lineColliders[LINE_COLLIDERS_MAX];
+    LineCollider lineColliders[LINE_COLLIDERS_MAX];
 
 #if GAME_INTERNAL
     float32 floorHeight;
