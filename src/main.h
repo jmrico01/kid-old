@@ -17,6 +17,13 @@
 #define LINE_COLLIDER_MAX_VERTICES 32
 #define LINE_COLLIDERS_MAX 4
 
+enum PlayerState
+{
+	PLAYER_STATE_GROUNDED,
+	PLAYER_STATE_JUMPING,
+	PLAYER_STATE_FALLING
+};
+
 enum Scene
 {
 	SCENE_TOWN,
@@ -73,7 +80,7 @@ struct GameState
 	Vec2 playerPos;
 	Vec2 playerVel;
 	int currentLineCollider;
-    bool32 falling;
+	PlayerState playerState;
 	bool32 facingRight;
 
     int numLineColliders;

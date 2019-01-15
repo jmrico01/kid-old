@@ -21,7 +21,7 @@
 
 #define FLOOR_LEVEL 0.0f
 
-#define LINE_COLLIDER_WIDTH 0.25f
+#define FLOOR_LINE_MARGIN 0.05f
 
 inline float32 RandFloat32()
 {
@@ -82,25 +82,29 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->facingRight = true;
 	}
 
-	if (!gameState->falling) {
+	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
 		if (WasKeyPressed(input, KM_KEY_SPACE)) {
 			gameState->playerVel.y = PLAYER_JUMP_SPEED;
-			gameState->falling = true;
+			gameState->playerState = PLAYER_STATE_JUMPING;
 			gameState->audioState.soundSnare.playing = true;
 			gameState->audioState.soundSnare.sampleIndex = 0;
 		}
 	}
 }
 
-float32 LineColliderFloorHeight(const LineCollider& lineCollider, Vec2 refPos)
+float32 LineColliderFloorHeight(const LineCollider& lineCollider, Vec2 refPos, float32 floorMargin)
 {
+	DEBUG_ASSERT(lineCollider.numVertices > 1);
+
 	for (int j = 1; j < lineCollider.numVertices; j++) {
 		Vec2 vertPrev = lineCollider.vertices[j - 1];
 		Vec2 vert = lineCollider.vertices[j];
 		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
 			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
 			float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
-			return height;
+			if (height - floorMargin <= refPos.y) {
+				return height;
+			}
 		}
 	}
 
@@ -126,7 +130,8 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	const float32 GRAVITY_ACCEL = 8.3f;
 
-	if (gameState->falling) {
+	if (gameState->playerState == PLAYER_STATE_JUMPING
+	|| gameState->playerState == PLAYER_STATE_FALLING) {
 		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
 	}
 	else {
@@ -139,40 +144,48 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	for (int i = 0; i < gameState->numLineColliders; i++) {
 		float32 height = LineColliderFloorHeight(
 			gameState->lineColliders[i],
-			gameState->playerPos
+			gameState->playerPos,
+			FLOOR_LINE_MARGIN
 		);
 		if (height > matchHeight) {
 			matchCollider = i;
 			matchHeight = height;
 		}
 	}
+
 	if (gameState->currentLineCollider != matchCollider) {
-		// TODO more complicated logic here
 		gameState->currentLineCollider = matchCollider;
+		if (gameState->playerState == PLAYER_STATE_GROUNDED) {
+			// TODO assert check for minimum height difference?
+			gameState->playerState = PLAYER_STATE_FALLING;
+		}
 	}
 
-	float32 floorHeight = -1e9;
-	if (gameState->currentLineCollider >= 0) {
-		floorHeight = LineColliderFloorHeight(
-			gameState->lineColliders[gameState->currentLineCollider],
-			gameState->playerPos
-		);
-	}
+	// We should never be in a situation where we can't find a floor
+	DEBUG_ASSERT(gameState->currentLineCollider >= 0
+		&& gameState->currentLineCollider < gameState->numLineColliders);
+	float32 floorHeight = LineColliderFloorHeight(
+		gameState->lineColliders[gameState->currentLineCollider],
+		gameState->playerPos,
+		FLOOR_LINE_MARGIN
+	);
 
-	if (gameState->falling) {
+	// Floor was selected this frame, so it is guaranteed that floorHeight > gameState->playerPos.y
+	if (gameState->playerState == PLAYER_STATE_JUMPING
+	|| gameState->playerState == PLAYER_STATE_FALLING) {
 		if (gameState->playerPos.y < floorHeight) {
 			gameState->playerPos.y = floorHeight;
 			gameState->playerVel.y = 0.0f;
-			gameState->falling = false;
+			gameState->playerState = PLAYER_STATE_GROUNDED;
 		}
 	}
 	else {
-		if (gameState->playerPos.y > floorHeight - LINE_COLLIDER_WIDTH
-		&& gameState->playerPos.y < floorHeight + LINE_COLLIDER_WIDTH) {
+		if (gameState->playerPos.y > floorHeight - FLOOR_LINE_MARGIN
+		&& gameState->playerPos.y < floorHeight + FLOOR_LINE_MARGIN) {
 			gameState->playerPos.y = floorHeight;
 		}
-		else if (gameState->playerPos.y > floorHeight + LINE_COLLIDER_WIDTH) {
-			gameState->falling = true;
+		else if (gameState->playerPos.y > floorHeight + FLOOR_LINE_MARGIN) {
+			gameState->playerState = PLAYER_STATE_FALLING;
 			gameState->playerVel.y = 0.0f;
 		}
 	}
@@ -183,11 +196,11 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	const int KID_JUMP_ANIMS[2] = { 3, 4 };
 	const int* nextAnims = KID_IDLE_ANIMS;
 	int numNextAnims = 2;
-	if (gameState->falling) {
+	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		nextAnims = KID_JUMP_ANIMS;
 		numNextAnims = 2;
 	}
-	else if (gameState->playerVel.x != 0) {
+	else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
 		nextAnims = KID_WALK_ANIMS;
 		numNextAnims = 1;
 	}
@@ -354,8 +367,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// town data init
 		gameState->playerPos = Vec2 { 0.0f, 10.0f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
-		gameState->currentLineCollider = -1;
-		gameState->falling = true;
+		gameState->currentLineCollider = 0;
+		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 
 		gameState->numLineColliders = 0;
@@ -709,7 +722,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
 		Mat4 view = Translate(-cameraPos);
-		Vec4 lineColliderColor = { 0.0f, 1.0f, 1.0f, 1.0f };
+		Vec4 lineColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
 
 		for (int i = 0; i < gameState->numLineColliders; i++) {
 			LineCollider& line = gameState->lineColliders[i];
@@ -725,6 +738,20 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			}
 			DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
 		}
+
+		Vec4 currentLineColliderColor = { 1.0f, 0.0f, 1.0f, 1.0f };
+		LineCollider& currentLine = gameState->lineColliders[gameState->currentLineCollider];
+		DEBUG_ASSERT(currentLine.numVertices <= MAX_LINE_POINTS);
+
+		lineData->count = currentLine.numVertices;
+		for (int v = 0; v < currentLine.numVertices; v++) {
+			lineData->pos[v] = Vec3 {
+				currentLine.vertices[v].x,
+				currentLine.vertices[v].y,
+				0.0f
+			};
+		}
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, currentLineColliderColor);
 
 		// Player position cross
 		lineData->count = 2;
@@ -746,7 +773,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		float32 floorHeight = LineColliderFloorHeight(
 			gameState->lineColliders[gameState->currentLineCollider],
-			gameState->playerPos
+			gameState->playerPos,
+			FLOOR_LINE_MARGIN
 		);
 		Vec3 floorPos = { gameState->playerPos.x, floorHeight, 0.0f };
 		Vec4 floorPosColor = { 1.0f, 1.0f, 0.0f, 1.0f };
