@@ -137,7 +137,14 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	else {
 		gameState->playerVel.y = 0.0f;
 	}
-	gameState->playerPos += gameState->playerVel * deltaTime;
+
+	// Hm. Instead of all this nonsense, just calculate intersection point
+	// and ground player when that's in range
+	// and attach player to intersected collider
+
+	Vec2 deltaPos = gameState->playerVel * deltaTime;
+	Vec2 newPlayerPos = gameState->playerPos + deltaPos;
+	gameState->playerPos = newPlayerPos;
 
 	int matchCollider = -1;
 	float32 matchHeight = -1e9;
