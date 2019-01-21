@@ -23,6 +23,12 @@
 
 #define FLOOR_LINE_MARGIN 0.05f
 
+struct LineColliderIntersect
+{
+	float32 height;
+	const LineCollider* collider;
+};
+
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -92,13 +98,14 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	}
 }
 
-float32 LineColliderFloorHeight(const LineCollider& lineCollider, Vec2 refPos, float32 floorMargin)
+float32 LineColliderFloorHeight(const LineCollider* lineCollider, Vec2 refPos, float32 floorMargin)
 {
-	DEBUG_ASSERT(lineCollider.numVertices > 1);
+	DEBUG_ASSERT(lineCollider->numVertices > 1);
 
-	for (int j = 1; j < lineCollider.numVertices; j++) {
-		Vec2 vertPrev = lineCollider.vertices[j - 1];
-		Vec2 vert = lineCollider.vertices[j];
+	int numVertices = lineCollider->numVertices;
+	for (int j = 1; j < numVertices; j++) {
+		Vec2 vertPrev = lineCollider->vertices[j - 1];
+		Vec2 vert = lineCollider->vertices[j];
 		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
 			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
 			float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
@@ -109,6 +116,21 @@ float32 LineColliderFloorHeight(const LineCollider& lineCollider, Vec2 refPos, f
 	}
 
 	return -1e9;
+}
+
+bool GetLineColliderIntersection(const LineCollider* lineCollider,
+	Vec2 refPos, float32 floorMargin, float32* outHeight)
+{
+	return true;
+}
+
+void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
+	Vec2 playerPos, float32 floorMargin,
+	LineColliderIntersect* intersects, int numIntersects)
+{
+	for (int i = 0; i < numLineColliders; i++) {
+		//float32 height = LineColliderFloorHeight(&lineColliders[i], playerPos, floorMargin);
+	}
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -150,7 +172,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	float32 matchHeight = -1e9;
 	for (int i = 0; i < gameState->numLineColliders; i++) {
 		float32 height = LineColliderFloorHeight(
-			gameState->lineColliders[i],
+			&gameState->lineColliders[i],
 			gameState->playerPos,
 			FLOOR_LINE_MARGIN
 		);
@@ -172,7 +194,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	DEBUG_ASSERT(gameState->currentLineCollider >= 0
 		&& gameState->currentLineCollider < gameState->numLineColliders);
 	float32 floorHeight = LineColliderFloorHeight(
-		gameState->lineColliders[gameState->currentLineCollider],
+		&gameState->lineColliders[gameState->currentLineCollider],
 		gameState->playerPos,
 		FLOOR_LINE_MARGIN
 	);
@@ -779,7 +801,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
 
 		float32 floorHeight = LineColliderFloorHeight(
-			gameState->lineColliders[gameState->currentLineCollider],
+			&gameState->lineColliders[gameState->currentLineCollider],
 			gameState->playerPos,
 			FLOOR_LINE_MARGIN
 		);
