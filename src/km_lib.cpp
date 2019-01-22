@@ -5,6 +5,8 @@
 
 #define DYNAMIC_ARRAY_START_CAPACITY 10
 
+#define HASH_TABLE_START_CAPACITY 17
+
 template <typename T>
 void DynamicArray<T>::Init()
 {
@@ -12,11 +14,11 @@ void DynamicArray<T>::Init()
 }
 
 template <typename T>
-void DynamicArray<T>::Init(uint32 cap)
+void DynamicArray<T>::Init(uint32 capacity)
 {
 	size = 0;
-	this->capacity = cap;
-	data = (T*)malloc(sizeof(T) * cap);
+	this->capacity = capacity;
+	data = (T*)malloc(sizeof(T) * capacity);
 	if (!data) {
 		DEBUG_PANIC("ERROR: not enough memory!\n");
 	}
@@ -59,11 +61,11 @@ void DynamicArray<T>::RemoveLast()
 }
 
 template <typename T>
-void DynamicArray<T>::Remove(uint32 idx)
+void DynamicArray<T>::Remove(uint32 index)
 {
-	DEBUG_ASSERT(idx < size);
+	DEBUG_ASSERT(index < size);
 
-	for (uint32 i = idx + 1; i < size; i++) {
+	for (uint32 i = index + 1; i < size; i++) {
 		data[i - 1] = data[i];
 	}
 	size--;
@@ -88,6 +90,28 @@ inline T& DynamicArray<T>::operator[](int index) const
 	DEBUG_ASSERT(0 <= index && index < (int)size);
 #endif
 	return data[index];
+}
+
+template <typename K, typename V>
+void HashTable<K, V>::Init()
+{
+	Init(HASH_TABLE_START_CAPACITY);
+}
+
+template <typename K, typename V>
+void HashTable<K, V>::Init(uint32 capacity)
+{
+	size = 0;
+	this->capacity = capacity;
+	kvPairs = (KeyValuePair*)malloc(sizeof(KeyValuePair) * capacity);
+	if (!kvPairs) {
+		DEBUG_PANIC("ERROR: not enough memory!\n");
+	}
+}
+
+template <typename K, typename V>
+void HashTable<K, V>::Add(K key, V value)
+{
 }
 
 void MemCopy(void* dst, const void* src, uint64 numBytes)
