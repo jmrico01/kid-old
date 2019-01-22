@@ -79,16 +79,12 @@ struct GameState
 	Vec2 cameraPos;
 	Vec2 playerPos;
 	Vec2 playerVel;
-	int currentLineCollider;
+	const LineCollider* floorCollider;
 	PlayerState playerState;
 	bool32 facingRight;
 
     int numLineColliders;
     LineCollider lineColliders[LINE_COLLIDERS_MAX];
-
-#if GAME_INTERNAL
-    float32 floorHeight;
-#endif
 
 	// Fishing state
 	int playerPosX;
