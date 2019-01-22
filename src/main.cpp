@@ -18,6 +18,9 @@
 
 #define REF_PIXEL_SCREEN_HEIGHT 1080
 #define REF_PIXELS_PER_UNIT     120
+#define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
+#define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, -CAMERA_HEIGHT / 3.0f })
+#define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, -CAMERA_HEIGHT / 3.0f, 0.0f })
 
 #define FLOOR_LEVEL 0.0f
 
@@ -39,24 +42,46 @@ inline float32 RandFloat32(float32 min, float32 max)
 	return RandFloat32() * (max - min) + min;
 }
 
+int GetPillarboxWidth(ScreenInfo screenInfo)
+{
+	int targetWidth = (int)((float32)screenInfo.size.y * TARGET_ASPECT_RATIO);
+	return (screenInfo.size.x - targetWidth) / 2;
+}
+
 Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 {
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-	const float32 CAMERA_HEIGHT = (float32)REF_PIXEL_SCREEN_HEIGHT / REF_PIXELS_PER_UNIT;
-	const Vec3 CAMERA_OFFSET = { 0.0f, -CAMERA_HEIGHT / 3.0f, 0.0f };
 	const Vec3 SCREEN_CENTER = {
 		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
 		CAMERA_HEIGHT / 2.0f,
 		0.0f
 	};
-
-	Vec3 scale = {
+	const Vec3 SCALE_TO_NDC = {
 		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT / ASPECT_RATIO,
 		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT,
 		1.0f
 	};
+
 	return Translate(Vec3 { -1.0f, -1.0f, 0.0f })
-		* Scale(scale) * Translate(SCREEN_CENTER + CAMERA_OFFSET);
+		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER + CAMERA_OFFSET_VEC3);
+}
+
+Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
+{
+	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
+	const Vec2 SCREEN_CENTER = {
+		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
+		CAMERA_HEIGHT / 2.0f
+	};
+
+	Vec2 result = ToVec2(screenPos) / REF_PIXELS_PER_UNIT
+		- SCREEN_CENTER - CAMERA_OFFSET_VEC2 - cameraPos;
+	return result;
+}
+
+Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos)
+{
+	return ToVec2(screenPos) / REF_PIXELS_PER_UNIT;
 }
 
 void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
@@ -165,13 +190,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	gameState->playerVel.x = 0.0f;
 #if GAME_INTERNAL
-	if (gameState->editor) {
-		if (input->mouseButtons[0].isDown) {
-			// TODO fix (screen to world)
-			//gameState->cameraPos -= input->mouseDelta;
-		}
-	}
-	else {
+	if (!gameState->editor) {
 		PlayerMovementInput(gameState, deltaTime, input);
 	}
 #else
@@ -253,10 +272,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
 	gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
-}
 
-void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
-{
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		gameState->cameraPos = gameState->playerPos;
@@ -264,7 +280,10 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix
 #else
 	gameState->cameraPos = gameState->playerPos;
 #endif
+}
 
+void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
+{
 	DrawObjectStatic(gameState->background, spriteDataGL);
 
 	{ // kid & me text
@@ -647,6 +666,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	switch (gameState->activeScene) {
 		case SCENE_TOWN: {
+			if (gameState->editor) {
+				if (input->mouseButtons[0].isDown) {
+					gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta);
+				}
+			}
 			UpdateTown(gameState, deltaTime, input);
 		} break;
 		case SCENE_FISHING: {
@@ -701,10 +725,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	// Render pillarbox
-	const float32 ASPECT_RATIO = 4.0f / 3.0f;
-	const Vec4 PILLARBOX_COLOR = { 0.0f, 0.0f, 0.0f, 1.0f }; 
-	int targetWidth = (int)(screenInfo.size.y * ASPECT_RATIO);
-	int pillarboxWidth = (screenInfo.size.x - targetWidth) / 2;
+	const Vec4 PILLARBOX_COLOR = { 0.0f, 0.0f, 0.0f, 1.0f };
+	int pillarboxWidth = GetPillarboxWidth(screenInfo);
 	Vec2Int pillarboxPos1 = Vec2Int::zero;
 	Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
 	Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };

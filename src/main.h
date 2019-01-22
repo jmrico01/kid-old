@@ -10,12 +10,18 @@
 #include "opengl_base.h"
 #include "text.h"
 
+#define TARGET_ASPECT_RATIO (4.0f / 3.0f)
+
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
 #define LINE_COLLIDER_MAX_VERTICES 32
 #define LINE_COLLIDERS_MAX 4
+
+#define FISHING_OBSTACLES_MAX 1000
+
+int GetPillarboxWidth(ScreenInfo screenInfo);
 
 enum PlayerState
 {
@@ -59,8 +65,6 @@ struct ObjectAnimated
 	ClickableBox box;
 #endif
 };
-
-#define FISHING_OBSTACLES_MAX 1000
 
 struct FishingObstacle
 {

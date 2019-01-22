@@ -183,6 +183,7 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
     }
 
     if (audioState->debugView) {
+        const int PILLARBOX_WIDTH = GetPillarboxWidth(screenInfo);
         const int MARGIN = 10;
         const Vec2 TEXT_ANCHOR = { 1.0f, 0.0f };
 
@@ -192,7 +193,7 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
             -((int)gameState->fontFaceSmall.height + 6)
         };
         Vec2Int audioInfoPos = {
-            screenInfo.size.x - MARGIN,
+            screenInfo.size.x - MARGIN - PILLARBOX_WIDTH,
             MARGIN + AbsInt(audioInfoStride.y) * 4
         };
         DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
