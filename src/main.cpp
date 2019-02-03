@@ -102,7 +102,8 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spri
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	const float32 PLAYER_WALK_SPEED = 1.54f;
-	const float32 PLAYER_JUMP_SPEED = 4.2f;
+    // const float32 PLAYER_JUMP_SPEED = 4.2f;
+    const float32 PLAYER_JUMP_SPEED = 0.5f;
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
 		gameState->playerVel.x -= PLAYER_WALK_SPEED;
@@ -257,14 +258,14 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	// TODO ideally animation IDs would be strings
-	const int KID_IDLE_ANIMS[2] = { 0, 1 };
-	const int KID_WALK_ANIMS[1] = { 2 };
-	const int KID_JUMP_ANIMS[2] = { 3, 4 };
+	const int KID_IDLE_ANIMS[1] = { 0 };
+	const int KID_WALK_ANIMS[1] = { 1 };
+	const int KID_JUMP_ANIMS[1] = { 2 };
 	const int* nextAnims = KID_IDLE_ANIMS;
-	int numNextAnims = 2;
+	int numNextAnims = 1;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		nextAnims = KID_JUMP_ANIMS;
-		numNextAnims = 2;
+		numNextAnims = 1;
 	}
 	else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
 		nextAnims = KID_WALK_ANIMS;
@@ -287,7 +288,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix
 	DrawObjectStatic(gameState->background, spriteDataGL);
 
 	{ // kid & me text
-		Vec2 anchor = { 0.5f, 0.15f };
+		Vec2 anchor = { 0.5f, 0.1f };
 		Vec2 size = ToVec2(gameState->spriteKid.textureSize) / REF_PIXELS_PER_UNIT;
 		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
@@ -777,10 +778,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPos.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f VEL", gameState->playerVel.x, gameState->playerVel.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+        textPos.y -= textFont.height;
+        sprintf(textStr, "%.2f|%.2f VEL", gameState->playerVel.x, gameState->playerVel.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+        textPos.y -= textFont.height;
+        sprintf(textStr, "%d STATE", gameState->playerState);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPos.y -= textFont.height;
 		textPos.y -= textFont.height;
