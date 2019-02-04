@@ -31,14 +31,20 @@ void AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int 
 		activeAnimation = nextAnim;
 		activeAnim = animations[activeAnimation];
 		activeFrame = nextAnimStartFrame;
+		activeFrameRepeat = 0;
 	}
 
 	activeFrameTime += deltaTime;
 	if (activeFrameTime > 1.0f / activeAnim.fps) {
 		activeFrameTime = 0.0f;
-		activeFrame++;
+		activeFrameRepeat++;
+		if (activeFrameRepeat >= activeAnim.frameTiming[activeFrame]) {
+			activeFrame++;
+			activeFrameRepeat = 0;
+		}
 		if (activeFrame >= activeAnim.numFrames) {
 			activeFrame = 0;
+			activeFrameRepeat = 0;
 		}
 	}
 }
@@ -139,6 +145,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					break;
 				}
 				animation.frameTextures[frame] = frameTextureGL;
+				animation.frameTiming[frame] = 1;
 				for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
 					animation.frameExitTo[frame][j] = -1;
 				}
@@ -228,6 +235,17 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				anim.frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
 			}
 		}
+		else if (StringCompare(keyword, "timing", 6)) {
+			// TODO hardcoded
+			const int HARDCODED[16] = {
+				2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2
+			};
+			Animation& anim = outAnimatedSprite.animations[animIndex];
+			DEBUG_ASSERT(anim.numFrames == 16);
+			for (int j = 0; j < anim.numFrames; j++) {
+				anim.frameTiming[j] = HARDCODED[j];
+			}
+		}
 		else if (StringCompare(keyword, "//", 2)) {
 			// Comment, ignore
 		}
@@ -249,6 +267,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	outAnimatedSprite.activeAnimation = 0;
 	outAnimatedSprite.activeFrame = 0;
+	outAnimatedSprite.activeFrameRepeat = 0;
 	outAnimatedSprite.activeFrameTime = 0.0f;
 
 	outAnimatedSprite.numAnimations = animIndex + 1;

@@ -70,7 +70,7 @@ void InitAudioState(const ThreadContext* thread,
 
     const int KICK_VARIATIONS = 1;
     const char* kickSoundFiles[KICK_VARIATIONS] = {
-        "data/audio/kick.wav"
+        "data/audio/yow.wav"
     };
     const int SNARE_VARIATIONS = 1;
     const char* snareSoundFiles[SNARE_VARIATIONS] = {

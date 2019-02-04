@@ -118,8 +118,8 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		if (WasKeyPressed(input, KM_KEY_SPACE)) {
 			gameState->playerVel.y = PLAYER_JUMP_SPEED;
 			gameState->playerState = PLAYER_STATE_JUMPING;
-			gameState->audioState.soundSnare.playing = true;
-			gameState->audioState.soundSnare.sampleIndex = 0;
+			gameState->audioState.soundKick.playing = true;
+			gameState->audioState.soundKick.sampleIndex = 0;
 		}
 	}
 }

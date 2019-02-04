@@ -14,6 +14,7 @@ struct Animation
 	int fps;
 	int numFrames;
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
+    int frameTiming[ANIMATION_MAX_FRAMES];
 	int frameExitTo[ANIMATION_MAX_FRAMES][SPRITE_MAX_ANIMATIONS];
 };
 
@@ -21,6 +22,7 @@ struct AnimatedSprite
 {
 	int activeAnimation;
 	int activeFrame;
+    int activeFrameRepeat;
 	float32 activeFrameTime;
 
 	int numAnimations;

@@ -1,5 +1,8 @@
 // This is a comment
 
+// "anim" must be the first keyword
+// "dir" must be the second keyword
+
 // fps -1 means that the animation will run at the game's framerate
 // This is useful for static animations that require an immediate exit response
 // TODO use anim names in "exit" instead of indices
@@ -18,4 +21,5 @@ exit 0 0 0
 anim Jump
 dir jump
 fps 24
-exit 0 0 0
+timing 3 1 2 1 1 2 3 3 3 3 2 2 1 2 2 3
+exit 15 0 0
