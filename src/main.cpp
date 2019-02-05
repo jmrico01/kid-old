@@ -16,8 +16,6 @@
 #include "post.h"
 #include "render.h"
 
-#define REF_PIXEL_SCREEN_HEIGHT 1080
-#define REF_PIXELS_PER_UNIT     120
 #define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, -CAMERA_HEIGHT / 3.0f })
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, -CAMERA_HEIGHT / 3.0f, 0.0f })
@@ -101,9 +99,10 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spri
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	const float32 PLAYER_WALK_SPEED = 1.54f;
+	const float32 PLAYER_WALK_SPEED = 3.0f;
     // const float32 PLAYER_JUMP_SPEED = 4.2f;
-    const float32 PLAYER_JUMP_SPEED = 0.5f;
+    //const float32 PLAYER_JUMP_SPEED = 0.5f;
+    const float32 PLAYER_JUMP_SPEED = 0.01f;
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
 		gameState->playerVel.x -= PLAYER_WALK_SPEED;
@@ -198,7 +197,25 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-	const float32 GRAVITY_ACCEL = 8.3f;
+    // TODO ideally animation IDs would be strings
+    const int KID_IDLE_ANIMS[1] = { 0 };
+    const int KID_WALK_ANIMS[1] = { 1 };
+    const int KID_JUMP_ANIMS[1] = { 2 };
+    const int* nextAnims = KID_IDLE_ANIMS;
+    int numNextAnims = 1;
+    if (gameState->playerState == PLAYER_STATE_JUMPING) {
+        nextAnims = KID_JUMP_ANIMS;
+        numNextAnims = 1;
+    }
+    else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
+        nextAnims = KID_WALK_ANIMS;
+        numNextAnims = 1;
+    }
+    Vec2 rootMotion = gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
+    gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
+
+    // const float32 GRAVITY_ACCEL = 8.3f;
+    const float32 GRAVITY_ACCEL = 0.1f;
 
 	if (gameState->playerState == PLAYER_STATE_JUMPING
 	|| gameState->playerState == PLAYER_STATE_FALLING) {
@@ -208,7 +225,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		gameState->playerVel.y = 0.0f;
 	}
 
-	Vec2 deltaPos = gameState->playerVel * deltaTime;
+	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
 
 	LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
 	int numIntersects;
@@ -257,23 +274,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		}
 	}
 
-	// TODO ideally animation IDs would be strings
-	const int KID_IDLE_ANIMS[1] = { 0 };
-	const int KID_WALK_ANIMS[1] = { 1 };
-	const int KID_JUMP_ANIMS[1] = { 2 };
-	const int* nextAnims = KID_IDLE_ANIMS;
-	int numNextAnims = 1;
-	if (gameState->playerState == PLAYER_STATE_JUMPING) {
-		nextAnims = KID_JUMP_ANIMS;
-		numNextAnims = 1;
-	}
-	else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
-		nextAnims = KID_WALK_ANIMS;
-		numNextAnims = 1;
-	}
-	gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnims);
-	gameState->spriteMe.Update(deltaTime, numNextAnims, nextAnims);
-
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		gameState->cameraPos = gameState->playerPos;
@@ -281,6 +281,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 #else
 	gameState->cameraPos = gameState->playerPos;
 #endif
+    gameState->cameraPos.y = 0.0f;
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
@@ -432,7 +433,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->activeScene = SCENE_TOWN;
 
 		// town data init
-		gameState->playerPos = Vec2 { 0.0f, 10.0f };
+		gameState->playerPos = Vec2 { 0.0f, FLOOR_LEVEL + 0.5f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
 		gameState->floorCollider = nullptr;
 		gameState->playerState = PLAYER_STATE_FALLING;

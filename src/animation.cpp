@@ -1,18 +1,18 @@
 #include "animation.h"
 
-//#include <cstdio>
-
 #include "km_debug.h"
 #include "km_string.h"
+#include "main.h"
 
-#define KEYWORD_MAX_LENGTH 8
+#define KEYWORD_MAX_LENGTH 16
 #define VALUE_MAX_LENGTH 256
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
 
-void AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[])
+Vec2 AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[])
 {
 	Animation activeAnim = animations[activeAnimation];
+	Vec2 rootMotion = Vec2::zero;
 
 	int nextAnim = -1;
 	int nextAnimStartFrame = 0;
@@ -39,21 +39,24 @@ void AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int 
 		activeFrameTime = 0.0f;
 		activeFrameRepeat++;
 		if (activeFrameRepeat >= activeAnim.frameTiming[activeFrame]) {
-			activeFrame++;
+			int activeFramePrev = activeFrame;
+			activeFrame = (activeFrame + 1) % activeAnim.numFrames;
 			activeFrameRepeat = 0;
-		}
-		if (activeFrame >= activeAnim.numFrames) {
-			activeFrame = 0;
-			activeFrameRepeat = 0;
+
+			rootMotion = activeAnim.frameRootMotion[activeFrame]
+				- activeAnim.frameRootMotion[activeFramePrev];
 		}
 	}
+
+	return rootMotion;
 }
 
 void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
 		Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const
 {
+	Vec2 anchorRootMotion = animations[activeAnimation].frameRootAnchor[activeFrame];
 	PushSpriteWorldSpace(spriteDataGL, pos, size,
-		anchor, flipHorizontal,
+		anchorRootMotion, flipHorizontal,
 		animations[activeAnimation].frameTextures[activeFrame].textureID);
 }
 
@@ -62,6 +65,28 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
+	const int TIMING_HARDCODED[16] = {
+		2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2
+	};
+	const Vec2Int ROOTMOTION_HARDCODED[16] = {
+		{ 101, 480 },
+		{ 101, 480 },
+		{ 101, 480 },
+		{ 101, 403 },
+		{ 101, 270 },
+		{ 101, 217 },
+		{ 101, 209 },
+		{ 101, 206 },
+		{ 101, 209 },
+		{ 101, 217 },
+		{ 101, 246 },
+		{ 101, 340 },
+		{ 101, 480 },
+		{ 101, 480 },
+		{ 101, 480 },
+		{ 101, 480 },
+	};
+
 	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!animFile.data) {
 		DEBUG_PRINT("Failed to open animation file at: %s\n", filePath);
@@ -160,6 +185,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					return false;
 				}
 
+				// TODO hardcoded
+				animation.frameRootAnchor[frame] = {
+					(float32)ROOTMOTION_HARDCODED[0].x / outAnimatedSprite.textureSize.x,
+					(float32)(outAnimatedSprite.textureSize.y - ROOTMOTION_HARDCODED[0].y) / outAnimatedSprite.textureSize.y
+				};
+
 				frame++;
 			}
 
@@ -237,13 +268,35 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (StringCompare(keyword, "timing", 6)) {
 			// TODO hardcoded
-			const int HARDCODED[16] = {
-				2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2
-			};
 			Animation& anim = outAnimatedSprite.animations[animIndex];
 			DEBUG_ASSERT(anim.numFrames == 16);
 			for (int j = 0; j < anim.numFrames; j++) {
-				anim.frameTiming[j] = HARDCODED[j];
+				anim.frameTiming[j] = TIMING_HARDCODED[j];
+			}
+		}
+		else if (StringCompare(keyword, "rootmotion", 10)) {
+			// TODO hardcoded
+			Animation& anim = outAnimatedSprite.animations[animIndex];
+			Vec2Int textureSize = outAnimatedSprite.textureSize;
+			Vec2Int rootMotion0 = ROOTMOTION_HARDCODED[0];
+			rootMotion0.y = textureSize.y - rootMotion0.y;
+			Vec2 rootPosWorld0 = {
+				(float32)rootMotion0.x / REF_PIXELS_PER_UNIT,
+				(float32)rootMotion0.y / REF_PIXELS_PER_UNIT
+			};
+			DEBUG_ASSERT(anim.numFrames == 16);
+			for (int j = 0; j < anim.numFrames; j++) {
+				Vec2Int rootPos = ROOTMOTION_HARDCODED[j];
+				rootPos.y = textureSize.y - rootPos.y;
+				Vec2 rootPosWorld = {
+					(float32)rootPos.x / REF_PIXELS_PER_UNIT,
+					(float32)rootPos.y / REF_PIXELS_PER_UNIT
+				};
+				anim.frameRootMotion[j] = rootPosWorld - rootPosWorld0;
+				anim.frameRootAnchor[j] = {
+					(float32)rootPos.x / textureSize.x,
+					(float32)rootPos.y / textureSize.y
+				};
 			}
 		}
 		else if (StringCompare(keyword, "//", 2)) {

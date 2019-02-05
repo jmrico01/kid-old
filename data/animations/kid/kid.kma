@@ -15,11 +15,12 @@ exit * 2 0
 
 anim Walk
 dir walk
-fps -1
+fps 24
 exit 0 0 0
 
 anim Jump
 dir jump
 fps 24
-timing 3 1 2 1 1 2 3 3 3 3 2 2 1 2 2 3
+timing 2 2 2 1 1 1 2 3 2 2 2 1 1 1 2 2
+rootmotion SOMETHING
 exit 15 0 0

@@ -15,6 +15,8 @@ struct Animation
 	int numFrames;
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
     int frameTiming[ANIMATION_MAX_FRAMES];
+    Vec2 frameRootMotion[ANIMATION_MAX_FRAMES];
+    Vec2 frameRootAnchor[ANIMATION_MAX_FRAMES];
 	int frameExitTo[ANIMATION_MAX_FRAMES][SPRITE_MAX_ANIMATIONS];
 };
 
@@ -30,7 +32,7 @@ struct AnimatedSprite
 
 	Vec2Int textureSize;
 
-	void Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[]);
+	Vec2 Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[]);
 
     void Draw(SpriteDataGL* spriteDataGL,
         Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const;

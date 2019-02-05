@@ -10,7 +10,9 @@
 #include "opengl_base.h"
 #include "text.h"
 
-#define TARGET_ASPECT_RATIO (4.0f / 3.0f)
+#define TARGET_ASPECT_RATIO     (4.0f / 3.0f)
+#define REF_PIXEL_SCREEN_HEIGHT 1080
+#define REF_PIXELS_PER_UNIT     120
 
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
