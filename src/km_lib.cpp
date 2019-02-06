@@ -3,9 +3,37 @@
 #include <stdio.h>
 #include <cstring> // memcpy is here... no idea why
 
+#include "km_string.h"
+
 #define DYNAMIC_ARRAY_START_CAPACITY 10
 
 #define HASH_TABLE_START_CAPACITY 17
+
+// Very simple string hash ( djb2 hash, source http://www.cse.yorku.ca/~oz/hash.html )
+uint32 KeyHash(const HashKey& key)
+{
+    uint32 hash = 5381;
+
+    for (int i = 0; i < key.length; i++) {
+        hash = ((hash << 5) + hash) + key.string[i];
+    }
+
+    return hash;
+}
+bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
+{
+    if (key1.length != key2.length) {
+        return false;
+    }
+
+    for (int i = 0; i < key1.length; i++) {
+        if (key1.string[i] != key2.string[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 template <typename T>
 void DynamicArray<T>::Init()
@@ -40,9 +68,7 @@ DynamicArray<T> DynamicArray<T>::Copy() const
 template <typename T>
 void DynamicArray<T>::Append(T element)
 {
-#if GAME_SLOW
 	DEBUG_ASSERT(capacity > 0);
-#endif
 
 	if (size >= capacity) {
 		capacity *= 2;
@@ -92,26 +118,95 @@ inline T& DynamicArray<T>::operator[](int index) const
 	return data[index];
 }
 
-template <typename K, typename V>
-void HashTable<K, V>::Init()
+void HashKey::WriteString(const char* str, int n)
+{
+    DEBUG_ASSERT(n <= STRING_KEY_MAX_LENGTH);
+
+    for (int i = 0; i < n; i++) {
+        string[i] = str[i];
+    }
+
+    length = n;
+}
+
+void HashKey::WriteString(const char* str)
+{
+    WriteString(str, StringLength(str));
+}
+
+template <typename V>
+void HashTable<V>::Init()
 {
 	Init(HASH_TABLE_START_CAPACITY);
 }
 
-template <typename K, typename V>
-void HashTable<K, V>::Init(uint32 capacity)
+template <typename V>
+void HashTable<V>::Init(int cap)
 {
 	size = 0;
-	this->capacity = capacity;
-	kvPairs = (KeyValuePair*)malloc(sizeof(KeyValuePair) * capacity);
-	if (!kvPairs) {
+	this->capacity = cap;
+	pairs = (KeyValuePair<V>*)malloc(sizeof(KeyValuePair<V>) * cap);
+	if (!pairs) {
 		DEBUG_PANIC("ERROR: not enough memory!\n");
 	}
+
+    for (int i = 0; i < cap; i++) {
+        pairs[i].key.length = 0;
+    }
 }
 
-template <typename K, typename V>
-void HashTable<K, V>::Add(K key, V value)
+template <typename V>
+void HashTable<V>::Add(const HashKey& key, V value)
 {
+    DEBUG_ASSERT(GetPair(key) == nullptr);
+
+    DEBUG_ASSERT(size < capacity);
+
+    KeyValuePair<V>* pair = GetFreeSlot(key);
+    DEBUG_ASSERT(pair != nullptr);
+
+    pair->key = key;
+    pair->value = value;
+    size++;
+}
+
+template <typename V>
+V* HashTable<V>::GetValue(const HashKey& key) const
+{
+    KeyValuePair<V>* pair = GetPair(key);
+    if (pair == nullptr) {
+        return nullptr;
+    }
+
+    return &pair->value;
+}
+
+template <typename V>
+KeyValuePair<V>* HashTable<V>::GetPair(const HashKey& key) const
+{
+    uint32 hashInd = KeyHash(key) % capacity;
+    for (int i = 0; i < capacity; i++) {
+        KeyValuePair<V>* pair = pairs + hashInd + i;
+        if (KeyCompare(pair->key, key)) {
+            return pair;
+        }
+    }
+
+    return nullptr;
+}
+
+template <typename V>
+KeyValuePair<V>* HashTable<V>::GetFreeSlot(const HashKey& key)
+{
+    uint32 hashInd = KeyHash(key) % capacity;
+    for (int i = 0; i < capacity; i++) {
+        KeyValuePair<V>* pair = pairs + hashInd + i;
+        if (pair->key.length == 0) {
+            return pair;
+        }
+    }
+
+    return nullptr;
 }
 
 void MemCopy(void* dst, const void* src, uint64 numBytes)

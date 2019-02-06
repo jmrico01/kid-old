@@ -114,7 +114,6 @@ struct GameState
 	TextGL textGL;
 
 	AnimatedSprite spriteKid;
-	AnimatedSprite spriteMe;
 
 	ObjectStatic background;
 

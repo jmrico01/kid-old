@@ -10,17 +10,19 @@
 anim Idle
 dir idle
 fps -1
-exit * 1 0
-exit * 2 0
+exit * Walk 0
+exit * Jump 0
 
 anim Walk
 dir walk
 fps 24
-exit 0 0 0
+exit 0 Idle 0
+exit * Jump 0
 
 anim Jump
 dir jump
 fps 24
 timing 2 2 2 1 1 1 2 3 2 2 2 1 1 1 2 2
 rootmotion SOMETHING
-exit 15 0 0
+exit 15 Idle 0
+exit 15 Walk 0

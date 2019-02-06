@@ -9,42 +9,36 @@
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
 
-Vec2 AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int nextAnimations[])
+Vec2 AnimatedSprite::Update(float32 deltaTime,
+	int numNextAnimations, const HashKey* nextAnimations)
 {
-	Animation activeAnim = animations[activeAnimation];
+	const Animation* activeAnim = animations.GetValue(activeAnimation);
 	Vec2 rootMotion = Vec2::zero;
 
-	int nextAnim = -1;
-	int nextAnimStartFrame = 0;
 	for (int i = 0; i < numNextAnimations; i++) {
-		int exitToFrame = activeAnim.frameExitTo[activeFrame][nextAnimations[i]];
-		if (activeAnimation == nextAnimations[i]) {
-			nextAnim = -1;
+		if (KeyCompare(activeAnimation, nextAnimations[i])) {
 			break;
 		}
-		else if (exitToFrame >= 0) {
-			nextAnim = nextAnimations[i];
-			nextAnimStartFrame = exitToFrame;
+		
+		int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
+		if (exitToFrame != nullptr) {
+			activeAnimation = nextAnimations[i];
+			activeFrame = *exitToFrame;
+			activeFrameRepeat = 0;
 		}
-	}
-	if (nextAnim != -1) {
-		activeAnimation = nextAnim;
-		activeAnim = animations[activeAnimation];
-		activeFrame = nextAnimStartFrame;
-		activeFrameRepeat = 0;
 	}
 
 	activeFrameTime += deltaTime;
-	if (activeFrameTime > 1.0f / activeAnim.fps) {
+	if (activeFrameTime > 1.0f / activeAnim->fps) {
 		activeFrameTime = 0.0f;
 		activeFrameRepeat++;
-		if (activeFrameRepeat >= activeAnim.frameTiming[activeFrame]) {
+		if (activeFrameRepeat >= activeAnim->frameTiming[activeFrame]) {
 			int activeFramePrev = activeFrame;
-			activeFrame = (activeFrame + 1) % activeAnim.numFrames;
+			activeFrame = (activeFrame + 1) % activeAnim->numFrames;
 			activeFrameRepeat = 0;
 
-			rootMotion = activeAnim.frameRootMotion[activeFrame]
-				- activeAnim.frameRootMotion[activeFramePrev];
+			rootMotion = activeAnim->frameRootMotion[activeFrame]
+				- activeAnim->frameRootMotion[activeFramePrev];
 		}
 	}
 
@@ -54,10 +48,11 @@ Vec2 AnimatedSprite::Update(float32 deltaTime, int numNextAnimations, const int 
 void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
 		Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const
 {
-	Vec2 anchorRootMotion = animations[activeAnimation].frameRootAnchor[activeFrame];
+	Animation* activeAnim = animations.GetValue(activeAnimation);
+	Vec2 anchorRootMotion = activeAnim->frameRootAnchor[activeFrame];
 	PushSpriteWorldSpace(spriteDataGL, pos, size,
 		anchorRootMotion, flipHorizontal,
-		animations[activeAnimation].frameTextures[activeFrame].textureID);
+		activeAnim->frameTextures[activeFrame].textureID);
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
@@ -93,10 +88,13 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		return false;
 	}
 
+	outAnimatedSprite.animations.Init();
+
 	const char* fileData = (const char*)animFile.data;
 	bool32 done = false;
 	int i = 0;
-	int animIndex = -1;
+	HashKey currentAnimKey = {};
+	Animation* currentAnim = nullptr;
 	while (!done) {
 		char keyword[KEYWORD_MAX_LENGTH];
 		int keywordI = 0;
@@ -125,15 +123,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword, "anim", 4)) {
-			animIndex++;
-			if (animIndex >= SPRITE_MAX_ANIMATIONS) {
-				DEBUG_PRINT("Too many animations in file (%s)\n", filePath);
-				return false;
-			}
+			currentAnimKey.WriteString(value, valueI);
+			outAnimatedSprite.animations.Add(currentAnimKey, {});
+			currentAnim = outAnimatedSprite.animations.GetValue(currentAnimKey);
 		}
 		else if (StringCompare(keyword, "dir", 3)) {
-			Animation& animation = outAnimatedSprite.animations[animIndex];
-			animation.numFrames = 0;
+			currentAnim->numFrames = 0;
 			int frame = 0;
 			int lastSlash = GetLastOccurrence(filePath, StringLength(filePath), '/');
 			if (lastSlash == -1) {
@@ -169,14 +164,15 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				if (!frameResult) {
 					break;
 				}
-				animation.frameTextures[frame] = frameTextureGL;
-				animation.frameTiming[frame] = 1;
-				for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
-					animation.frameExitTo[frame][j] = -1;
-				}
-				animation.numFrames++;
+				currentAnim->frameTextures[frame] = frameTextureGL;
+				currentAnim->frameTiming[frame] = 1;
+				currentAnim->frameExitTo[frame].Init();
+				/*for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
+					currentAnim->frameExitTo[frame][j] = -1;
+				}*/
+				currentAnim->numFrames++;
 
-				if (animIndex == 0 && frame == 0) {
+				if (outAnimatedSprite.animations.size == 1 && frame == 0) {
 					outAnimatedSprite.textureSize = frameTextureGL.size;
 				}
 				else if (outAnimatedSprite.textureSize != frameTextureGL.size) {
@@ -186,7 +182,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				}
 
 				// TODO hardcoded
-				animation.frameRootAnchor[frame] = {
+				currentAnim->frameRootAnchor[frame] = {
 					(float32)ROOTMOTION_HARDCODED[0].x / outAnimatedSprite.textureSize.x,
 					(float32)(outAnimatedSprite.textureSize.y - ROOTMOTION_HARDCODED[0].y) / outAnimatedSprite.textureSize.y
 				};
@@ -194,7 +190,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				frame++;
 			}
 
-			if (animation.numFrames == 0) {
+			if (currentAnim->numFrames == 0) {
 				DEBUG_PRINT("Animation with no frames (%s)\n", filePath);
 				return false;
 			}
@@ -210,7 +206,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				DEBUG_PRINT("Animation file invalid fps %d (%s)\n", fps, filePath);
 				return false;
 			}
-			outAnimatedSprite.animations[animIndex].fps = fps;
+			currentAnim->fps = fps;
 		}
 		else if (StringCompare(keyword, "exit", 4)) {
 			int spaceInd1 = -1;
@@ -231,7 +227,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				DEBUG_PRINT("Animation file invalid exit value (%s)\n", filePath);
 				return false;
 			}
-			int exitFromFrame, exitToAnim, exitToFrame;
+			int exitFromFrame, /*exitToAnim,*/ exitToFrame;
 			bool32 result;
 			if (spaceInd1 == 1 && value[0] == '*') {
 				// wildcard
@@ -244,39 +240,43 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					return false;
 				}
 			}
-			result = StringToIntBase10(&value[spaceInd1 + 1],
+			/*result = StringToIntBase10(&value[spaceInd1 + 1],
 				spaceInd2 - spaceInd1 - 1, exitToAnim);
 			if (!result) {
 				DEBUG_PRINT("Animation file invalid exit-to animation (%s)\n", filePath);
 				return false;
-			}
+			}*/
 			result = StringToIntBase10(&value[spaceInd2 + 1],
 				valueI - spaceInd2 - 1, exitToFrame);
 			if (!result) {
 				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
 				return false;
 			}
-			Animation& anim = outAnimatedSprite.animations[animIndex];
+			HashKey exitToAnim;
+			exitToAnim.WriteString(&value[spaceInd1 + 1], spaceInd2 - spaceInd1 - 1);
+			DEBUG_PRINT("tried to write %.*s\nwrote %.*s\n",
+				spaceInd2 - spaceInd1 - 1, &value[spaceInd1 + 1],
+				exitToAnim.length, exitToAnim.string);
 			if (exitFromFrame == -1) {
-				for (int j = 0; j < anim.numFrames; j++) {
-					anim.frameExitTo[j][exitToAnim] = exitToFrame;
+				for (int j = 0; j < currentAnim->numFrames; j++) {
+					currentAnim->frameExitTo[j].Add(exitToAnim, exitToFrame);
+					//currentAnim->frameExitTo[j][exitToAnim] = exitToFrame;
 				}
 			}
 			else {
-				anim.frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
+				//currentAnim->frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
+				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
 		else if (StringCompare(keyword, "timing", 6)) {
 			// TODO hardcoded
-			Animation& anim = outAnimatedSprite.animations[animIndex];
-			DEBUG_ASSERT(anim.numFrames == 16);
-			for (int j = 0; j < anim.numFrames; j++) {
-				anim.frameTiming[j] = TIMING_HARDCODED[j];
+			DEBUG_ASSERT(currentAnim->numFrames == 16);
+			for (int j = 0; j < currentAnim->numFrames; j++) {
+				currentAnim->frameTiming[j] = TIMING_HARDCODED[j];
 			}
 		}
 		else if (StringCompare(keyword, "rootmotion", 10)) {
 			// TODO hardcoded
-			Animation& anim = outAnimatedSprite.animations[animIndex];
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2Int rootMotion0 = ROOTMOTION_HARDCODED[0];
 			rootMotion0.y = textureSize.y - rootMotion0.y;
@@ -284,16 +284,16 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				(float32)rootMotion0.x / REF_PIXELS_PER_UNIT,
 				(float32)rootMotion0.y / REF_PIXELS_PER_UNIT
 			};
-			DEBUG_ASSERT(anim.numFrames == 16);
-			for (int j = 0; j < anim.numFrames; j++) {
+			DEBUG_ASSERT(currentAnim->numFrames == 16);
+			for (int j = 0; j < currentAnim->numFrames; j++) {
 				Vec2Int rootPos = ROOTMOTION_HARDCODED[j];
 				rootPos.y = textureSize.y - rootPos.y;
 				Vec2 rootPosWorld = {
 					(float32)rootPos.x / REF_PIXELS_PER_UNIT,
 					(float32)rootPos.y / REF_PIXELS_PER_UNIT
 				};
-				anim.frameRootMotion[j] = rootPosWorld - rootPosWorld0;
-				anim.frameRootAnchor[j] = {
+				currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
+				currentAnim->frameRootAnchor[j] = {
 					(float32)rootPos.x / textureSize.x,
 					(float32)rootPos.y / textureSize.y
 				};
@@ -318,15 +318,15 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	DEBUGPlatformFreeFileMemory(thread, &animFile);
 
-	outAnimatedSprite.activeAnimation = 0;
+	outAnimatedSprite.activeAnimation = currentAnimKey;
 	outAnimatedSprite.activeFrame = 0;
 	outAnimatedSprite.activeFrameRepeat = 0;
 	outAnimatedSprite.activeFrameTime = 0.0f;
 
-	outAnimatedSprite.numAnimations = animIndex + 1;
-
+	// TODO fix. add ability to iterate over all hashmap?
+#if 0
 	for (int a = 0; a < SPRITE_MAX_ANIMATIONS; a++) {
-		Animation& animation = outAnimatedSprite.animations[a];
+		Animation* animation = outAnimatedSprite.animations[a];
 		for (int f = 0; f < animation.numFrames; f++) {
 			for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
 				int exitToFrame = animation.frameExitTo[f][j];
@@ -343,6 +343,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 		}
 	}
+#endif
 
 	return true;
 }
