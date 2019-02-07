@@ -44,8 +44,8 @@ struct KeyValuePair
 template <typename V>
 struct HashTable
 {
-	int size;
-	int capacity;
+	uint32 size;
+	uint32 capacity;
 
     KeyValuePair<V>* pairs;
 
@@ -55,6 +55,9 @@ struct HashTable
 	void Add(const HashKey& key, V value);
     V* GetValue(const HashKey& key) const; // const... sure, if it helps you sleep at night
 	bool32 Remove(const HashKey& key);
+
+    void Clear();
+    void Free();
 
 private:
     KeyValuePair<V>* GetPair(const HashKey& key) const;

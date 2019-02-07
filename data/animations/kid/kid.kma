@@ -23,6 +23,23 @@ anim Jump
 dir jump
 fps 24
 timing 2 2 2 1 1 1 2 3 2 2 2 1 1 1 2 2
-rootmotion SOMETHING
+rootmotion {
+110 480
+110 480
+110 480
+110 403
+110 270
+110 217
+110 209
+110 206
+110 209
+110 217
+110 246
+110 340
+110 480
+110 480
+110 480
+110 480
+}
 exit 15 Idle 0
 exit 15 Walk 0

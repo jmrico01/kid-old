@@ -9,6 +9,26 @@
 // TODO plz standardize
 #define PATH_MAX_LENGTH 128
 
+enum SplitStringCode
+{
+    SPLIT_STRING_SUCCESS,
+    SPLIT_STRING_END
+};
+
+static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
+    int* elementLength, const char** next)
+{
+    for (int i = 0; i < stringLength; i++) {
+        if (string[i] == separator) {
+            *elementLength = i;
+            *next = &string[i + 1];
+            return true;
+        }
+    }
+
+    return false;
+}
+
 Vec2 AnimatedSprite::Update(float32 deltaTime,
 	int numNextAnimations, const HashKey* nextAnimations)
 {
@@ -110,16 +130,26 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			return false;
 		}
 		i++; // Skip space
+
 		char value[VALUE_MAX_LENGTH];
 		int valueI = 0;
-		while (i < animFile.size
-		&& fileData[i] != '\n' && fileData[i] != '\r' && fileData[i] != '\0') {
+        bool bracketValue = false;
+		while (i < animFile.size &&
+        ((!bracketValue && fileData[i] != '\n' && fileData[i] != '\r' && fileData[i] != '\0')
+        || (bracketValue && fileData[i] != '}'))) {
+            if (valueI == 0 && fileData[i] == '{') {
+                bracketValue = true;
+                i++;
+                continue;
+            }
 			if (valueI >= VALUE_MAX_LENGTH) {
 				DEBUG_PRINT("Animation file value too long (%s)\n", filePath);
 				return false;
 			}
 			value[valueI++] = fileData[i++];
 		}
+
+        DEBUG_PRINT("keyword: %.*s\nvalue: %.*s\n", keywordI, keyword, valueI, value);
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword, "anim", 4)) {
@@ -270,10 +300,20 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (StringCompare(keyword, "timing", 6)) {
 			// TODO hardcoded
-			DEBUG_ASSERT(currentAnim->numFrames == 16);
+            const char* element = value;
+            int length = valueI;
+            int elementLength;
+            const char* next;
+            for (int j = 0; j < currentAnim->numFrames; j++) {
+                ReadElementInSplitString(element, length, ' ', &elementLength, &next);
+                DEBUG_PRINT("timing: %.*s\n", elementLength, element);
+                length -= (int)(next - element);
+                element = next;
+            }
+			/*DEBUG_ASSERT(currentAnim->numFrames == 16);
 			for (int j = 0; j < currentAnim->numFrames; j++) {
 				currentAnim->frameTiming[j] = TIMING_HARDCODED[j];
-			}
+			}*/
 		}
 		else if (StringCompare(keyword, "rootmotion", 10)) {
 			// TODO hardcoded
@@ -306,8 +346,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			DEBUG_PRINT("Animation file with unknown keyword (%s)\n", filePath);
 			return false;
 		}
-		// Gobble newline characters
-		while (i < animFile.size && (fileData[i] == '\n' || fileData[i] == '\r')) {
+
+		// Gobble newline and '}' characters
+		while (i < animFile.size &&
+        (fileData[i] == '}' || fileData[i] == '\n' || fileData[i] == '\r')) {
 			i++;
 		}
 

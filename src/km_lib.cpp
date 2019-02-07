@@ -8,6 +8,7 @@
 #define DYNAMIC_ARRAY_START_CAPACITY 10
 
 #define HASH_TABLE_START_CAPACITY 17
+#define HASH_TABLE_MAX_SIZE_TO_CAPACITY 0.7
 
 // Very simple string hash ( djb2 hash, source http://www.cse.yorku.ca/~oz/hash.html )
 uint32 KeyHash(const HashKey& key)
@@ -107,6 +108,9 @@ template <typename T>
 void DynamicArray<T>::Free()
 {
 	free(data);
+
+    capacity = 0;
+    size = 0;
 }
 
 template <typename T>
@@ -160,7 +164,16 @@ void HashTable<V>::Add(const HashKey& key, V value)
 {
     DEBUG_ASSERT(GetPair(key) == nullptr);
 
-    DEBUG_ASSERT(size < capacity);
+    if (size >= (uint32)((float32)capacity * HASH_TABLE_MAX_SIZE_TO_CAPACITY)) {
+        uint32 newCapacity = NextPrime(capacity * 2);
+        pairs = (KeyValuePair<V>*)realloc(pairs, sizeof(KeyValuePair<V>) * newCapacity);
+        if (!pairs) {
+            DEBUG_PANIC("ERROR: not enough memory!\n");
+        }
+
+        // TODO rehash etc
+        capacity = newCapacity;
+    }
 
     KeyValuePair<V>* pair = GetFreeSlot(key);
     DEBUG_ASSERT(pair != nullptr);
@@ -182,13 +195,33 @@ V* HashTable<V>::GetValue(const HashKey& key) const
 }
 
 template <typename V>
+void HashTable<V>::Clear()
+{
+    for (int i = 0; i < cap; i++) {
+        pairs[i].key.length = 0;
+    }
+}
+
+template <typename V>
+void HashTable<V>::Free()
+{
+    free(pairs);
+
+    capacity = 0;
+    size = 0;
+}
+
+template <typename V>
 KeyValuePair<V>* HashTable<V>::GetPair(const HashKey& key) const
 {
     uint32 hashInd = KeyHash(key) % capacity;
-    for (int i = 0; i < capacity; i++) {
+    for (uint32 i = 0; i < capacity; i++) {
         KeyValuePair<V>* pair = pairs + hashInd + i;
         if (KeyCompare(pair->key, key)) {
             return pair;
+        }
+        if (pair->key.length == 0) {
+            return nullptr;
         }
     }
 
@@ -199,7 +232,7 @@ template <typename V>
 KeyValuePair<V>* HashTable<V>::GetFreeSlot(const HashKey& key)
 {
     uint32 hashInd = KeyHash(key) % capacity;
-    for (int i = 0; i < capacity; i++) {
+    for (uint32 i = 0; i < capacity; i++) {
         KeyValuePair<V>* pair = pairs + hashInd + i;
         if (pair->key.length == 0) {
             return pair;

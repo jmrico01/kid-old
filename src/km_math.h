@@ -46,6 +46,26 @@ inline int RoundFloat32Fast(float32 a) {
 	}
 }
 
+int IsPrime(int n)
+{
+    for (int i = 0; i < n / 2; i++) {
+        if (n % i == 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+int NextPrime(int n)
+{
+    while (!IsPrime(n)) {
+        n++;
+    }
+
+    return n;
+}
+
 // ========== MATH TYPES ==========
 
 union Vec2
