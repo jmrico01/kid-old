@@ -21,6 +21,20 @@ bool StringCompare(const char* str1, const char* str2, int n)
 	return true;
 }
 
+void TrimWhitespace(const char* str, int n, const char** trimmedStr, int* trimmedN)
+{
+    int i = 0;
+    while (i < n && IsWhitespace(str[i])) {
+        i++;
+    }
+    while (i < n && IsWhitespace(str[n - 1])) {
+        n--;
+    }
+
+    *trimmedStr = str + i;
+    *trimmedN = n - i;
+}
+
 void CatStrings(
 	size_t sourceACount, const char* sourceA,
 	size_t sourceBCount, const char* sourceB,
@@ -43,14 +57,14 @@ inline bool32 IsWhitespace(char c)
 		|| c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-bool32 StringToIntBase10(const char* string, int n, int& outInt)
+bool32 StringToIntBase10(const char* string, int n, int* intBase10)
 {
 	if (n <= 0) {
 		return false;
 	}
 
 	bool32 negative = false;
-	outInt = 0;
+	*intBase10 = 0;
 	for (int i = 0; i < n; i++) {
 		char c = string[i];
 		if (i == 0 && c == '-') {
@@ -60,11 +74,11 @@ bool32 StringToIntBase10(const char* string, int n, int& outInt)
 		if (c < '0' || c > '9') {
 			return false;
 		}
-		outInt = outInt * 10 + (int)(c - '0');
+		*intBase10 = (*intBase10) * 10 + (int)(c - '0');
 	}
 
 	if (negative) {
-		outInt = -outInt;
+		*intBase10 = -(*intBase10);
 	}
 	return true;
 }

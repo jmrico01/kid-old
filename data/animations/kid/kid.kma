@@ -12,12 +12,21 @@ dir idle
 fps -1
 exit * Walk 0
 exit * Jump 0
+rootmotion 110 480
 
 anim Walk
 dir walk
 fps 24
 exit 0 Idle 0
 exit * Jump 0
+rootmotion {
+110 480
+110 480
+110 480
+110 480
+110 480
+110 480
+}
 
 anim Jump
 dir jump

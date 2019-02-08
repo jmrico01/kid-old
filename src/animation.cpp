@@ -6,27 +6,28 @@
 
 #define KEYWORD_MAX_LENGTH 16
 #define VALUE_MAX_LENGTH 256
-// TODO plz standardize
+// TODO plz standardize file paths
 #define PATH_MAX_LENGTH 128
 
 enum SplitStringCode
 {
-    SPLIT_STRING_SUCCESS,
-    SPLIT_STRING_END
+	SPLIT_STRING_SUCCESS,
+	SPLIT_STRING_END
 };
 
 static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
-    int* elementLength, const char** next)
+	int* elementLength, const char** next)
 {
-    for (int i = 0; i < stringLength; i++) {
-        if (string[i] == separator) {
-            *elementLength = i;
-            *next = &string[i + 1];
-            return true;
-        }
-    }
+	for (int i = 0; i < stringLength; i++) {
+		if (string[i] == separator) {
+			*elementLength = i;
+			*next = &string[i + 1];
+			return true;
+		}
+	}
 
-    return false;
+	*elementLength = stringLength;
+	return true;
 }
 
 Vec2 AnimatedSprite::Update(float32 deltaTime,
@@ -80,28 +81,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
-	const int TIMING_HARDCODED[16] = {
-		2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2
-	};
-	const Vec2Int ROOTMOTION_HARDCODED[16] = {
-		{ 101, 480 },
-		{ 101, 480 },
-		{ 101, 480 },
-		{ 101, 403 },
-		{ 101, 270 },
-		{ 101, 217 },
-		{ 101, 209 },
-		{ 101, 206 },
-		{ 101, 209 },
-		{ 101, 217 },
-		{ 101, 246 },
-		{ 101, 340 },
-		{ 101, 480 },
-		{ 101, 480 },
-		{ 101, 480 },
-		{ 101, 480 },
-	};
-
 	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!animFile.data) {
 		DEBUG_PRINT("Failed to open animation file at: %s\n", filePath);
@@ -131,25 +110,28 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		i++; // Skip space
 
-		char value[VALUE_MAX_LENGTH];
-		int valueI = 0;
-        bool bracketValue = false;
+		char valueBuffer[VALUE_MAX_LENGTH];
+		int valueLength = 0;
+		bool bracketValue = false;
 		while (i < animFile.size &&
-        ((!bracketValue && fileData[i] != '\n' && fileData[i] != '\r' && fileData[i] != '\0')
-        || (bracketValue && fileData[i] != '}'))) {
-            if (valueI == 0 && fileData[i] == '{') {
-                bracketValue = true;
-                i++;
-                continue;
-            }
-			if (valueI >= VALUE_MAX_LENGTH) {
+		((!bracketValue && fileData[i] != '\n' && fileData[i] != '\r')
+		|| (bracketValue && fileData[i] != '}'))) {
+			if (valueLength == 0 && fileData[i] == '{') {
+				bracketValue = true;
+				i++;
+				continue;
+			}
+			if (valueLength >= VALUE_MAX_LENGTH) {
 				DEBUG_PRINT("Animation file value too long (%s)\n", filePath);
 				return false;
 			}
-			value[valueI++] = fileData[i++];
+			valueBuffer[valueLength++] = fileData[i++];
 		}
 
-        DEBUG_PRINT("keyword: %.*s\nvalue: %.*s\n", keywordI, keyword, valueI, value);
+		const char* value;
+		int valueI;
+		TrimWhitespace(valueBuffer, valueLength, &value, &valueI);
+		DEBUG_PRINT("keyword: %.*s\nvalue: %.*s\n", keywordI, keyword, valueI, value);
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword, "anim", 4)) {
@@ -175,8 +157,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			spritePath[lastSlash] = '/';
 			while (true) {
-				value[valueI] = '\0'; // TODO dangerous but ugh
-				int written = sprintf(&spritePath[lastSlash + 1], "%s/%d.png", value, frame);
+				int written = sprintf(&spritePath[lastSlash + 1], "%.*s/%d.png",
+					valueI, value, frame);
 				if (written <= 0) {
 					DEBUG_PRINT("Failed to build animation sprite path for %s\n", filePath);
 					return false;
@@ -197,9 +179,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				currentAnim->frameTextures[frame] = frameTextureGL;
 				currentAnim->frameTiming[frame] = 1;
 				currentAnim->frameExitTo[frame].Init();
-				/*for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
-					currentAnim->frameExitTo[frame][j] = -1;
-				}*/
+				currentAnim->frameRootAnchor[frame] = Vec2::zero;
+				currentAnim->frameRootMotion[frame] = Vec2::zero;
 				currentAnim->numFrames++;
 
 				if (outAnimatedSprite.animations.size == 1 && frame == 0) {
@@ -211,12 +192,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					return false;
 				}
 
-				// TODO hardcoded
-				currentAnim->frameRootAnchor[frame] = {
-					(float32)ROOTMOTION_HARDCODED[0].x / outAnimatedSprite.textureSize.x,
-					(float32)(outAnimatedSprite.textureSize.y - ROOTMOTION_HARDCODED[0].y) / outAnimatedSprite.textureSize.y
-				};
-
 				frame++;
 			}
 
@@ -227,8 +202,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (StringCompare(keyword, "fps", 3)) {
 			int fps;
-			bool32 result = StringToIntBase10(value, valueI, fps);
-			if (!result) {
+			if (!StringToIntBase10(value, valueI, &fps)) {
 				DEBUG_PRINT("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
@@ -239,104 +213,140 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->fps = fps;
 		}
 		else if (StringCompare(keyword, "exit", 4)) {
-			int spaceInd1 = -1;
-			int spaceInd2 = -1;
-			for (int j = 0; j < valueI; j++) {
-				if (value[j] == ' ') {
-					if (spaceInd1 == -1) {
-						spaceInd1 = j;
-					}
-					else if (spaceInd2 == -1) {
-						spaceInd2 = j;
-						break;
-					}
-				}
-			}
-			if (spaceInd1 == -1 || spaceInd1 == spaceInd2 - 1
-			|| spaceInd2 == -1 || spaceInd2 == valueI - 1) {
-				DEBUG_PRINT("Animation file invalid exit value (%s)\n", filePath);
+			const char* element = value;
+			int length = valueI;
+			int elementLength;
+			const char* next;
+
+			if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
+				DEBUG_PRINT("Animation file missing exit-from frame (%s)\n", filePath);
 				return false;
 			}
-			int exitFromFrame, /*exitToAnim,*/ exitToFrame;
-			bool32 result;
-			if (spaceInd1 == 1 && value[0] == '*') {
+			int exitFromFrame;
+			if (*element == '*') {
 				// wildcard
 				exitFromFrame = -1;
 			}
 			else {
-				result = StringToIntBase10(value, spaceInd1, exitFromFrame);
-				if (!result) {
+				if (!StringToIntBase10(element, elementLength, &exitFromFrame)) {
 					DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
 					return false;
 				}
 			}
-			/*result = StringToIntBase10(&value[spaceInd1 + 1],
-				spaceInd2 - spaceInd1 - 1, exitToAnim);
-			if (!result) {
-				DEBUG_PRINT("Animation file invalid exit-to animation (%s)\n", filePath);
-				return false;
-			}*/
-			result = StringToIntBase10(&value[spaceInd2 + 1],
-				valueI - spaceInd2 - 1, exitToFrame);
-			if (!result) {
-				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
+
+			length -= (int)(next - element);
+			element = next;
+			if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
+				DEBUG_PRINT("Animation file missing exit-to animation (%s)\n", filePath);
 				return false;
 			}
 			HashKey exitToAnim;
-			exitToAnim.WriteString(&value[spaceInd1 + 1], spaceInd2 - spaceInd1 - 1);
-			DEBUG_PRINT("tried to write %.*s\nwrote %.*s\n",
-				spaceInd2 - spaceInd1 - 1, &value[spaceInd1 + 1],
-				exitToAnim.length, exitToAnim.string);
+			exitToAnim.WriteString(element, elementLength);
+
+			length -= (int)(next - element);
+			element = next;
+			if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+				DEBUG_PRINT("Animation file missing exit-to frame (%s)\n", filePath);
+				return false;
+			}
+			int exitToFrame;
+			if (!StringToIntBase10(element, elementLength, &exitToFrame)) {
+				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
+				return false;
+			}
+
 			if (exitFromFrame == -1) {
 				for (int j = 0; j < currentAnim->numFrames; j++) {
 					currentAnim->frameExitTo[j].Add(exitToAnim, exitToFrame);
-					//currentAnim->frameExitTo[j][exitToAnim] = exitToFrame;
 				}
 			}
 			else {
-				//currentAnim->frameExitTo[exitFromFrame][exitToAnim] = exitToFrame;
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
 		else if (StringCompare(keyword, "timing", 6)) {
-			// TODO hardcoded
-            const char* element = value;
-            int length = valueI;
-            int elementLength;
-            const char* next;
-            for (int j = 0; j < currentAnim->numFrames; j++) {
-                ReadElementInSplitString(element, length, ' ', &elementLength, &next);
-                DEBUG_PRINT("timing: %.*s\n", elementLength, element);
-                length -= (int)(next - element);
-                element = next;
-            }
-			/*DEBUG_ASSERT(currentAnim->numFrames == 16);
+			const char* element = value;
+			int length = valueI;
+			int frameTiming;
 			for (int j = 0; j < currentAnim->numFrames; j++) {
-				currentAnim->frameTiming[j] = TIMING_HARDCODED[j];
-			}*/
+				int elementLength;
+				const char* next;
+				if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
+					DEBUG_PRINT("Animation file missing timing information (%s)\n", filePath);
+					return false;
+				}
+				if (!StringToIntBase10(element, elementLength, &frameTiming)) {
+					DEBUG_PRINT("Animation file invalid timing value (%s)\n", filePath);
+					return false;
+				}
+				currentAnim->frameTiming[j] = frameTiming;
+				length -= (int)(next - element);
+				element = next;
+			}
 		}
 		else if (StringCompare(keyword, "rootmotion", 10)) {
-			// TODO hardcoded
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
-			Vec2Int rootMotion0 = ROOTMOTION_HARDCODED[0];
-			rootMotion0.y = textureSize.y - rootMotion0.y;
-			Vec2 rootPosWorld0 = {
-				(float32)rootMotion0.x / REF_PIXELS_PER_UNIT,
-				(float32)rootMotion0.y / REF_PIXELS_PER_UNIT
-			};
-			DEBUG_ASSERT(currentAnim->numFrames == 16);
+			Vec2 rootPosWorld0 = Vec2::zero;
+
+			const char* element = value;
+			int length = valueI;
 			for (int j = 0; j < currentAnim->numFrames; j++) {
-				Vec2Int rootPos = ROOTMOTION_HARDCODED[j];
+				// Read root motion coordinate pair
+				int elementLength;
+				const char* next;
+				if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+					DEBUG_PRINT("Animation file missing root motion entry (%s)\n", filePath);
+					return false;
+				}
+				DEBUG_PRINT("element: %.*s (%d)\n", elementLength, element, elementLength);
+
+				// Parse root motion coordinate pair
+				Vec2Int rootPos;
+				const char* trimmed;
+				int trimmedLength;
+				TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
+				DEBUG_PRINT("trimmed: %.*s (%d)\n", trimmedLength, trimmed, trimmedLength);
+
+				int trimmedElementLength;
+				const char* trimmedNext;
+				if (!ReadElementInSplitString(trimmed, trimmedLength, ' ',
+				&trimmedElementLength, &trimmedNext)) {
+					DEBUG_PRINT("Animation file missing root motion 1st coordinate (%s)\n", filePath);
+					return false;
+				}
+				if (!StringToIntBase10(trimmed, trimmedElementLength, &rootPos.x)) {
+					DEBUG_PRINT("Animation file invalid root motion 1st coordinate (%s)\n", filePath);
+					return false;
+				}
+
+				trimmedLength -= (int)(trimmedNext - trimmed);
+				trimmed = trimmedNext;
+				if (!ReadElementInSplitString(trimmed, trimmedLength, ' ',
+				&trimmedElementLength, &trimmedNext)) {
+					DEBUG_PRINT("Animation file missing root motion 2nd coordinate (%s)\n", filePath);
+					return false;
+				}
+				if (!StringToIntBase10(trimmed, trimmedElementLength, &rootPos.y)) {
+					DEBUG_PRINT("Animation file invalid root motion 2nd coordinate (%s)\n", filePath);
+					return false;
+				}
+
 				rootPos.y = textureSize.y - rootPos.y;
 				Vec2 rootPosWorld = {
 					(float32)rootPos.x / REF_PIXELS_PER_UNIT,
 					(float32)rootPos.y / REF_PIXELS_PER_UNIT
 				};
-				currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
 				currentAnim->frameRootAnchor[j] = {
 					(float32)rootPos.x / textureSize.x,
 					(float32)rootPos.y / textureSize.y
 				};
+				if (i == 0) {
+					rootPosWorld0 = rootPosWorld;
+				}
+				currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
+
+				length -= (int)(next - element);
+				element = next;
 			}
 		}
 		else if (StringCompare(keyword, "//", 2)) {
@@ -349,7 +359,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 		// Gobble newline and '}' characters
 		while (i < animFile.size &&
-        (fileData[i] == '}' || fileData[i] == '\n' || fileData[i] == '\r')) {
+		(fileData[i] == '}' || fileData[i] == '\n' || fileData[i] == '\r')) {
 			i++;
 		}
 
