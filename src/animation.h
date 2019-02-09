@@ -19,7 +19,6 @@ struct Animation
     Vec2 frameRootMotion[ANIMATION_MAX_FRAMES];
     Vec2 frameRootAnchor[ANIMATION_MAX_FRAMES];
     HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
-	//int frameExitTo[ANIMATION_MAX_FRAMES][SPRITE_MAX_ANIMATIONS];
 };
 
 struct AnimatedSprite

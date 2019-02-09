@@ -9,12 +9,6 @@
 // TODO plz standardize file paths
 #define PATH_MAX_LENGTH 128
 
-enum SplitStringCode
-{
-	SPLIT_STRING_SUCCESS,
-	SPLIT_STRING_END
-};
-
 static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
 	int* elementLength, const char** next)
 {
@@ -43,9 +37,13 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 		
 		int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
 		if (exitToFrame != nullptr) {
+            Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
 			activeAnimation = nextAnimations[i];
 			activeFrame = *exitToFrame;
 			activeFrameRepeat = 0;
+
+            activeAnim = animations.GetValue(activeAnimation);
+            rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
 		}
 	}
 
@@ -58,7 +56,7 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 			activeFrame = (activeFrame + 1) % activeAnim->numFrames;
 			activeFrameRepeat = 0;
 
-			rootMotion = activeAnim->frameRootMotion[activeFrame]
+			rootMotion += activeAnim->frameRootMotion[activeFrame]
 				- activeAnim->frameRootMotion[activeFramePrev];
 		}
 	}
@@ -131,7 +129,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		const char* value;
 		int valueI;
 		TrimWhitespace(valueBuffer, valueLength, &value, &valueI);
-		DEBUG_PRINT("keyword: %.*s\nvalue: %.*s\n", keywordI, keyword, valueI, value);
+		// DEBUG_PRINT("keyword: %.*s\nvalue: %.*s\n", keywordI, keyword, valueI, value);
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword, "anim", 4)) {
@@ -298,14 +296,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					DEBUG_PRINT("Animation file missing root motion entry (%s)\n", filePath);
 					return false;
 				}
-				DEBUG_PRINT("element: %.*s (%d)\n", elementLength, element, elementLength);
 
 				// Parse root motion coordinate pair
 				Vec2Int rootPos;
 				const char* trimmed;
 				int trimmedLength;
 				TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
-				DEBUG_PRINT("trimmed: %.*s (%d)\n", trimmedLength, trimmed, trimmedLength);
 
 				int trimmedElementLength;
 				const char* trimmedNext;
@@ -349,6 +345,11 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				element = next;
 			}
 		}
+        else if (StringCompare(keyword, "start", 5)) {
+            HashKey startAnim;
+            startAnim.WriteString(value, valueI);
+            outAnimatedSprite.activeAnimation = startAnim;
+        }
 		else if (StringCompare(keyword, "//", 2)) {
 			// Comment, ignore
 		}
@@ -370,32 +371,48 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	DEBUGPlatformFreeFileMemory(thread, &animFile);
 
-	outAnimatedSprite.activeAnimation = currentAnimKey;
 	outAnimatedSprite.activeFrame = 0;
 	outAnimatedSprite.activeFrameRepeat = 0;
 	outAnimatedSprite.activeFrameTime = 0.0f;
 
-	// TODO fix. add ability to iterate over all hashmap?
-#if 0
-	for (int a = 0; a < SPRITE_MAX_ANIMATIONS; a++) {
-		Animation* animation = outAnimatedSprite.animations[a];
-		for (int f = 0; f < animation.numFrames; f++) {
-			for (int j = 0; j < SPRITE_MAX_ANIMATIONS; j++) {
-				int exitToFrame = animation.frameExitTo[f][j];
-				if (exitToFrame >= 0) {
-					if (j >= outAnimatedSprite.numAnimations) {
-						DEBUG_PRINT("Animation file exit-to animation out of bounds %d (%s)\n",
-							j, filePath);
-					}
-					if (exitToFrame >= outAnimatedSprite.animations[j].numFrames) {
-						DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
-							exitToFrame, filePath);
-					}
-				}
-			}
-		}
-	}
-#endif
+    // TODO maybe provide a friendlier way of iterating through HashTable
+    const HashTable<Animation>* animTable = &outAnimatedSprite.animations;
+    for (uint32 k = 0; k < animTable->capacity; k++) {
+        const HashKey* animKey = &animTable->pairs[k].key;
+        if (animKey->length == 0) {
+            continue;
+        }
+
+        const Animation* anim = &animTable->pairs[k].value;
+        for (int f = 0; f < anim->numFrames; f++) {
+            const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
+            for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
+                const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
+                if (toAnimKey->length == 0) {
+                    continue;
+                }
+
+                int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
+                if (exitToFrame != nullptr && *exitToFrame >= 0) {
+                    /*DEBUG_PRINT("Animation transition: %.*s (%d) -> %.*s (%d)\n",
+                        animKey->length, animKey->string, f,
+                        toAnimKey->length, toAnimKey->string, *exitToFrame);*/
+
+                    const Animation* toAnim = animTable->GetValue(*toAnimKey);
+                    if (toAnim == nullptr) {
+                        DEBUG_PRINT("Animation file non-existent exit-to animation %.*s (%s)\n",
+                            toAnimKey->length, toAnimKey->string, filePath);
+                        return false;
+                    }
+                    if (*exitToFrame >= toAnim->numFrames) {
+                        DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
+                            *exitToFrame, filePath);
+                        return false;
+                    }
+                }
+            }
+        }
+    }
 
 	return true;
 }

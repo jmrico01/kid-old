@@ -5,50 +5,79 @@
 
 // fps -1 means that the animation will run at the game's framerate
 // This is useful for static animations that require an immediate exit response
-// TODO use anim names in "exit" instead of indices
 
 anim Idle
 dir idle
 fps -1
-exit * Walk 0
-exit * Jump 0
 rootmotion 110 480
+exit 0 Walk 1
+exit 0 Jump 0
 
 anim Walk
 dir walk
 fps 24
-exit 0 Idle 0
-exit * Jump 0
 rootmotion {
-110 480
-110 480
-110 480
-110 480
-110 480
-110 480
+    110 480
+    110 480
+    110 480
+    110 480
+    110 480
+    110 480
 }
+exit 2 Idle 0
+exit * Jump 0
 
 anim Jump
 dir jump
 fps 24
-timing 2 2 2 1 1 1 2 3 2 2 2 1 1 1 2 2
+timing 2 2 2 1 1 1 2 3
 rootmotion {
-110 480
-110 480
-110 480
-110 403
-110 270
-110 217
-110 209
-110 206
-110 209
-110 217
-110 246
-110 340
-110 480
-110 480
-110 480
-110 480
+    110 480
+    110 480
+    110 480
+    110 403
+    110 270
+    110 217
+    110 209
+    110 206
 }
-exit 15 Idle 0
-exit 15 Walk 0
+exit 7 Fall 0
+
+anim Fall
+dir fall
+fps 24
+timing 3 2 2 2 1 1
+rootmotion {
+    110 206
+    110 209
+    110 217
+    110 246
+    110 340
+    110 480
+}
+exit 0 Land 0
+exit 1 Land 1
+exit 2 Land 2
+exit 3 Land 3
+exit 4 Land 4
+exit 5 Land 5
+
+anim Land
+dir land
+fps 24
+timing 3 2 2 2 1 1 1 2 2
+rootmotion {
+    110 206
+    110 209
+    110 217
+    110 246
+    110 340
+    110 480
+    110 480
+    110 480
+    110 480
+}
+exit 8 Idle 0
+exit 8 Walk 0
+
+start Idle

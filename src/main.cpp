@@ -197,14 +197,18 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-	// TODO ideally animation IDs would be strings
 	HashKey nextAnims[4];
 	int numNextAnims = 1;
 	nextAnims[0].WriteString("Idle");
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		numNextAnims = 1;
-		nextAnims[0].WriteString("Jump");
+        nextAnims[0].WriteString("Jump");
 	}
+    else if (gameState->playerState == PLAYER_STATE_FALLING) {
+        numNextAnims = 2;
+        nextAnims[0].WriteString("Fall");
+        nextAnims[1].WriteString("Land");
+    }
 	else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
 		numNextAnims = 1;
 		nextAnims[0].WriteString("Walk");
