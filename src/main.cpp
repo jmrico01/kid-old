@@ -26,8 +26,8 @@
 
 struct LineColliderIntersect
 {
-	float32 height;
-	const LineCollider* collider;
+    Vec2 pos;
+    const LineCollider* collider;
 };
 
 inline float32 RandFloat32()
@@ -97,54 +97,7 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spri
 		objectAnimated.pos, size, objectAnimated.anchor, false);
 }
 
-void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
-{
-	const float32 PLAYER_WALK_SPEED = 3.0f;
-	// const float32 PLAYER_JUMP_SPEED = 4.2f;
-	//const float32 PLAYER_JUMP_SPEED = 0.5f;
-	const float32 PLAYER_JUMP_SPEED = 0.01f;
-
-	if (IsKeyPressed(input, KM_KEY_A)) {
-		gameState->playerVel.x -= PLAYER_WALK_SPEED;
-		gameState->facingRight = false;
-	}
-	if (IsKeyPressed(input, KM_KEY_D)) {
-		gameState->playerVel.x += PLAYER_WALK_SPEED;
-		gameState->facingRight = true;
-	}
-
-	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
-		if (WasKeyPressed(input, KM_KEY_SPACE)) {
-			gameState->playerVel.y = PLAYER_JUMP_SPEED;
-			gameState->playerState = PLAYER_STATE_JUMPING;
-			gameState->audioState.soundKick.playing = true;
-			gameState->audioState.soundKick.sampleIndex = 0;
-		}
-	}
-}
-
-float32 LineColliderFloorHeight(const LineCollider* lineCollider, Vec2 refPos, float32 floorMargin)
-{
-	DEBUG_ASSERT(lineCollider->numVertices > 1);
-
-	int numVertices = lineCollider->numVertices;
-	for (int j = 1; j < numVertices; j++) {
-		Vec2 vertPrev = lineCollider->vertices[j - 1];
-		Vec2 vert = lineCollider->vertices[j];
-		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
-			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
-			float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
-			if (height - floorMargin <= refPos.y) {
-				return height;
-			}
-		}
-	}
-
-	return -1e9;
-}
-
-bool GetLineColliderHeight(const LineCollider* lineCollider,
-	Vec2 refPos, float32 floorMargin, float32* outHeight)
+bool GetLineColliderHeight(const LineCollider* lineCollider, Vec2 refPos, float32* outHeight)
 {
 	DEBUG_ASSERT(lineCollider->numVertices > 1);
 
@@ -154,11 +107,8 @@ bool GetLineColliderHeight(const LineCollider* lineCollider,
 		Vec2 vert = lineCollider->vertices[i];
 		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
 			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
-			float32 height = vertPrev.y + t * (vert.y - vertPrev.y);
-			if (refPos.y >= height - floorMargin) {
-				*outHeight = height;
-				return true;
-			}
+            *outHeight = vertPrev.y + t * (vert.y - vertPrev.y);
+            return true;
 		}
 
 		vertPrev = vert;
@@ -166,24 +116,96 @@ bool GetLineColliderHeight(const LineCollider* lineCollider,
 	return false;
 }
 
-void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
-	Vec2 playerPos, float32 floorMargin,
-	LineColliderIntersect outIntersects[], int* outNumIntersects)
+float32 Cross2D(Vec2 v1, Vec2 v2)
 {
-	*outNumIntersects = 0;
+    return v1.x * v2.y - v1.y * v2.x;
+}
 
-	float height;
-	for (int i = 0; i < numLineColliders; i++) {
-		bool doesIntersect = GetLineColliderHeight(&lineColliders[i],
-			playerPos, floorMargin, &height);
-		if (doesIntersect) {
-			DEBUG_ASSERT(*outNumIntersects < numLineColliders);
-			LineColliderIntersect intersect = {
-				height, &lineColliders[i]
-			};
-			outIntersects[(*outNumIntersects)++] = intersect;
-		}
-	}
+// Source: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2Dir,
+    Vec2* outIntersect)
+{
+    Vec2 startDiff = line2Start - line1Start;
+    float32 crossDirs = Cross2D(line1Dir, line2Dir);
+    float32 cross2 = Cross2D(startDiff, line1Dir);
+    float32 magDir1 = MagSq(line1Dir);
+
+    if (crossDirs == 0.0f && cross2 == 0.0f) {
+        // collinear
+        float32 t = Dot(startDiff, line1Dir) / magDir1;
+        float32 tt = t + Dot(line2Dir, line1Dir) / magDir1;
+        // TODO some checks idk
+        return false; // TODO temporary!
+    }
+    else if (crossDirs == 0.0f) {
+        // parallel
+        return false;
+    }
+    else {
+        float32 t1 = Cross2D(startDiff, line2Dir) / crossDirs;
+        float32 t2 = cross2 / crossDirs;
+
+        if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
+            // intersection
+            *outIntersect = line1Start + t1 * line1Dir;
+            return true;
+        }
+        else {
+            // no intersection
+            return false;
+        }
+    }
+
+}
+
+void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
+    Vec2 playerPos, Vec2 deltaPos, float32 movementMargin,
+    LineColliderIntersect outIntersects[], int* outNumIntersects)
+{
+    *outNumIntersects = 0;
+    float32 deltaPosMag = Mag(deltaPos);
+    if (deltaPosMag == 0.0f) {
+        return;
+    }
+    Vec2 dir = deltaPos / deltaPosMag;
+    Vec2 playerDir = deltaPos + dir * movementMargin;
+
+    for (int c = 0; c < numLineColliders; c++) {
+        Vec2 vertPrev = lineColliders[c].vertices[0];
+        for (int v = 1; v < lineColliders[v].numVertices; v++) {
+            Vec2 vert = lineColliders[c].vertices[v];
+            Vec2 intersectPoint;
+            if (Intersection(playerPos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
+                LineColliderIntersect intersect = {
+                    intersectPoint, &lineColliders[c]
+                };
+                outIntersects[(*outNumIntersects)++] = intersect;
+            }
+            vertPrev = vert;
+        }
+    }
+}
+
+void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
+{
+    const float32 PLAYER_WALK_SPEED = 3.0f;
+    // const float32 PLAYER_JUMP_SPEED = 0.05f;
+
+    if (IsKeyPressed(input, KM_KEY_A)) {
+        gameState->playerVel.x -= PLAYER_WALK_SPEED;
+        gameState->facingRight = false;
+    }
+    if (IsKeyPressed(input, KM_KEY_D)) {
+        gameState->playerVel.x += PLAYER_WALK_SPEED;
+        gameState->facingRight = true;
+    }
+
+    if (gameState->playerState == PLAYER_STATE_GROUNDED && WasKeyPressed(input, KM_KEY_SPACE)) {
+        // gameState->playerVel.y = PLAYER_JUMP_SPEED;
+        gameState->playerState = PLAYER_STATE_JUMPING;
+        gameState->audioState.soundKick.playing = true;
+        gameState->audioState.soundKick.sampleIndex = 0;
+    }
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -197,42 +219,109 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
+    HashKey ANIM_IDLE;
+    ANIM_IDLE.WriteString("Idle");
+    HashKey ANIM_WALK;
+    ANIM_WALK.WriteString("Walk");
+    HashKey ANIM_JUMP;
+    ANIM_JUMP.WriteString("Jump");
+    HashKey ANIM_FALL;
+    ANIM_FALL.WriteString("Fall");
+    HashKey ANIM_LAND;
+    ANIM_LAND.WriteString("Land");
+
+    if (gameState->playerState == PLAYER_STATE_JUMPING
+    && KeyCompare(gameState->spriteKid.activeAnimation, ANIM_FALL)) {
+        gameState->playerState = PLAYER_STATE_FALLING;
+    }
+
 	HashKey nextAnims[4];
-	int numNextAnims = 1;
-	nextAnims[0].WriteString("Idle");
+	int numNextAnims = 0;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
-		numNextAnims = 1;
-        nextAnims[0].WriteString("Jump");
+        if (!KeyCompare(gameState->spriteKid.activeAnimation, ANIM_JUMP)) {
+            numNextAnims = 1;
+            nextAnims[0] = ANIM_JUMP;
+        }
+        else {
+            numNextAnims = 1;
+            nextAnims[0] = ANIM_FALL;
+        }
 	}
     else if (gameState->playerState == PLAYER_STATE_FALLING) {
-        numNextAnims = 2;
-        nextAnims[0].WriteString("Fall");
-        nextAnims[1].WriteString("Land");
+        numNextAnims = 1;
+        nextAnims[0] = ANIM_FALL;
     }
-	else if (gameState->playerState == PLAYER_STATE_GROUNDED && gameState->playerVel.x != 0) {
-		numNextAnims = 1;
-		nextAnims[0].WriteString("Walk");
-	}
+	else if (gameState->playerState == PLAYER_STATE_GROUNDED) {
+        if (gameState->playerVel.x != 0) {
+            numNextAnims = 2;
+            nextAnims[0] = ANIM_WALK;
+            nextAnims[1] = ANIM_LAND;
+        }
+        else {
+            numNextAnims = 2;
+            nextAnims[0] = ANIM_IDLE;
+            nextAnims[1] = ANIM_LAND;
+        }
+    }
 
 	const HashKey* nextAnimations = nextAnims;
 	Vec2 rootMotion = gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnimations);
 
-	// const float32 GRAVITY_ACCEL = 8.3f;
-	const float32 GRAVITY_ACCEL = 0.1f;
+    // gameState->playerVel.y = 0.0f;
 
-	if (gameState->playerState == PLAYER_STATE_JUMPING
-	|| gameState->playerState == PLAYER_STATE_FALLING) {
+    /*const float32 GRAVITY_ACCEL = 0.1f;
+	if (gameState->playerState == PLAYER_STATE_FALLING) {
 		gameState->playerVel.y -= GRAVITY_ACCEL * deltaTime;
 	}
 	else {
 		gameState->playerVel.y = 0.0f;
-	}
+	}*/
 
 	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
+    Vec2 newPlayerPos = gameState->playerPos + deltaPos;
+
+    if (gameState->playerState == PLAYER_STATE_GROUNDED
+    && gameState->floorCollider != nullptr) {
+        float32 height;
+        if (!GetLineColliderHeight(gameState->floorCollider, newPlayerPos, &height)) {
+            gameState->playerState = PLAYER_STATE_FALLING;
+        }
+        else {
+            newPlayerPos.y = height;
+        }
+    }
 
 	LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
 	int numIntersects;
-	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+    GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+        gameState->playerPos, deltaPos, 0.05f,
+        intersects, &numIntersects);
+    if (numIntersects > 0) {
+        float32 minDist = Mag(intersects[0].pos - gameState->playerPos);
+        int minDistInd = 0;
+        for (int i = 1; i < numIntersects; i++) {
+            float32 dist = Mag(intersects[i].pos - gameState->playerPos);
+            if (dist < minDist) {
+                minDist = dist;
+                minDistInd = i;
+            }
+        }
+
+        DEBUG_PRINT("Intersect!\n");
+        DEBUG_PRINT("%.02f, %.02f (player)\n", gameState->playerPos.x, gameState->playerPos.y);
+        DEBUG_PRINT("%.02f, %.02f (delta)\n", deltaPos.x, deltaPos.y);
+        DEBUG_PRINT("%.02f, %.02f (inter)\n", intersects[minDistInd].pos.x, intersects[minDistInd].pos.y);
+        gameState->floorCollider = intersects[minDistInd].collider;
+
+        if (gameState->playerState == PLAYER_STATE_FALLING) {
+            newPlayerPos = intersects[minDistInd].pos;
+            gameState->playerState = PLAYER_STATE_GROUNDED;
+        }
+    }
+
+    gameState->playerPos = newPlayerPos;
+
+	/*GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
 		gameState->playerPos, FLOOR_LINE_MARGIN,
 		intersects, &numIntersects);
 	if (numIntersects > 0) {
@@ -275,7 +364,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			gameState->playerState = PLAYER_STATE_FALLING;
 			gameState->playerVel.y = 0.0f;
 		}
-	}
+	}*/
 
 #if GAME_INTERNAL
 	if (!gameState->editor) {
@@ -815,17 +904,19 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		Vec4 floorColliderColor = { 1.0f, 0.0f, 1.0f, 1.0f };
 		const LineCollider* floorCollider = gameState->floorCollider;
-		DEBUG_ASSERT(floorCollider->numVertices <= MAX_LINE_POINTS);
+        if (floorCollider != nullptr) {
+            DEBUG_ASSERT(floorCollider->numVertices <= MAX_LINE_POINTS);
 
-		lineData->count = floorCollider->numVertices;
-		for (int v = 0; v < floorCollider->numVertices; v++) {
-			lineData->pos[v] = Vec3 {
-				floorCollider->vertices[v].x,
-				floorCollider->vertices[v].y,
-				0.0f
-			};
-		}
-		DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorColliderColor);
+            lineData->count = floorCollider->numVertices;
+            for (int v = 0; v < floorCollider->numVertices; v++) {
+                lineData->pos[v] = Vec3 {
+                    floorCollider->vertices[v].x,
+                    floorCollider->vertices[v].y,
+                    0.0f
+                };
+            }
+            DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorColliderColor);
+        }
 
 		// Player position cross
 		lineData->count = 2;
@@ -845,27 +936,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineData->pos[1].y += crossSize;
 		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
 
-		/*float32 floorHeight = LineColliderFloorHeight(
-			&gameState->lineColliders[gameState->currentLineCollider],
-			gameState->playerPos,
-			FLOOR_LINE_MARGIN
-		);
-		Vec3 floorPos = { gameState->playerPos.x, floorHeight, 0.0f };
-		Vec4 floorPosColor = { 1.0f, 1.0f, 0.0f, 1.0f };
-
-		lineData->pos[0] = floorPos;
-		lineData->pos[0].x -= crossSize;
-		lineData->pos[1] = floorPos;
-		lineData->pos[1].x += crossSize;
-		DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorPosColor);
-
-		lineData->pos[0] = floorPos;
-		lineData->pos[0].y -= crossSize;
-		lineData->pos[1] = floorPos;
-		lineData->pos[1].y += crossSize;
-		DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorPosColor);*/
-
-		Vec4 intersectsColor = { 1.0f, 1.0f, 0.0f, 1.0f };
+		/*Vec4 intersectsColor = { 1.0f, 1.0f, 0.0f, 1.0f };
 		LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
 		int numIntersects;
 		GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
@@ -884,7 +955,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->pos[1] = intersectPos;
 			lineData->pos[1].y += crossSize;
 			DrawLine(gameState->lineGL, worldMatrix, view, lineData, intersectsColor);
-		}
+		}*/
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {

@@ -6,16 +6,21 @@
 // fps -1 means that the animation will run at the game's framerate
 // This is useful for static animations that require an immediate exit response
 
+// "rootfollow" must come before "rootmotion"
+
 anim Idle
 dir idle
 fps -1
+loop
 rootmotion 110 480
-exit 0 Walk 1
-exit 0 Jump 0
+exit * Walk 1
+exit * Jump 0
+exit * Fall 0
 
 anim Walk
 dir walk
 fps 24
+loop
 rootmotion {
     110 480
     110 480
@@ -26,11 +31,13 @@ rootmotion {
 }
 exit 2 Idle 0
 exit * Jump 0
+exit * Fall 0
 
 anim Jump
 dir jump
 fps 24
 timing 2 2 2 1 1 1 2 3
+rootfollow
 rootmotion {
     110 480
     110 480
@@ -47,6 +54,7 @@ anim Fall
 dir fall
 fps 24
 timing 3 2 2 2 1 1
+rootfollow
 rootmotion {
     110 206
     110 209
