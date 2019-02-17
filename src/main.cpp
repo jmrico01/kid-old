@@ -320,11 +320,12 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		gameState->cameraPos = gameState->playerPos;
+		gameState->cameraPos.y = 0.0f;
 	}
 #else
 	gameState->cameraPos = gameState->playerPos;
-#endif
 	gameState->cameraPos.y = 0.0f;
+#endif
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
@@ -426,9 +427,9 @@ void DrawFishing(GameState* gameState, SpriteDataGL* spriteDataGL, ScreenInfo sc
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 {
 	// NOTE: for clarity
-	// A call to this function means the following has happened:
-	//  - A frame has been displayed to the user
-	//  - The latest user input has been processed by the platform layer
+	// A call to this function means the following has happened, in order:
+	//  1. A frame has been displayed to the user
+	//  2. The latest user input has been processed by the platform layer
 	//
 	// This function is expected to update the state of the game
 	// and draw the frame that will be displayed, ideally, some constant
@@ -799,37 +800,62 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	if (gameState->debugView) {
 		FontFace& textFont = gameState->fontFaceMedium;
+		FontFace& textFontSmall = gameState->fontFaceSmall;
 		char textStr[128];
-		sprintf(textStr, "%.2f FPS", 1.0f / deltaTime);
-		Vec2Int textPos = {
+		Vec2Int textPosLeft = {
+			pillarboxWidth + MARGIN.x,
+			screenInfo.size.y - MARGIN.y,
+		};
+		Vec2Int textPosRight = {
 			screenInfo.size.x - pillarboxWidth - MARGIN.x,
 			screenInfo.size.y - MARGIN.y,
 		};
+
+		sprintf(textStr, "[G] to toggle debug view");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosLeft.y -= textFontSmall.height;
+		sprintf(textStr, "[H] to toggle editor");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosLeft.y -= textFontSmall.height;
+		textPosLeft.y -= textFontSmall.height;
+		sprintf(textStr, "[K] to toggle debug audio view");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosLeft.y -= textFontSmall.height;
+		sprintf(textStr, "[M] to toggle global audio mute");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		sprintf(textStr, "%.2f FPS", 1.0f / deltaTime);
 		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPos.y -= textFont.height;
-
-		textPos.y -= textFont.height;
+		textPosRight.y -= textFont.height;
+		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%.2f|%.2f POS", gameState->playerPos.x, gameState->playerPos.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPos.y -= textFont.height;
+		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%.2f|%.2f VEL", gameState->playerVel.x, gameState->playerVel.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPos.y -= textFont.height;
+		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%d STATE", gameState->playerState);
 		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPos.y -= textFont.height;
-		textPos.y -= textFont.height;
+		textPosRight.y -= textFont.height;
+		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%.2f|%.2f CAM", gameState->cameraPos.x, gameState->cameraPos.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPos, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
@@ -886,36 +912,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineData->pos[1] = playerPos;
 		lineData->pos[1].y += crossSize;
 		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
-
-		/*Vec4 intersectsColor = { 1.0f, 1.0f, 0.0f, 1.0f };
-		LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
-		int numIntersects;
-		GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
-			gameState->playerPos, FLOOR_LINE_MARGIN,
-			intersects, &numIntersects);
-		for (int i = 0; i < numIntersects; i++) {
-			Vec3 intersectPos = { gameState->playerPos.x, intersects[i].height, 0.0f };
-			lineData->pos[0] = intersectPos;
-			lineData->pos[0].x -= crossSize;
-			lineData->pos[1] = intersectPos;
-			lineData->pos[1].x += crossSize;
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, intersectsColor);
-
-			lineData->pos[0] = intersectPos;
-			lineData->pos[0].y -= crossSize;
-			lineData->pos[1] = intersectPos;
-			lineData->pos[1].y += crossSize;
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, intersectsColor);
-		}*/
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {
 			pillarboxWidth + MARGIN.x,
-			screenInfo.size.y - MARGIN.y,
+			MARGIN.y,
 		};
 		Vec4 editorFontColor = { 1.0f, 0.1f, 1.0f, 1.0f };
 		DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-			"EDITOR", editorStrPos, Vec2 { 0.0f, 1.0f }, editorFontColor, memory->transient);
+			"EDITOR", editorStrPos, Vec2 { 0.0f, 0.0f }, editorFontColor, memory->transient);
 	}
 
 	DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
