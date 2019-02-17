@@ -22,21 +22,6 @@ const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
 const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
 const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
 
-/*
-const char* KEYWORD_ANIM              = "anim";
-const char* KEYWORD_DIR               = "dir";
-const char* KEYWORD_FPS               = "fps";
-const char* KEYWORD_LOOP              = "loop";
-const char* KEYWORD_EXIT              = "exit";
-const char* KEYWORD_TIMING            = "timing";
-const char* KEYWORD_ROOTFOLLOW        = "rootfollow";
-const char* KEYWORD_ROOTFOLLOWENDLOOP = "rootfollowendloop";
-const char* KEYWORD_ROOTMOTION        = "rootmotion";
-
-const char* KEYWORD_START             = "start";
-const char* KEYWORD_COMMENT           = "//";
-*/
-
 static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
 	int* elementLength, const char** next)
 {
