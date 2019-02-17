@@ -17,9 +17,11 @@ struct Animation
     bool32 loop;
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
     int frameTiming[ANIMATION_MAX_FRAMES];
+    HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
+    bool32 rootFollow;
+    bool32 rootFollowEndLoop;
     Vec2 frameRootMotion[ANIMATION_MAX_FRAMES];
     Vec2 frameRootAnchor[ANIMATION_MAX_FRAMES];
-    HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
 };
 
 struct AnimatedSprite

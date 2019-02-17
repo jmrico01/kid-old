@@ -4,10 +4,38 @@
 #include "km_string.h"
 #include "main.h"
 
-#define KEYWORD_MAX_LENGTH 16
+#define KEYWORD_MAX_LENGTH 32
 #define VALUE_MAX_LENGTH 256
 // TODO plz standardize file paths
 #define PATH_MAX_LENGTH 128
+
+const char KEYWORD_ANIM             [KEYWORD_MAX_LENGTH] = "anim";
+const char KEYWORD_DIR              [KEYWORD_MAX_LENGTH] = "dir";
+const char KEYWORD_FPS              [KEYWORD_MAX_LENGTH] = "fps";
+const char KEYWORD_LOOP             [KEYWORD_MAX_LENGTH] = "loop";
+const char KEYWORD_EXIT             [KEYWORD_MAX_LENGTH] = "exit";
+const char KEYWORD_TIMING           [KEYWORD_MAX_LENGTH] = "timing";
+const char KEYWORD_ROOTFOLLOW       [KEYWORD_MAX_LENGTH] = "rootfollow";
+const char KEYWORD_ROOTFOLLOWENDLOOP[KEYWORD_MAX_LENGTH] = "rootfollowendloop";
+const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
+
+const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
+const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
+
+/*
+const char* KEYWORD_ANIM              = "anim";
+const char* KEYWORD_DIR               = "dir";
+const char* KEYWORD_FPS               = "fps";
+const char* KEYWORD_LOOP              = "loop";
+const char* KEYWORD_EXIT              = "exit";
+const char* KEYWORD_TIMING            = "timing";
+const char* KEYWORD_ROOTFOLLOW        = "rootfollow";
+const char* KEYWORD_ROOTFOLLOWENDLOOP = "rootfollowendloop";
+const char* KEYWORD_ROOTMOTION        = "rootmotion";
+
+const char* KEYWORD_START             = "start";
+const char* KEYWORD_COMMENT           = "//";
+*/
 
 static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
 	int* elementLength, const char** next)
@@ -30,69 +58,51 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 	const Animation* activeAnim = animations.GetValue(activeAnimation);
 	Vec2 rootMotion = Vec2::zero;
 
-	/*for (int i = 0; i < numNextAnimations; i++) {
-		if (KeyCompare(activeAnimation, nextAnimations[i])) {
-			break;
-		}
-		
-		int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
-		if (exitToFrame != nullptr) {
-            Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
-			activeAnimation = nextAnimations[i];
-			activeFrame = *exitToFrame;
-			activeFrameRepeat = 0;
-
-            activeAnim = animations.GetValue(activeAnimation);
-            // TODO transitions between rootfollow-enabled animations don't work for now
-            //rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
-		}
-	}*/
-
 	activeFrameTime += deltaTime;
 	if (activeFrameTime > 1.0f / activeAnim->fps) {
 		activeFrameTime = 0.0f;
 		activeFrameRepeat++;
 		if (activeFrameRepeat >= activeAnim->frameTiming[activeFrame]) {
-            activeFrameRepeat = 0;
+			activeFrameRepeat = 0;
 
-            bool32 animTransition = false;
-            for (int i = 0; i < numNextAnimations; i++) {
-                if (KeyCompare(activeAnimation, nextAnimations[i])) {
-                    break;
-                }
-                
-                int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
-                if (exitToFrame != nullptr) {
-                    //Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
-                    activeAnimation = nextAnimations[i];
-                    activeFrame = *exitToFrame;
-                    activeFrameRepeat = 0;
+			bool32 animTransition = false;
+			for (int i = 0; i < numNextAnimations; i++) {
+				if (KeyCompare(activeAnimation, nextAnimations[i])) {
+					break;
+				}
+				
+				int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
+				if (exitToFrame != nullptr) {
+					//Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
+					activeAnimation = nextAnimations[i];
+					activeFrame = *exitToFrame;
+					activeFrameRepeat = 0;
 
-                    activeAnim = animations.GetValue(activeAnimation);
-                    // TODO transitions between rootfollow-enabled animations don't work for now
-                    //rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
-                }
-            }
+					activeAnim = animations.GetValue(activeAnimation);
+					// TODO transitions between rootfollow-enabled animations don't work for now
+					//rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
+				}
+			}
 
-            if (!animTransition) {
-                int activeFrameNext = activeFrame + 1;
-                if (activeFrameNext >= activeAnim->numFrames) {
-                    activeFrameNext = activeAnim->loop ? 0 : activeFrame;
-                }
-                rootMotion += activeAnim->frameRootMotion[activeFrameNext]
-                    - activeAnim->frameRootMotion[activeFrame];
+			if (!animTransition) {
+				int activeFrameNext = activeFrame + 1;
+				if (activeFrameNext >= activeAnim->numFrames) {
+					activeFrameNext = activeAnim->loop ? 0 : activeFrame;
+				}
 
-                // TODO enable this in .kma file (keep root-motioning on last frame)
-                HashKey animFall;
-                animFall.WriteString("Fall");
-                if (KeyCompare(activeAnimation, animFall)
-                && activeFrame == activeAnim->numFrames - 1) {
-                    rootMotion += activeAnim->frameRootMotion[activeFrame]
-                        - activeAnim->frameRootMotion[activeFrame - 1];
-                }
+				if (activeAnim->rootFollow) {
+					rootMotion += activeAnim->frameRootMotion[activeFrameNext]
+						- activeAnim->frameRootMotion[activeFrame];
 
-                activeFrame = activeFrameNext;
-            }
+					if (!activeAnim->loop && activeAnim->rootFollowEndLoop
+					&& activeFrame == activeAnim->numFrames - 1) {
+						rootMotion += activeAnim->frameRootMotion[activeFrame]
+							- activeAnim->frameRootMotion[activeFrame - 1];
+					}
+				}
+
+				activeFrame = activeFrameNext;
+			}
 		}
 	}
 
@@ -107,6 +117,11 @@ void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
 	PushSpriteWorldSpace(spriteDataGL, pos, size,
 		anchorRootMotion, flipHorizontal,
 		activeAnim->frameTextures[activeFrame].textureID);
+}
+
+bool32 KeywordCompare(const char* keyword, int keywordLength, const char* refKeyword)
+{
+	return StringCompare(keyword, refKeyword, MaxInt(keywordLength, StringLength(refKeyword)));
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
@@ -127,7 +142,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	int i = 0;
 	HashKey currentAnimKey = {};
 	Animation* currentAnim = nullptr;
-    bool currentAnimRootFollow = false;
 	while (!done) {
 		char keyword[KEYWORD_MAX_LENGTH];
 		int keywordI = 0;
@@ -139,9 +153,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			keyword[keywordI++] = fileData[i++];
 		}
 
-        if (i < animFile.size && fileData[i] == ' ') {
-            i++; // Skip space
-        }
+		if (i < animFile.size && fileData[i] == ' ') {
+			i++; // Skip space
+		}
 
 		char valueBuffer[VALUE_MAX_LENGTH];
 		int valueLength = 0;
@@ -165,19 +179,20 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		int valueI;
 		TrimWhitespace(valueBuffer, valueLength, &value, &valueI);
 		/* DEBUG_PRINT("keyword: %.*s (%d)\nvalue: %.*s (%d)\n",
-            keywordI, keyword, keywordI, valueI, value, valueI); */
+			keywordI, keyword, keywordI, valueI, value, valueI); */
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
-		if (StringCompare(keyword, "anim", 4)) {
+		if (KeywordCompare(keyword, keywordI, KEYWORD_ANIM)) {
 			currentAnimKey.WriteString(value, valueI);
 			outAnimatedSprite.animations.Add(currentAnimKey, {});
 			currentAnim = outAnimatedSprite.animations.GetValue(currentAnimKey);
-            currentAnimRootFollow = false;
 
-            currentAnim->numFrames = 0;
-            currentAnim->loop = false;
+			currentAnim->numFrames = 0;
+			currentAnim->loop = false;
+			currentAnim->rootFollow = false;
+			currentAnim->rootFollowEndLoop = false;
 		}
-		else if (StringCompare(keyword, "dir", 3)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_DIR)) {
 			int frame = 0;
 			int lastSlash = GetLastOccurrence(filePath, StringLength(filePath), '/');
 			if (lastSlash == -1) {
@@ -237,7 +252,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 		}
-		else if (StringCompare(keyword, "fps", 3)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_FPS)) {
 			int fps;
 			if (!StringToIntBase10(value, valueI, &fps)) {
 				DEBUG_PRINT("Animation file fps parse failed (%s)\n", filePath);
@@ -249,10 +264,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			currentAnim->fps = fps;
 		}
-        else if (StringCompare(keyword, "loop", 4)) {
-            currentAnim->loop = true;
-        }
-		else if (StringCompare(keyword, "exit", 4)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_LOOP)) {
+			currentAnim->loop = true;
+		}
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_EXIT)) {
 			const char* element = value;
 			int length = valueI;
 			int elementLength;
@@ -304,7 +319,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
-		else if (StringCompare(keyword, "timing", 6)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_TIMING)) {
 			const char* element = value;
 			int length = valueI;
 			int frameTiming;
@@ -324,7 +339,13 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword, "rootmotion", 10)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTFOLLOW)) {
+			currentAnim->rootFollow = true;
+		}
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTFOLLOWENDLOOP)) {
+			currentAnim->rootFollowEndLoop = true;
+		}
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTMOTION)) {
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
 
@@ -379,26 +400,21 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					(float32)rootPos.y / textureSize.y
 				};
 
-                if (currentAnimRootFollow) {
-    				if (i == 0) {
-    					rootPosWorld0 = rootPosWorld;
-    				}
-                    currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
-                }
+				if (i == 0) {
+					rootPosWorld0 = rootPosWorld;
+				}
+				currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
 
 				length -= (int)(next - element);
 				element = next;
 			}
 		}
-        else if (StringCompare(keyword, "rootfollow", 10)) {
-            currentAnimRootFollow = true;
-        }
-        else if (StringCompare(keyword, "start", 5)) {
-            HashKey startAnim;
-            startAnim.WriteString(value, valueI);
-            outAnimatedSprite.activeAnimation = startAnim;
-        }
-		else if (StringCompare(keyword, "//", 2)) {
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_START)) {
+			HashKey startAnim;
+			startAnim.WriteString(value, valueI);
+			outAnimatedSprite.activeAnimation = startAnim;
+		}
+		else if (KeywordCompare(keyword, keywordI, KEYWORD_COMMENT)) {
 			// Comment, ignore
 		}
 		else {
@@ -423,44 +439,44 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	outAnimatedSprite.activeFrameRepeat = 0;
 	outAnimatedSprite.activeFrameTime = 0.0f;
 
-    // TODO maybe provide a friendlier way of iterating through HashTable
-    const HashTable<Animation>* animTable = &outAnimatedSprite.animations;
-    for (uint32 k = 0; k < animTable->capacity; k++) {
-        const HashKey* animKey = &animTable->pairs[k].key;
-        if (animKey->length == 0) {
-            continue;
-        }
+	// TODO maybe provide a friendlier way of iterating through HashTable
+	const HashTable<Animation>* animTable = &outAnimatedSprite.animations;
+	for (uint32 k = 0; k < animTable->capacity; k++) {
+		const HashKey* animKey = &animTable->pairs[k].key;
+		if (animKey->length == 0) {
+			continue;
+		}
 
-        const Animation* anim = &animTable->pairs[k].value;
-        for (int f = 0; f < anim->numFrames; f++) {
-            const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
-            for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
-                const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
-                if (toAnimKey->length == 0) {
-                    continue;
-                }
+		const Animation* anim = &animTable->pairs[k].value;
+		for (int f = 0; f < anim->numFrames; f++) {
+			const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
+			for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
+				const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
+				if (toAnimKey->length == 0) {
+					continue;
+				}
 
-                int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
-                if (exitToFrame != nullptr && *exitToFrame >= 0) {
-                    /* DEBUG_PRINT("Animation transition: %.*s (%d) -> %.*s (%d)\n",
-                        animKey->length, animKey->string, f,
-                        toAnimKey->length, toAnimKey->string, *exitToFrame); */
+				int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
+				if (exitToFrame != nullptr && *exitToFrame >= 0) {
+					/* DEBUG_PRINT("Animation transition: %.*s (%d) -> %.*s (%d)\n",
+						animKey->length, animKey->string, f,
+						toAnimKey->length, toAnimKey->string, *exitToFrame); */
 
-                    const Animation* toAnim = animTable->GetValue(*toAnimKey);
-                    if (toAnim == nullptr) {
-                        DEBUG_PRINT("Animation file non-existent exit-to animation %.*s (%s)\n",
-                            toAnimKey->length, toAnimKey->string, filePath);
-                        return false;
-                    }
-                    if (*exitToFrame >= toAnim->numFrames) {
-                        DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
-                            *exitToFrame, filePath);
-                        return false;
-                    }
-                }
-            }
-        }
-    }
+					const Animation* toAnim = animTable->GetValue(*toAnimKey);
+					if (toAnim == nullptr) {
+						DEBUG_PRINT("Animation file non-existent exit-to animation %.*s (%s)\n",
+							toAnimKey->length, toAnimKey->string, filePath);
+						return false;
+					}
+					if (*exitToFrame >= toAnim->numFrames) {
+						DEBUG_PRINT("Animation file exit-to frame out of bounds %d (%s)\n",
+							*exitToFrame, filePath);
+						return false;
+					}
+				}
+			}
+		}
+	}
 
 	return true;
 }

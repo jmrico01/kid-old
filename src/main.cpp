@@ -199,7 +199,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->playerVel.x += PLAYER_WALK_SPEED;
 		gameState->facingRight = true;
 	}
-	
+
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
@@ -290,10 +290,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			}
 		}
 
-		DEBUG_PRINT("Intersect(s): %d\n", numIntersects);
-		DEBUG_PRINT("%.02f, %.02f (player)\n", gameState->playerPos.x, gameState->playerPos.y);
-		DEBUG_PRINT("%.02f, %.02f (delta)\n", deltaPos.x, deltaPos.y);
-		DEBUG_PRINT("%.02f, %.02f (inter)\n", intersects[minDistInd].pos.x, intersects[minDistInd].pos.y);
 		gameState->floorCollider = intersects[minDistInd].collider;
 
 		if (gameState->playerState == PLAYER_STATE_FALLING) {

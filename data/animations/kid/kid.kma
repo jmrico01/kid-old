@@ -55,6 +55,7 @@ dir fall
 fps 24
 timing 3 2 2 2 1 1
 rootfollow
+rootfollowendloop
 rootmotion {
     110 206
     110 209
