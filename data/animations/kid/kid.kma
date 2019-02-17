@@ -36,7 +36,7 @@ exit * Fall 0
 anim Jump
 dir jump
 fps 24
-timing 2 2 2 1 1 1 2 3
+timing 1 2 2 1 1 1 2 3
 rootfollow
 rootmotion {
     110 480
@@ -73,7 +73,7 @@ exit 5 Land 5
 anim Land
 dir land
 fps 24
-timing 3 2 2 2 1 1 1 2 2
+timing 3 2 2 2 1 1 1 2 1
 rootmotion {
     110 206
     110 209

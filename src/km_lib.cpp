@@ -197,7 +197,7 @@ V* HashTable<V>::GetValue(const HashKey& key) const
 template <typename V>
 void HashTable<V>::Clear()
 {
-    for (int i = 0; i < cap; i++) {
+    for (int i = 0; i < capacity; i++) {
         pairs[i].key.length = 0;
     }
 }

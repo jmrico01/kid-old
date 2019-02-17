@@ -24,6 +24,10 @@ struct DEBUGReadFileResult
 #define DEBUG_PLATFORM_PRINT_FUNC(name) void name(const char* format, ...)
 typedef DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrintFunc);
 
+#define DEBUG_PLATFORM_FLUSH_GL_FUNC(name) void name()
+typedef DEBUG_PLATFORM_FLUSH_GL_FUNC(DEBUGPlatformFlushGlFunc);
+
+
 #define DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(name) \
     void name(const ThreadContext* thread, DEBUGReadFileResult* file)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(DEBUGPlatformFreeFileMemoryFunc);
@@ -127,10 +131,11 @@ struct GameAudio
 struct PlatformFunctions
 {
 #if GAME_INTERNAL
-	DEBUGPlatformPrintFunc*			    DEBUGPlatformPrint;
-	DEBUGPlatformFreeFileMemoryFunc*	DEBUGPlatformFreeFileMemory;
-	DEBUGPlatformReadFileFunc*			DEBUGPlatformReadFile;
-	DEBUGPlatformWriteFileFunc*			DEBUGPlatformWriteFile;
+	DEBUGPlatformPrintFunc*             DEBUGPlatformPrint;
+	DEBUGPlatformFlushGlFunc*           DEBUGPlatformFlushGl;
+	DEBUGPlatformFreeFileMemoryFunc*    DEBUGPlatformFreeFileMemory;
+	DEBUGPlatformReadFileFunc*          DEBUGPlatformReadFile;
+	DEBUGPlatformWriteFileFunc*         DEBUGPlatformWriteFile;
 #endif
 
     OpenGLFunctions glFunctions;

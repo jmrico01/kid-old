@@ -112,6 +112,11 @@ DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrint)
 	va_end(args);
 }
 
+DEBUG_PLATFORM_FLUSH_GL_FUNC(DEBUGPlatformFlushGl)
+{
+	[glContext_ flushBuffer];
+}
+
 DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(DEBUGPlatformFreeFileMemory)
 {
 	if (file->data) {
@@ -659,6 +664,7 @@ int main(int argc, const char* argv[])
 
 	PlatformFunctions platformFuncs = {};
 	platformFuncs.DEBUGPlatformPrint = DEBUGPlatformPrint;
+	platformFuncs.DEBUGPlatformFlushGl = DEBUGPlatformFlushGl;
 	platformFuncs.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
 	platformFuncs.DEBUGPlatformReadFile = DEBUGPlatformReadFile;
 	platformFuncs.DEBUGPlatformWriteFile = DEBUGPlatformWriteFile;
