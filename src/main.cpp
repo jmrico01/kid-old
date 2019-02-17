@@ -131,11 +131,17 @@ bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2D
 
 	if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
 		// collinear
-		// float32 magDir1 = MagSq(line1Dir);
-		// float32 t = Dot(startDiff, line1Dir) / magDir1;
-		// float32 tt = t + Dot(line2Dir, line1Dir) / magDir1;
-		// TODO some checks idk
-		return false; // TODO temporary!
+		float32 magDir1 = MagSq(line1Dir);
+		float32 dotDirs = Dot(line1Dir, line2Dir);
+		float32 t = Dot(startDiff, line1Dir) / magDir1;
+		float32 tt = t + dotDirs / magDir1;
+		if ((t < 0.0f && tt < 0.0f) || (t > 1.0f && tt > 1.0f)) {
+			return false;
+		}
+
+		// Could return any point in interval [t, tt]
+		*outIntersect = line1Start + t * line1Dir;
+		return true;
 	}
 	else if (crossDirs12 == 0.0f) {
 		// parallel

@@ -6,8 +6,6 @@
 // fps -1 means that the animation will run at the game's framerate
 // This is useful for static animations that require an immediate exit response
 
-// "rootfollow" must come before "rootmotion"
-
 anim Idle
 dir idle
 fps -1
