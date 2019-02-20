@@ -38,7 +38,7 @@ enum Scene
 	SCENE_FISHING
 };
 
-struct LineCollider
+struct FloorCollider
 {
     int numVertices;
     Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
@@ -85,12 +85,12 @@ struct GameState
 	Vec2 cameraPos;
 	Vec2 playerPos;
 	Vec2 playerVel;
-	const LineCollider* floorCollider;
+	const FloorCollider* currentFloor;
 	PlayerState playerState;
 	bool32 facingRight;
 
-    int numLineColliders;
-    LineCollider lineColliders[LINE_COLLIDERS_MAX];
+    int numFloorColliders;
+    FloorCollider floorColliders[LINE_COLLIDERS_MAX];
 
 	// Fishing state
 	int playerPosX;

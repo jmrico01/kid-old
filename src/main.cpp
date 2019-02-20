@@ -24,10 +24,10 @@
 
 #define FLOOR_LINE_MARGIN 0.05f
 
-struct LineColliderIntersect
+struct FloorColliderIntersect
 {
 	Vec2 pos;
-	const LineCollider* collider;
+	const FloorCollider* collider;
 };
 
 inline float32 RandFloat32()
@@ -97,14 +97,14 @@ void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spri
 		objectAnimated.pos, size, objectAnimated.anchor, false);
 }
 
-bool GetLineColliderHeight(const LineCollider* lineCollider, Vec2 refPos, float32* outHeight)
+bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
 {
-	DEBUG_ASSERT(lineCollider->numVertices > 1);
+	DEBUG_ASSERT(floorCollider->numVertices > 1);
 
-	int numVertices = lineCollider->numVertices;
-	Vec2 vertPrev = lineCollider->vertices[0];
+	int numVertices = floorCollider->numVertices;
+	Vec2 vertPrev = floorCollider->vertices[0];
 	for (int i = 1; i < numVertices; i++) {
-		Vec2 vert = lineCollider->vertices[i];
+		Vec2 vert = floorCollider->vertices[i];
 		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
 			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
 			*outHeight = vertPrev.y + t * (vert.y - vertPrev.y);
@@ -163,9 +163,9 @@ bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2D
 	}
 }
 
-void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
+void GetFloorColliderIntersections(const FloorCollider floorColliders[], int numFloorColliders,
 	Vec2 playerPos, Vec2 deltaPos, float32 movementMargin,
-	LineColliderIntersect outIntersects[], int* outNumIntersects)
+	FloorColliderIntersect outIntersects[], int* outNumIntersects)
 {
 	*outNumIntersects = 0;
 	float32 deltaPosMag = Mag(deltaPos);
@@ -175,16 +175,16 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 	Vec2 dir = deltaPos / deltaPosMag;
 	Vec2 playerDir = deltaPos + dir * movementMargin;
 
-	for (int c = 0; c < numLineColliders; c++) {
-		DEBUG_ASSERT(lineColliders[c].numVertices >= 2);
-		Vec2 vertPrev = lineColliders[c].vertices[0];
-		for (int v = 1; v < lineColliders[c].numVertices; v++) {
-			Vec2 vert = lineColliders[c].vertices[v];
+	for (int c = 0; c < numFloorColliders; c++) {
+		DEBUG_ASSERT(floorColliders[c].numVertices >= 2);
+		Vec2 vertPrev = floorColliders[c].vertices[0];
+		for (int v = 1; v < floorColliders[c].numVertices; v++) {
+			Vec2 vert = floorColliders[c].vertices[v];
 			Vec2 intersectPoint;
 			if (Intersection(playerPos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
 				int intersectInd = *outNumIntersects;
 				outIntersects[intersectInd].pos = intersectPoint;
-				outIntersects[intersectInd].collider = &lineColliders[c];
+				outIntersects[intersectInd].collider = &floorColliders[c];
 				(*outNumIntersects)++;
 				break;
 			}
@@ -280,9 +280,9 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
 	Vec2 newPlayerPos = gameState->playerPos + deltaPos;
 
-	LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
+	FloorColliderIntersect intersects[LINE_COLLIDERS_MAX];
 	int numIntersects;
-	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+	GetFloorColliderIntersections(gameState->floorColliders, gameState->numFloorColliders,
 		gameState->playerPos, deltaPos, 0.05f,
 		intersects, &numIntersects);
 	if (numIntersects > 0) {
@@ -296,7 +296,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			}
 		}
 
-		gameState->floorCollider = intersects[minDistInd].collider;
+		gameState->currentFloor = intersects[minDistInd].collider;
 
 		if (gameState->playerState == PLAYER_STATE_FALLING) {
 			newPlayerPos = intersects[minDistInd].pos;
@@ -305,9 +305,9 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	if (gameState->playerState == PLAYER_STATE_GROUNDED
-	&& gameState->floorCollider != nullptr) {
+	&& gameState->currentFloor != nullptr) {
 		float32 height;
-		if (!GetLineColliderHeight(gameState->floorCollider, newPlayerPos, &height)) {
+		if (!GetFloorColliderHeight(gameState->currentFloor, newPlayerPos, &height)) {
 			gameState->playerState = PLAYER_STATE_FALLING;
 		}
 		else {
@@ -479,39 +479,39 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// town data init
 		gameState->playerPos = Vec2 { 0.0f, FLOOR_LEVEL + 0.5f };
 		gameState->playerVel = Vec2 { 0.0f, 0.0f };
-		gameState->floorCollider = nullptr;
+		gameState->currentFloor = nullptr;
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 
-		gameState->numLineColliders = 0;
-		LineCollider* lineCollider;
+		gameState->numFloorColliders = 0;
+		FloorCollider* floorCollider;
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->numVertices = 2;
-		lineCollider->vertices[0] = { -16.0f, FLOOR_LEVEL };
-		lineCollider->vertices[1] = { 16.0f, FLOOR_LEVEL };
+		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		floorCollider->numVertices = 2;
+		floorCollider->vertices[0] = { -16.0f, FLOOR_LEVEL };
+		floorCollider->vertices[1] = { 16.0f, FLOOR_LEVEL };
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->numVertices = 2;
-		lineCollider->vertices[0] = { 2.0f, 0.5f };
-		lineCollider->vertices[1] = { 6.0f, 2.0f };
+		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		floorCollider->numVertices = 2;
+		floorCollider->vertices[0] = { 2.0f, 0.5f };
+		floorCollider->vertices[1] = { 6.0f, 2.0f };
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->numVertices = 7;
-		lineCollider->vertices[0] = { 5.0f, 1.5f };
-		lineCollider->vertices[1] = { 7.0f, 1.8f };
-		lineCollider->vertices[2] = { 9.0f, 1.5f };
-		lineCollider->vertices[3] = { 11.0f, 2.0f };
-		lineCollider->vertices[4] = { 13.0f, 3.0f };
-		lineCollider->vertices[5] = { 15.0f, 5.0f };
-		lineCollider->vertices[6] = { 25.0f, 10.0f };
+		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		floorCollider->numVertices = 7;
+		floorCollider->vertices[0] = { 5.0f, 1.5f };
+		floorCollider->vertices[1] = { 7.0f, 1.8f };
+		floorCollider->vertices[2] = { 9.0f, 1.5f };
+		floorCollider->vertices[3] = { 11.0f, 2.0f };
+		floorCollider->vertices[4] = { 13.0f, 3.0f };
+		floorCollider->vertices[5] = { 15.0f, 5.0f };
+		floorCollider->vertices[6] = { 25.0f, 10.0f };
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->numVertices = 2;
-		lineCollider->vertices[0] = { -16.0f, 10.0f };
-		lineCollider->vertices[1] = { -2.0f, 2.0f };
+		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		floorCollider->numVertices = 2;
+		floorCollider->vertices[0] = { -16.0f, 10.0f };
+		floorCollider->vertices[1] = { -2.0f, 2.0f };
 
-		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
+		DEBUG_ASSERT(gameState->numFloorColliders <= LINE_COLLIDERS_MAX);
 
 		// fishing data init
 		gameState->playerPosX = screenInfo.size.x;
@@ -862,10 +862,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
 		Mat4 view = Translate(-cameraPos);
-		Vec4 lineColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
+		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
 
-		for (int i = 0; i < gameState->numLineColliders; i++) {
-			LineCollider& line = gameState->lineColliders[i];
+		for (int i = 0; i < gameState->numFloorColliders; i++) {
+			FloorCollider& line = gameState->floorColliders[i];
 			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
 
 			lineData->count = line.numVertices;
@@ -876,11 +876,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 					0.0f
 				};
 			}
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorColliderColor);
 		}
 
-		Vec4 floorColliderColor = { 1.0f, 0.0f, 1.0f, 1.0f };
-		const LineCollider* floorCollider = gameState->floorCollider;
+		Vec4 currentFloorColor = { 1.0f, 0.0f, 1.0f, 1.0f };
+		const FloorCollider* floorCollider = gameState->currentFloor;
 		if (floorCollider != nullptr) {
 			DEBUG_ASSERT(floorCollider->numVertices <= MAX_LINE_POINTS);
 
@@ -892,7 +892,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 					0.0f
 				};
 			}
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorColliderColor);
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, currentFloorColor);
 		}
 
 		// Player position cross
