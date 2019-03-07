@@ -57,17 +57,6 @@ struct ObjectStatic
 	TextureGL texture;
 };
 
-struct ObjectAnimated
-{
-	Vec2 pos;
-	Vec2 anchor;
-	AnimatedSprite sprite;
-	
-#if GAME_INTERNAL
-	ClickableBox box;
-#endif
-};
-
 struct FishingObstacle
 {
 	Vec2Int pos;
@@ -113,7 +102,8 @@ struct GameState
 	LineGL lineGL;
 	TextGL textGL;
 
-	AnimatedSprite spriteKid;
+    AnimatedSprite spriteKid;
+    AnimatedSprite spritePaper;
 
 	ObjectStatic background;
 

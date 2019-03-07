@@ -99,7 +99,7 @@ void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
 {
 	Animation* activeAnim = animations.GetValue(activeAnimation);
 	Vec2 anchorRootMotion = activeAnim->frameRootAnchor[activeFrame];
-	PushSpriteWorldSpace(spriteDataGL, pos, size,
+	PushSprite(spriteDataGL, pos, size,
 		anchorRootMotion, flipHorizontal,
 		activeAnim->frameTextures[activeFrame].textureID);
 }

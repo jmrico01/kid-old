@@ -115,7 +115,7 @@ bool InitRenderState(RenderState& renderState,
 	return true;
 }
 
-void PushSpriteWorldSpace(SpriteDataGL* spriteDataGL,
+void PushSprite(SpriteDataGL* spriteDataGL,
 	Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal, GLuint texture)
 {
 	DEBUG_ASSERT(spriteDataGL->numSprites < SPRITE_BATCH_SIZE);
@@ -173,6 +173,5 @@ void DrawSprites(const RenderState& renderState,
 		glBindVertexArray(renderState.spriteStateGL.vertexArray);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
 		glBindVertexArray(0);
-
 	}
 }

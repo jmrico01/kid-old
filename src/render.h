@@ -26,6 +26,7 @@ struct SpriteDataGL
 	Vec4 uvInfo[SPRITE_BATCH_SIZE];
 
 	// TODO temporary, probably make a sprite sheet and put this in uvInfo
+    // otherwise I think it's very inefficient, and prevents batching
 	GLuint texture[SPRITE_BATCH_SIZE];
 };
 
@@ -34,7 +35,7 @@ bool InitRenderState(RenderState& renderState,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 
-void PushSpriteWorldSpace(SpriteDataGL* spriteDataGL,
+void PushSprite(SpriteDataGL* spriteDataGL,
 	Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal, GLuint texture);
 
 void DrawSprites(const RenderState& renderState,

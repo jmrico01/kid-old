@@ -61,7 +61,7 @@ Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 	};
 
 	return Translate(Vec3 { -1.0f, -1.0f, 0.0f })
-		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER + CAMERA_OFFSET_VEC3);
+		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER /*+ CAMERA_OFFSET_VEC3*/);
 }
 
 Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
@@ -85,16 +85,9 @@ Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos)
 void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
 {
 	Vec2 size = ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
-	PushSpriteWorldSpace(spriteDataGL, objectStatic.pos, size,
+	PushSprite(spriteDataGL, objectStatic.pos, size,
 		objectStatic.anchor, false,
 		objectStatic.texture.textureID);
-}
-
-void DrawObjectAnimated(const ObjectAnimated& objectAnimated, SpriteDataGL* spriteDataGL)
-{
-	Vec2 size = ToVec2(objectAnimated.sprite.textureSize) / REF_PIXELS_PER_UNIT;
-	objectAnimated.sprite.Draw(spriteDataGL,
-		objectAnimated.pos, size, objectAnimated.anchor, false);
 }
 
 bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
@@ -317,6 +310,8 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	gameState->playerPos = newPlayerPos;
 
+    gameState->spritePaper.Update(deltaTime, 0, nullptr);
+
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		gameState->cameraPos = gameState->playerPos;
@@ -328,8 +323,11 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 #endif
 }
 
-void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix)
+void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
+    Mat4 worldMatrix, ScreenInfo screenInfo)
 {
+    spriteDataGL->numSprites = 0;
+
 	DrawObjectStatic(gameState->background, spriteDataGL);
 
 	{ // kid & me text
@@ -342,8 +340,18 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL, Mat4 worldMatrix
 	}
 
 	Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
-	Mat4 view = Translate(-cameraPos);
+	Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
 	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+
+    spriteDataGL->numSprites = 0;
+
+    const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
+    Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
+    gameState->spritePaper.Draw(spriteDataGL,
+        -screenSizeWorld / 2.0f, screenSizeWorld, Vec2::zero,
+        false);
+
+    DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
 
 #if 0
 #if GAME_INTERNAL
@@ -641,13 +649,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load background");
 		}
 
-		bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
-			gameState->spriteKid,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadKidAnim) {
-			DEBUG_PANIC("Failed to load kid animation sprite");
-		}
+        bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
+            gameState->spriteKid,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadKidAnim) {
+            DEBUG_PANIC("Failed to load kid animation sprite");
+        }
+
+        bool32 loadPaperAnim = LoadAnimatedSprite(thread, "data/animations/paper/paper.kma",
+            gameState->spritePaper,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadKidAnim) {
+            DEBUG_PANIC("Failed to load paper animation sprite");
+        }
 
 #if GAME_INTERNAL
 		/*gameState->guys.box = CreateClickableBox(gameState->guys.pos,
@@ -729,11 +745,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
-	spriteDataGL->numSprites = 0;
 
 	switch (gameState->activeScene) {
 		case SCENE_TOWN: {
-			DrawTown(gameState, spriteDataGL, worldMatrix);
+			DrawTown(gameState, spriteDataGL, worldMatrix, screenInfo);
 		} break;
 		case SCENE_FISHING: {
 			DrawFishing(gameState, spriteDataGL, screenInfo);
@@ -861,7 +876,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
 		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
-		Mat4 view = Translate(-cameraPos);
+		Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
 		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
 
 		for (int i = 0; i < gameState->numFloorColliders; i++) {
