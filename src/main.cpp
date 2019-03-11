@@ -22,12 +22,20 @@
 
 #define FLOOR_LEVEL 0.0f
 
+#define PLAYER_RADIUS 0.4f
+#define PLAYER_HEIGHT 1.3f
+
 #define FLOOR_LINE_MARGIN 0.05f
 
 struct FloorColliderIntersect
 {
 	Vec2 pos;
 	const FloorCollider* collider;
+};
+
+struct LineColliderIntersect
+{
+	const LineCollider* collider;
 };
 
 inline float32 RandFloat32()
@@ -157,7 +165,7 @@ bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2D
 }
 
 void GetFloorColliderIntersections(const FloorCollider floorColliders[], int numFloorColliders,
-	Vec2 playerPos, Vec2 deltaPos, float32 movementMargin,
+	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
 	FloorColliderIntersect outIntersects[], int* outNumIntersects)
 {
 	*outNumIntersects = 0;
@@ -174,7 +182,7 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 		for (int v = 1; v < floorColliders[c].numVertices; v++) {
 			Vec2 vert = floorColliders[c].vertices[v];
 			Vec2 intersectPoint;
-			if (Intersection(playerPos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
+			if (Intersection(pos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
 				int intersectInd = *outNumIntersects;
 				outIntersects[intersectInd].pos = intersectPoint;
 				outIntersects[intersectInd].collider = &floorColliders[c];
@@ -184,6 +192,13 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 			vertPrev = vert;
 		}
 	}
+}
+
+void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
+	Vec2 boxPos, Vec2 boxSize, Vec2 deltaPos, float32 movementMargin,
+	LineColliderIntersect outIntersects[], int* outNumIntersects)
+{
+	*outNumIntersects = 0;
 }
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -273,7 +288,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
 	Vec2 newPlayerPos = gameState->playerPos + deltaPos;
 
-	FloorColliderIntersect intersects[LINE_COLLIDERS_MAX];
+	FloorColliderIntersect intersects[FLOOR_COLLIDERS_MAX];
 	int numIntersects;
 	GetFloorColliderIntersections(gameState->floorColliders, gameState->numFloorColliders,
 		gameState->playerPos, deltaPos, 0.05f,
@@ -351,7 +366,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
         -screenSizeWorld / 2.0f, screenSizeWorld, Vec2::zero,
         false);
 
-    DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
+    // DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
 
 #if 0
 #if GAME_INTERNAL
@@ -519,7 +534,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		floorCollider->vertices[0] = { -16.0f, 10.0f };
 		floorCollider->vertices[1] = { -2.0f, 2.0f };
 
-		DEBUG_ASSERT(gameState->numFloorColliders <= LINE_COLLIDERS_MAX);
+		DEBUG_ASSERT(gameState->numFloorColliders <= FLOOR_COLLIDERS_MAX);
+
+		gameState->numLineColliders = 0;
+		LineCollider* lineCollider;
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->numVertices = 2;
+		lineCollider->vertices[0] = { -10.0f, -1.0f };
+		lineCollider->vertices[1] = { -10.0f, 3.0f };
+
+		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
 
 		// fishing data init
 		gameState->playerPosX = screenInfo.size.x;
@@ -661,7 +686,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             gameState->spritePaper,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadKidAnim) {
+        if (!loadPaperAnim) {
             DEBUG_PANIC("Failed to load paper animation sprite");
         }
 
@@ -877,17 +902,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
 		Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
+
 		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
-
 		for (int i = 0; i < gameState->numFloorColliders; i++) {
-			FloorCollider& line = gameState->floorColliders[i];
-			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
+			FloorCollider& floor = gameState->floorColliders[i];
+			DEBUG_ASSERT(floor.numVertices <= MAX_LINE_POINTS);
 
-			lineData->count = line.numVertices;
-			for (int v = 0; v < line.numVertices; v++) {
+			lineData->count = floor.numVertices;
+			for (int v = 0; v < floor.numVertices; v++) {
 				lineData->pos[v] = Vec3 {
-					line.vertices[v].x,
-					line.vertices[v].y,
+					floor.vertices[v].x,
+					floor.vertices[v].y,
 					0.0f
 				};
 			}
@@ -910,6 +935,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DrawLine(gameState->lineGL, worldMatrix, view, lineData, currentFloorColor);
 		}
 
+		Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
+		for (int i = 0; i < gameState->numLineColliders; i++) {
+			LineCollider& line = gameState->lineColliders[i];
+			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
+
+			lineData->count = line.numVertices;
+			for (int v = 0; v < line.numVertices; v++) {
+				lineData->pos[v] = Vec3 {
+					line.vertices[v].x,
+					line.vertices[v].y,
+					0.0f
+				};
+			}
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
+		}
+
 		// Player position cross
 		lineData->count = 2;
 		float32 crossSize = 0.1f;
@@ -927,6 +968,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineData->pos[1] = playerPos;
 		lineData->pos[1].y += crossSize;
 		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerPosColor);
+
+		// Player collision box
+		lineData->count = 5;
+		Vec4 playerColliderColor = { 1.0f, 0.4f, 0.0f, 1.0f };
+
+		lineData->pos[0] = playerPos;
+		lineData->pos[0].x -= PLAYER_RADIUS;
+		lineData->pos[1] = playerPos;
+		lineData->pos[1].x += PLAYER_RADIUS;
+		lineData->pos[2] = lineData->pos[1];
+		lineData->pos[2].y += PLAYER_HEIGHT;
+		lineData->pos[3] = lineData->pos[0];
+		lineData->pos[3].y += PLAYER_HEIGHT;
+		lineData->pos[4] = lineData->pos[0];
+		DrawLine(gameState->lineGL, worldMatrix, view, lineData, playerColliderColor);
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {

@@ -18,7 +18,10 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define LINE_COLLIDER_MAX_VERTICES 32
+#define FLOOR_COLLIDER_MAX_VERTICES 16
+#define FLOOR_COLLIDERS_MAX 4
+
+#define LINE_COLLIDER_MAX_VERTICES 16
 #define LINE_COLLIDERS_MAX 4
 
 #define FISHING_OBSTACLES_MAX 1000
@@ -41,7 +44,13 @@ enum Scene
 struct FloorCollider
 {
     int numVertices;
-    Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
+    Vec2 vertices[FLOOR_COLLIDER_MAX_VERTICES];
+};
+
+struct LineCollider
+{
+	int numVertices;
+	Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
 };
 
 struct ColliderBox
@@ -79,7 +88,10 @@ struct GameState
 	bool32 facingRight;
 
     int numFloorColliders;
-    FloorCollider floorColliders[LINE_COLLIDERS_MAX];
+    FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
+
+    int numLineColliders;
+    LineCollider lineColliders[LINE_COLLIDERS_MAX];
 
 	// Fishing state
 	int playerPosX;

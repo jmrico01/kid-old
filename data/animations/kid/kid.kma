@@ -86,5 +86,6 @@ rootmotion {
 }
 exit 8 Idle 0
 exit 8 Walk 0
+exit 8 Fall 0
 
 start Idle
