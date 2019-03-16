@@ -33,11 +33,6 @@ struct FloorColliderIntersect
 	const FloorCollider* collider;
 };
 
-struct LineColliderIntersect
-{
-	const LineCollider* collider;
-};
-
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -194,13 +189,6 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 	}
 }
 
-void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
-	Vec2 boxPos, Vec2 boxSize, Vec2 deltaPos, float32 movementMargin,
-	LineColliderIntersect outIntersects[], int* outNumIntersects)
-{
-	*outNumIntersects = 0;
-}
-
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	const float32 PLAYER_WALK_SPEED = 3.0f;
@@ -312,6 +300,30 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		}
 	}
 
+    for (int i = 0; i < gameState->numWallColliders; i++) {
+        const WallCollider& wallCollider = gameState->wallColliders[i];
+        Rect playerRect;
+        playerRect.minX = newPlayerPos.x - PLAYER_RADIUS;
+        playerRect.maxX = newPlayerPos.x + PLAYER_RADIUS;
+        playerRect.minY = newPlayerPos.y;
+        playerRect.maxY = newPlayerPos.y + PLAYER_HEIGHT;
+        float32 wallX = wallCollider.bottomPos.x;
+        float32 wallMinY = wallCollider.bottomPos.y;
+        float32 wallMaxY = wallMinY + wallCollider.height;
+
+        if (playerRect.minX <= wallX && wallX <= playerRect.maxX) {
+            if (!((playerRect.minY <= wallMinY && playerRect.maxY <= wallMinY)
+            || (playerRect.minY >= wallMaxY && playerRect.maxY >= wallMaxY))) {
+                float32 pushDir = 1.0f;
+                if (newPlayerPos.x < wallX) {
+                    pushDir = -1.0f;
+                }
+
+                newPlayerPos.x += pushDir * FLOOR_LINE_MARGIN;
+            }
+        }
+    }
+
 	if (gameState->playerState == PLAYER_STATE_GROUNDED
 	&& gameState->currentFloor != nullptr) {
 		float32 height;
@@ -366,7 +378,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
         -screenSizeWorld / 2.0f, screenSizeWorld, Vec2::zero,
         false);
 
-    // DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
+    DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
 
 #if 0
 #if GAME_INTERNAL
@@ -536,15 +548,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		DEBUG_ASSERT(gameState->numFloorColliders <= FLOOR_COLLIDERS_MAX);
 
-		gameState->numLineColliders = 0;
-		LineCollider* lineCollider;
+        gameState->numWallColliders = 0;
+        WallCollider* wallCollider;
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->numVertices = 2;
-		lineCollider->vertices[0] = { -10.0f, -1.0f };
-		lineCollider->vertices[1] = { -10.0f, 3.0f };
+        wallCollider = &gameState->wallColliders[gameState->numWallColliders++];
+        wallCollider->bottomPos = { -10.0f, 0.0f };
+        wallCollider->height = 2.0f;
 
-		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
+        DEBUG_ASSERT(gameState->numWallColliders <= WALL_COLLIDERS_MAX);
 
 		// fishing data init
 		gameState->playerPosX = screenInfo.size.x;
@@ -935,20 +946,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DrawLine(gameState->lineGL, worldMatrix, view, lineData, currentFloorColor);
 		}
 
-		Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-		for (int i = 0; i < gameState->numLineColliders; i++) {
-			LineCollider& line = gameState->lineColliders[i];
-			DEBUG_ASSERT(line.numVertices <= MAX_LINE_POINTS);
-
-			lineData->count = line.numVertices;
-			for (int v = 0; v < line.numVertices; v++) {
-				lineData->pos[v] = Vec3 {
-					line.vertices[v].x,
-					line.vertices[v].y,
-					0.0f
-				};
-			}
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
+		Vec4 wallColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
+		for (int i = 0; i < gameState->numWallColliders; i++) {
+			WallCollider* wall = &gameState->wallColliders[i];
+            
+			lineData->count = 2;
+            lineData->pos[0] = Vec3 { wall->bottomPos.x, wall->bottomPos.y, 0.0f };
+            lineData->pos[1] = lineData->pos[0];
+            lineData->pos[1].y += wall->height;
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, wallColliderColor);
 		}
 
 		// Player position cross

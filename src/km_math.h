@@ -134,6 +134,18 @@ union Vec4
 	float32 e[4];
 };
 
+union Rect
+{
+    struct
+    {
+        Vec2 rangeX, rangeY;
+    };
+    struct
+    {
+        float32 minX, maxX, minY, maxY;
+    };
+};
+
 // Column-major 4x4 matrix (columns stored contiguously)
 // ORDER IS OPPOSITE OF NORMAL MATH
 /*
@@ -651,6 +663,9 @@ inline Vec4 Lerp(Vec4 v1, Vec4 v2, float t)
 	};
 	return result;
 }
+
+// -------------------- Rect --------------------
+
 
 // -------------------- Mat4 --------------------
 // TODO these functions might be better off not inlined

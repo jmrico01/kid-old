@@ -21,8 +21,7 @@
 #define FLOOR_COLLIDER_MAX_VERTICES 16
 #define FLOOR_COLLIDERS_MAX 4
 
-#define LINE_COLLIDER_MAX_VERTICES 16
-#define LINE_COLLIDERS_MAX 4
+#define WALL_COLLIDERS_MAX 4
 
 #define FISHING_OBSTACLES_MAX 1000
 
@@ -47,10 +46,10 @@ struct FloorCollider
     Vec2 vertices[FLOOR_COLLIDER_MAX_VERTICES];
 };
 
-struct LineCollider
+struct WallCollider
 {
-	int numVertices;
-	Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
+    Vec2 bottomPos;
+    float32 height;
 };
 
 struct ColliderBox
@@ -90,8 +89,8 @@ struct GameState
     int numFloorColliders;
     FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
 
-    int numLineColliders;
-    LineCollider lineColliders[LINE_COLLIDERS_MAX];
+    int numWallColliders;
+    WallCollider wallColliders[WALL_COLLIDERS_MAX];
 
 	// Fishing state
 	int playerPosX;
