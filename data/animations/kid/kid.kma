@@ -34,24 +34,21 @@ exit * Fall 0
 anim Jump
 dir jump
 fps 24
-timing 1 2 2 1 1 1 2 3
+timing 1 1 1 1 2
 rootfollow
 rootmotion {
-    110 480
-    110 480
     110 480
     110 403
     110 270
     110 217
     110 209
-    110 206
 }
-exit 7 Fall 0
+exit 4 Fall 0
 
 anim Fall
 dir fall
 fps 24
-timing 3 2 2 2 1 1
+timing 2 2 2 1 1 1
 rootfollow
 rootfollowendloop
 rootmotion {
@@ -72,9 +69,8 @@ exit 5 Land 5
 anim Land
 dir land
 fps 24
-timing 3 2 2 2 1 1 1 2 1
+timing 2 2 1 1 1 1 1 1
 rootmotion {
-    110 206
     110 209
     110 217
     110 246
@@ -84,8 +80,8 @@ rootmotion {
     110 480
     110 480
 }
-exit 8 Idle 0
-exit 8 Walk 0
-exit 8 Fall 0
+exit 7 Idle 0
+exit 7 Walk 0
+exit 7 Fall 0
 
 start Idle

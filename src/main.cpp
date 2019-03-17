@@ -206,6 +206,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
         speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
     }
 
+    gameState->playerVel.x = 0.0f;
 	if (IsKeyPressed(input, KM_KEY_A)) {
 		gameState->playerVel.x -= speed;
 		gameState->facingRight = false;
@@ -246,7 +247,6 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	gameState->playerVel.x = 0.0f;
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		PlayerMovementInput(gameState, deltaTime, input);
@@ -384,13 +384,12 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 #endif
 
     const float32 CAMERA_FOLLOW_LERP_MAG = 0.1f;
-    const float32 CAMERA_MIN_HEIGHT = -2.6f;
+    const float32 CAMERA_MIN_Y = -2.6f;
+    const float32 CAMERA_MAX_Y = 3.8f;
     gameState->cameraPos = Lerp(gameState->cameraPos, gameState->playerPos,
         CAMERA_FOLLOW_LERP_MAG);
 
-    if (gameState->cameraPos.y < CAMERA_MIN_HEIGHT) {
-        gameState->cameraPos.y = CAMERA_MIN_HEIGHT;
-    }
+    gameState->cameraPos.y = ClampFloat32(gameState->cameraPos.y, CAMERA_MIN_Y, CAMERA_MAX_Y);
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -400,8 +399,8 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
     DrawObjectStatic(gameState->background, spriteDataGL);
 
-    DrawObjectStatic(gameState->tractor1, spriteDataGL);
-    DrawObjectStatic(gameState->tractor2, spriteDataGL);
+    //DrawObjectStatic(gameState->tractor1, spriteDataGL);
+    //DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
 	{ // kid & me text
 		Vec2 anchor = { 0.5f, 0.1f };
@@ -741,7 +740,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->grainTime = 0.0f;
 
 #if GAME_INTERNAL
-		gameState->debugView = true;
+		gameState->debugView = false;
 		gameState->editor = false;
 #endif
 

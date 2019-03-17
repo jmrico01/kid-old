@@ -59,6 +59,7 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 				int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
 				if (exitToFrame != nullptr) {
 					//Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
+                    animTransition = true;
 					activeAnimation = nextAnimations[i];
 					activeFrame = *exitToFrame;
 					activeFrameRepeat = 0;
