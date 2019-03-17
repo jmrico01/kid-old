@@ -19,7 +19,7 @@
 #define NUM_FRAMEBUFFERS_GRAY         1
 
 #define FLOOR_COLLIDER_MAX_VERTICES 16
-#define FLOOR_COLLIDERS_MAX 4
+#define FLOOR_COLLIDERS_MAX 8
 
 #define WALL_COLLIDERS_MAX 4
 
@@ -62,6 +62,7 @@ struct ObjectStatic
 {
 	Vec2 pos;
 	Vec2 anchor;
+    float32 scale;
 	TextureGL texture;
 };
 
@@ -116,7 +117,14 @@ struct GameState
     AnimatedSprite spriteKid;
     AnimatedSprite spritePaper;
 
-	ObjectStatic background;
+    ObjectStatic background;
+    ObjectStatic frame;
+
+    ObjectStatic tractor1;
+    ObjectStatic tractor2;
+
+    TextureGL lutBase;
+    TextureGL lut1;
 
 	FT_Library ftLibrary;
 	FontFace fontFaceSmall;
@@ -134,5 +142,6 @@ struct GameState
 	GLuint bloomExtractShader;
 	GLuint bloomBlendShader;
 	GLuint blurShader;
-	GLuint grainShader;
+    GLuint grainShader;
+    GLuint lutShader;
 };

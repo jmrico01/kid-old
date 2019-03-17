@@ -18,6 +18,7 @@ struct Animation
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
     int frameTiming[ANIMATION_MAX_FRAMES];
     HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
+    bool32 rootMotion;
     bool32 rootFollow;
     bool32 rootFollowEndLoop;
     Vec2 frameRootMotion[ANIMATION_MAX_FRAMES];
@@ -38,7 +39,7 @@ struct AnimatedSprite
 	Vec2 Update(float32 deltaTime, int numNextAnimations, const HashKey* nextAnimations);
 
     void Draw(SpriteDataGL* spriteDataGL,
-        Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const;
+        Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha, bool32 flipHorizontal) const;
 };
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,

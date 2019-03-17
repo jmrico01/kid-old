@@ -100,22 +100,44 @@ void PostProcessBloom(Framebuffer framebufferIn,
 }
 
 void PostProcessGrain(Framebuffer framebufferIn, Framebuffer framebufferOut,
-	GLuint screenQuadVertexArray, GLuint shader, float32 grainTime)
+    GLuint screenQuadVertexArray, GLuint shader, float32 grainTime)
 {
-	float32 grainMag = 0.2f;
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferOut.framebuffer);
-	//glClear(GL_COLOR_BUFFER_BIT);
+    float32 grainMag = 0.2f;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferOut.framebuffer);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
-	glBindVertexArray(screenQuadVertexArray);
-	glUseProgram(shader);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, framebufferIn.color);
-	GLint loc = glGetUniformLocation(shader, "scene");
-	glUniform1i(loc, 0);
-	loc = glGetUniformLocation(shader, "grainMag");
-	glUniform1f(loc, grainMag);
-	loc = glGetUniformLocation(shader, "time");
-	glUniform1f(loc, grainTime * 100003.0f);
+    glBindVertexArray(screenQuadVertexArray);
+    glUseProgram(shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, framebufferIn.color);
+    GLint loc = glGetUniformLocation(shader, "scene");
+    glUniform1i(loc, 0);
+    loc = glGetUniformLocation(shader, "grainMag");
+    glUniform1f(loc, grainMag);
+    loc = glGetUniformLocation(shader, "time");
+    glUniform1f(loc, grainTime * 100003.0f);
 
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void PostProcessLUT(Framebuffer framebufferIn, Framebuffer framebufferOut,
+    GLuint screenQuadVertexArray, GLuint shader, TextureGL lut)
+{
+    float32 grainMag = 0.2f;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferOut.framebuffer);
+    //glClear(GL_COLOR_BUFFER_BIT);
+
+    glBindVertexArray(screenQuadVertexArray);
+    glUseProgram(shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, framebufferIn.color);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, lut.textureID);
+
+    GLint loc = glGetUniformLocation(shader, "framebufferTexture");
+    glUniform1i(loc, 0);
+    loc = glGetUniformLocation(shader, "lut4k");
+    glUniform1i(loc, 1);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 }

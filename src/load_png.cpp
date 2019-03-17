@@ -68,8 +68,9 @@ void LoadPNGReadData(png_structp pngPtr,
 }
 
 // TODO pass a custom allocator to libPNG
-bool32 LoadPNGOpenGL(const ThreadContext* thread,
-	const char* filePath, TextureGL& outTextureGL,
+bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
+    GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
+    TextureGL& outTextureGL,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
@@ -187,10 +188,10 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread,
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height,
 		0, format, GL_UNSIGNED_BYTE, (const GLvoid*)data);
 	// TODO expose these to loading API?
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
 
 	png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 	DEBUGPlatformFreeFileMemory(thread, &pngFile);

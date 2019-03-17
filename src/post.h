@@ -14,3 +14,6 @@ void PostProcessBloom(Framebuffer framebufferIn,
 
 void PostProcessGrain(Framebuffer framebufferIn, Framebuffer framebufferOut,
 	GLuint screenQuadVertexArray, GLuint shader, float32 grainTime);
+
+void PostProcessLUT(Framebuffer framebufferIn, Framebuffer framebufferOut,
+    GLuint screenQuadVertexArray, GLuint shader, TextureGL lut);

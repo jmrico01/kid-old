@@ -116,7 +116,8 @@ bool InitRenderState(RenderState& renderState,
 }
 
 void PushSprite(SpriteDataGL* spriteDataGL,
-	Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal, GLuint texture)
+	Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha,
+    bool32 flipHorizontal, GLuint texture)
 {
 	DEBUG_ASSERT(spriteDataGL->numSprites < SPRITE_BATCH_SIZE);
 
@@ -137,6 +138,7 @@ void PushSprite(SpriteDataGL* spriteDataGL,
 			-1.0f, 1.0f
 		};
 	}
+    spriteDataGL->alpha[spriteInd] = alpha;
 	spriteDataGL->texture[spriteInd] = texture;
 
 	spriteDataGL->numSprites++;
@@ -167,8 +169,10 @@ void DrawSprites(const RenderState& renderState,
 		glUniform3fv(loc, 1, &spriteDataGL.pos[i].e[0]);
 		loc = glGetUniformLocation(programID, "size");
 		glUniform2fv(loc, 1, &spriteDataGL.size[i].e[0]);
-		loc = glGetUniformLocation(programID, "uvInfo");
-		glUniform4fv(loc, 1, &spriteDataGL.uvInfo[i].e[0]);
+        loc = glGetUniformLocation(programID, "uvInfo");
+        glUniform4fv(loc, 1, &spriteDataGL.uvInfo[i].e[0]);
+        loc = glGetUniformLocation(programID, "alpha");
+        glUniform1f(loc, spriteDataGL.alpha[i]);
 
 		glBindVertexArray(renderState.spriteStateGL.vertexArray);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);

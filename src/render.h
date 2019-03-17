@@ -24,6 +24,7 @@ struct SpriteDataGL
 	Vec3 pos[SPRITE_BATCH_SIZE];
 	Vec2 size[SPRITE_BATCH_SIZE];
 	Vec4 uvInfo[SPRITE_BATCH_SIZE];
+    float32 alpha[SPRITE_BATCH_SIZE];
 
 	// TODO temporary, probably make a sprite sheet and put this in uvInfo
     // otherwise I think it's very inefficient, and prevents batching
@@ -36,7 +37,8 @@ bool InitRenderState(RenderState& renderState,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 
 void PushSprite(SpriteDataGL* spriteDataGL,
-	Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal, GLuint texture);
+	Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha,
+    bool32 flipHorizontal, GLuint texture);
 
 void DrawSprites(const RenderState& renderState,
 	const SpriteDataGL& spriteDataGL, Mat4 view, Mat4 proj);

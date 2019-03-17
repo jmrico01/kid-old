@@ -36,7 +36,7 @@
 */
 
 #define START_WIDTH 1280
-#define START_HEIGHT 800
+#define START_HEIGHT 720
 
 // TODO this is a global for now
 global_var char pathToApp_[MAX_PATH];

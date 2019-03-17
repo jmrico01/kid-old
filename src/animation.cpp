@@ -95,12 +95,15 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 }
 
 void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
-		Vec2 pos, Vec2 size, Vec2 anchor, bool32 flipHorizontal) const
+		Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha, bool32 flipHorizontal) const
 {
 	Animation* activeAnim = animations.GetValue(activeAnimation);
-	Vec2 anchorRootMotion = activeAnim->frameRootAnchor[activeFrame];
+    Vec2 animAnchor = anchor;
+    if (activeAnim->rootMotion) {
+        animAnchor = activeAnim->frameRootAnchor[activeFrame];
+    }
 	PushSprite(spriteDataGL, pos, size,
-		anchorRootMotion, flipHorizontal,
+		animAnchor, alpha, flipHorizontal,
 		activeAnim->frameTextures[activeFrame].textureID);
 }
 
@@ -174,6 +177,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 			currentAnim->numFrames = 0;
 			currentAnim->loop = false;
+            currentAnim->rootMotion = false;
 			currentAnim->rootFollow = false;
 			currentAnim->rootFollowEndLoop = false;
 		}
@@ -208,7 +212,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 				TextureGL frameTextureGL;
 				// TODO probably make a DoesFileExist function?
-				bool32 frameResult = LoadPNGOpenGL(thread, spritePath, frameTextureGL,
+				bool32 frameResult = LoadPNGOpenGL(thread, spritePath,
+                    GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+                    frameTextureGL,
 					DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
 				if (!frameResult) {
 					break;
@@ -331,6 +337,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->rootFollowEndLoop = true;
 		}
 		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTMOTION)) {
+            currentAnim->rootMotion = true;
+
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
 

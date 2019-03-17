@@ -17,8 +17,9 @@
 #include "render.h"
 
 #define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
-#define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, -CAMERA_HEIGHT / 3.0f })
-#define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, -CAMERA_HEIGHT / 3.0f, 0.0f })
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT / 6.0f)
+#define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, CAMERA_OFFSET_Y })
+#define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
 #define FLOOR_LEVEL 0.0f
 
@@ -64,33 +65,36 @@ Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 	};
 
 	return Translate(Vec3 { -1.0f, -1.0f, 0.0f })
-		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER /*+ CAMERA_OFFSET_VEC3*/);
+		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER);
 }
 
 Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
 {
+    float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
+
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
 	const Vec2 SCREEN_CENTER = {
 		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
 		CAMERA_HEIGHT / 2.0f
 	};
 
-	Vec2 result = ToVec2(screenPos) / REF_PIXELS_PER_UNIT
-		- SCREEN_CENTER - CAMERA_OFFSET_VEC2 - cameraPos;
+	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT
+        - SCREEN_CENTER - CAMERA_OFFSET_VEC2 + cameraPos;
 	return result;
 }
 
-Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos)
+Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo)
 {
-	return ToVec2(screenPos) / REF_PIXELS_PER_UNIT;
+    float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
+	return ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT;
 }
 
 void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
 {
-	Vec2 size = ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
+	Vec2 size = objectStatic.scale * ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
 	PushSprite(spriteDataGL, objectStatic.pos, size,
-		objectStatic.anchor, false,
-		objectStatic.texture.textureID);
+		objectStatic.anchor, 1.0f,
+        false, objectStatic.texture.textureID);
 }
 
 bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
@@ -191,7 +195,7 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	const float32 PLAYER_WALK_SPEED = 3.0f;
+	const float32 PLAYER_WALK_SPEED = 3.2f;
 
 	if (IsKeyPressed(input, KM_KEY_A)) {
 		gameState->playerVel.x -= PLAYER_WALK_SPEED;
@@ -340,14 +344,13 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
     gameState->spritePaper.Update(deltaTime, 0, nullptr);
 
 #if GAME_INTERNAL
-	if (!gameState->editor) {
-		gameState->cameraPos = gameState->playerPos;
-		gameState->cameraPos.y = 0.0f;
+	if (gameState->editor) {
+        return;
 	}
-#else
-	gameState->cameraPos = gameState->playerPos;
-	gameState->cameraPos.y = 0.0f;
 #endif
+
+    gameState->cameraPos.x = gameState->playerPos.x;
+    gameState->cameraPos.y = 0.0f;
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -355,7 +358,10 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 {
     spriteDataGL->numSprites = 0;
 
-	DrawObjectStatic(gameState->background, spriteDataGL);
+    DrawObjectStatic(gameState->background, spriteDataGL);
+
+    DrawObjectStatic(gameState->tractor1, spriteDataGL);
+    DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
 	{ // kid & me text
 		Vec2 anchor = { 0.5f, 0.1f };
@@ -363,7 +369,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
 		gameState->spriteKid.Draw(spriteDataGL, gameState->playerPos, size,
-			anchor, !gameState->facingRight);
+			anchor, 1.0f, !gameState->facingRight);
 	}
 
 	Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
@@ -374,9 +380,15 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
     const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
     Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
+
     gameState->spritePaper.Draw(spriteDataGL,
-        -screenSizeWorld / 2.0f, screenSizeWorld, Vec2::zero,
+        Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, 0.5f,
         false);
+
+    gameState->frame.pos = Vec2::zero;
+    gameState->frame.anchor = Vec2::one / 2.0f;
+    gameState->frame.scale = 1.0f;
+    DrawObjectStatic(gameState->frame, spriteDataGL);
 
     DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
 
@@ -523,37 +535,34 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
 		floorCollider->numVertices = 2;
-		floorCollider->vertices[0] = { -16.0f, FLOOR_LEVEL };
-		floorCollider->vertices[1] = { 16.0f, FLOOR_LEVEL };
+		floorCollider->vertices[0] = { -31.5f, FLOOR_LEVEL + 0.1f };
+		floorCollider->vertices[1] = { 31.5f, FLOOR_LEVEL - 0.1f };
 
-		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
-		floorCollider->numVertices = 2;
-		floorCollider->vertices[0] = { 2.0f, 0.5f };
-		floorCollider->vertices[1] = { 6.0f, 2.0f };
+        /*floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+        floorCollider->numVertices = 4;
+        floorCollider->vertices[0] = { -8.1f, 1.2f };
+        floorCollider->vertices[1] = { -5.4f, 1.05f };
+        floorCollider->vertices[2] = { -4.8f, 1.6f };
+        floorCollider->vertices[3] = { -2.9f, 1.55f };
 
-		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
-		floorCollider->numVertices = 7;
-		floorCollider->vertices[0] = { 5.0f, 1.5f };
-		floorCollider->vertices[1] = { 7.0f, 1.8f };
-		floorCollider->vertices[2] = { 9.0f, 1.5f };
-		floorCollider->vertices[3] = { 11.0f, 2.0f };
-		floorCollider->vertices[4] = { 13.0f, 3.0f };
-		floorCollider->vertices[5] = { 15.0f, 5.0f };
-		floorCollider->vertices[6] = { 25.0f, 10.0f };
+        floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+        floorCollider->numVertices = 2;
+        floorCollider->vertices[0] = { -0.22f, 2.75f };
+        floorCollider->vertices[1] = { 1.6f, 2.75f };
 
-		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
-		floorCollider->numVertices = 2;
-		floorCollider->vertices[0] = { -16.0f, 10.0f };
-		floorCollider->vertices[1] = { -2.0f, 2.0f };
+        floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+        floorCollider->numVertices = 2;
+        floorCollider->vertices[0] = { 1.6f, 1.8f };
+        floorCollider->vertices[1] = { 4.45f, 1.83f };*/
 
 		DEBUG_ASSERT(gameState->numFloorColliders <= FLOOR_COLLIDERS_MAX);
 
         gameState->numWallColliders = 0;
-        WallCollider* wallCollider;
+        /*WallCollider* wallCollider;
 
         wallCollider = &gameState->wallColliders[gameState->numWallColliders++];
         wallCollider->bottomPos = { -10.0f, 0.0f };
-        wallCollider->height = 2.0f;
+        wallCollider->height = 2.0f;*/
 
         DEBUG_ASSERT(gameState->numWallColliders <= WALL_COLLIDERS_MAX);
 
@@ -670,22 +679,30 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			"shaders/screen.vert", "shaders/blur.frag",
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->grainShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/grain.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->grainShader = LoadShaders(thread,
+            "shaders/screen.vert", "shaders/grain.frag",
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        gameState->lutShader = LoadShaders(thread,
+            "shaders/screen.vert", "shaders/lut.frag",
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
 
-		gameState->background.pos = { 0.0f, -3.05f };
-		gameState->background.anchor = { 0.5f, 0.0f };
-		bool32 loadBackground = LoadPNGOpenGL(thread,
-			"data/sprites/bg.png", gameState->background.texture,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadBackground) {
-			DEBUG_PANIC("Failed to load background");
-		}
+        gameState->background.pos = { 0.0f, -5.5f };
+        gameState->background.anchor = { 0.5f, 0.0f };
+        gameState->background.scale = 1.0f;
+        bool32 loadBackground = LoadPNGOpenGL(thread,
+            "data/sprites/quarry3.png",
+            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->background.texture,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadBackground) {
+            DEBUG_PANIC("Failed to load background");
+        }
 
-        bool32 loadKidAnim = LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
+        bool32 loadKidAnim = LoadAnimatedSprite(thread,
+            "data/animations/kid/kid.kma",
             gameState->spriteKid,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
@@ -693,12 +710,68 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             DEBUG_PANIC("Failed to load kid animation sprite");
         }
 
-        bool32 loadPaperAnim = LoadAnimatedSprite(thread, "data/animations/paper/paper.kma",
+        /*gameState->tractor1.pos = { 2.0f, -0.2f };
+        gameState->tractor1.anchor = { 0.5f, 0.0f };
+        gameState->tractor1.scale = 1.0f;
+        bool32 loadTractor1 = LoadPNGOpenGL(thread,
+            "data/sprites/tractor1.png",
+            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->tractor1.texture,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadTractor1) {
+            DEBUG_PANIC("Failed to load tractor 1");
+        }
+        gameState->tractor2.pos = { -5.0f, -0.45f };
+        gameState->tractor2.anchor = { 0.5f, 0.0f };
+        gameState->tractor2.scale = 1.0f;
+        bool32 loadTractor2 = LoadPNGOpenGL(thread,
+            "data/sprites/tractor2.png",
+            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->tractor2.texture,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadTractor2) {
+            DEBUG_PANIC("Failed to load tractor 2");
+        }*/
+
+        bool32 loadPaperAnim = LoadAnimatedSprite(thread,
+            "data/animations/paper/paper.kma",
             gameState->spritePaper,
             platformFuncs->DEBUGPlatformReadFile,
             platformFuncs->DEBUGPlatformFreeFileMemory);
         if (!loadPaperAnim) {
             DEBUG_PANIC("Failed to load paper animation sprite");
+        }
+
+        bool32 loadFrame = LoadPNGOpenGL(thread,
+            "data/sprites/frame.png",
+            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->frame.texture,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadFrame) {
+            DEBUG_PANIC("Failed to load frame");
+        }
+
+        bool32 loadLutBase = LoadPNGOpenGL(thread,
+            "data/luts/lutbase.png",
+            GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->lutBase,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadLutBase) {
+            DEBUG_PANIC("Failed to load base LUT");
+        }
+
+        bool32 loadLut1 = LoadPNGOpenGL(thread,
+            "data/luts/kodak5205.png",
+            GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+            gameState->lut1,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadLut1) {
+            DEBUG_PANIC("Failed to load base LUT");
         }
 
 #if GAME_INTERNAL
@@ -759,7 +832,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		case SCENE_TOWN: {
 			if (gameState->editor) {
 				if (input->mouseButtons[0].isDown) {
-					gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta);
+					gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo);
 				}
 			}
 			UpdateTown(gameState, deltaTime, input);
@@ -796,10 +869,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 
-	// Apply filters
-	// PostProcessGrain(gameState->framebuffersColorDepth[0], gameState->framebuffersColor[0],
-	//     gameState->screenQuadVertexArray,
-	//     gameState->grainShader, gameState->grainTime);
+    // Apply filters
+    // PostProcessGrain(gameState->framebuffersColorDepth[0], gameState->framebuffersColor[0],
+    //     gameState->screenQuadVertexArray,
+    //     gameState->grainShader, gameState->grainTime);
+
+    PostProcessLUT(gameState->framebuffersColorDepth[0],
+        gameState->framebuffersColor[0],
+        gameState->screenQuadVertexArray,
+        gameState->lutShader, gameState->lut1);
 
 	// Render to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -808,24 +886,24 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glBindVertexArray(gameState->screenQuadVertexArray);
 	glUseProgram(gameState->screenShader);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColorDepth[0].color);
+	glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColor[0].color);
 	GLint loc = glGetUniformLocation(gameState->screenShader, "framebufferTexture");
 	glUniform1i(loc, 0);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	// Render pillarbox
-	const Vec4 PILLARBOX_COLOR = { 0.0f, 0.0f, 0.0f, 1.0f };
+	const Vec4 PILLARBOX_COLOR = { 0.965f, 0.957f, 0.91f, 1.0f };
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
 	Vec2Int pillarboxPos1 = Vec2Int::zero;
 	Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
 	Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
 	Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
 	if (pillarboxWidth > 0) {
-		DrawRect(gameState->rectGL, screenInfo,
+		/*DrawRect(gameState->rectGL, screenInfo,
 			pillarboxPos1, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
 		DrawRect(gameState->rectGL, screenInfo,
-			pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
+			pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);*/
 	}
 
 	// DrawRect(gameState->rectGL, screenInfo,
@@ -847,10 +925,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	}
 
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
-	const Vec2Int MARGIN = { 15, 10 };
+	const Vec2Int MARGIN = { 30, 45 };
 
 	if (gameState->debugView) {
-		FontFace& textFont = gameState->fontFaceMedium;
+		FontFace& textFont = gameState->fontFaceSmall;
 		FontFace& textFontSmall = gameState->fontFaceSmall;
 		char textStr[128];
 		Vec2Int textPosLeft = {
@@ -877,42 +955,59 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFontSmall, screenInfo,
 			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPosLeft.y -= textFontSmall.height;
-		sprintf(textStr, "[M] to toggle global audio mute");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+        textPosLeft.y -= textFontSmall.height;
+        sprintf(textStr, "[M] to toggle global audio mute");
+        DrawText(gameState->textGL, textFontSmall, screenInfo,
+            textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		sprintf(textStr, "%.2f FPS", 1.0f / deltaTime);
+        textPosLeft.y -= textFontSmall.height;
+        textPosLeft.y -= textFontSmall.height;
+        sprintf(textStr, "[F11] to toggle fullscreen");
+        DrawText(gameState->textGL, textFontSmall, screenInfo,
+            textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		sprintf(textStr, "%.2f --- FPS", 1.0f / deltaTime);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f POS", gameState->playerPos.x, gameState->playerPos.y);
+		sprintf(textStr, "%.2f|%.2f --- POS", gameState->playerPos.x, gameState->playerPos.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f VEL", gameState->playerVel.x, gameState->playerVel.y);
+		sprintf(textStr, "%.2f|%.2f --- VEL", gameState->playerVel.x, gameState->playerVel.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%d STATE", gameState->playerState);
+		sprintf(textStr, "%d - STATE", gameState->playerState);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPosRight.y -= textFont.height;
-		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f CAM", gameState->cameraPos.x, gameState->cameraPos.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+        textPosRight.y -= textFont.height;
+        textPosRight.y -= textFont.height;
+        sprintf(textStr, "%.2f|%.2f --- CAM", gameState->cameraPos.x, gameState->cameraPos.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+        textPosRight.y -= textFont.height;
+        textPosRight.y -= textFont.height;
+        Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo, gameState->cameraPos);
+        sprintf(textStr, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+        if (input->mouseButtons[0].isDown) {
+            DEBUG_PRINT("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
+        }
 
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
-		Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
-		Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
+        Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
+        Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
 
 		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
 		for (int i = 0; i < gameState->numFloorColliders; i++) {
