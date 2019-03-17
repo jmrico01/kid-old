@@ -9,6 +9,9 @@
 inline int AbsInt(int n) {
 	return n >= 0 ? n : -n;
 }
+inline float32 AbsFloat32(float32 f) {
+    return f < 0.0f ? -f : f;
+}
 inline int MinInt(int a, int b) {
 	return a < b ? a : b;
 }

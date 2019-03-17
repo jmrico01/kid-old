@@ -18,8 +18,8 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define FLOOR_COLLIDER_MAX_VERTICES 16
-#define FLOOR_COLLIDERS_MAX 8
+#define FLOOR_COLLIDER_MAX_VERTICES 8
+#define FLOOR_COLLIDERS_MAX 32
 
 #define WALL_COLLIDERS_MAX 4
 
@@ -81,11 +81,15 @@ struct GameState
 
 	// Overworld state
 	Vec2 cameraPos;
+    float32 cameraVelY;
 	Vec2 playerPos;
 	Vec2 playerVel;
 	const FloorCollider* currentFloor;
 	PlayerState playerState;
 	bool32 facingRight;
+    float32 playerJumpMag;
+    bool playerJumpHolding;
+    float32 playerJumpHold;
 
     int numFloorColliders;
     FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
