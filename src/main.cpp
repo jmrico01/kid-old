@@ -113,6 +113,13 @@ bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, flo
 
 		vertPrev = vert;
 	}
+
+    if (refPos.x < floorCollider->vertices[0].x) {
+        *outHeight = floorCollider->vertices[0].y;
+    }
+    if (refPos.x > floorCollider->vertices[floorCollider->numVertices - 1].x) {
+        *outHeight = floorCollider->vertices[floorCollider->numVertices - 1].y;
+    }
 	return false;
 }
 
@@ -318,7 +325,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	GetFloorColliderIntersections(gameState->floorColliders, gameState->numFloorColliders,
 		gameState->playerPos, deltaPos, 0.05f,
 		intersects, &numIntersects);
-	if (numIntersects > 0) {
+	if (deltaPos.y < 0.0f && numIntersects > 0) {
 		float32 minDist = Mag(intersects[0].pos - gameState->playerPos);
 		int minDistInd = 0;
 		for (int i = 1; i < numIntersects; i++) {
@@ -362,14 +369,18 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
         }
     }
 
-	if (gameState->playerState == PLAYER_STATE_GROUNDED
-	&& gameState->currentFloor != nullptr) {
-		float32 height;
-		if (!GetFloorColliderHeight(gameState->currentFloor, newPlayerPos, &height)) {
-			gameState->playerState = PLAYER_STATE_FALLING;
+    float32 height = 0.0f;
+    bool isOverFloor = false;
+    if (gameState->currentFloor != nullptr) {
+        isOverFloor = GetFloorColliderHeight(gameState->currentFloor, newPlayerPos, &height);
+    }
+
+	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
+		if (isOverFloor) {
+            newPlayerPos.y = height;
 		}
 		else {
-			newPlayerPos.y = height;
+            gameState->playerState = PLAYER_STATE_FALLING;
 		}
 	}
 
@@ -383,12 +394,16 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 #endif
 
-    const float32 CAMERA_FOLLOW_LERP_MAG = 0.1f;
+    Vec2 cameraTarget = gameState->playerPos;
+    if (gameState->playerPos.y > height) {
+        cameraTarget.y = height;
+    }
+
+    const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
     const float32 CAMERA_MIN_Y = -2.6f;
     const float32 CAMERA_MAX_Y = 3.8f;
-    gameState->cameraPos = Lerp(gameState->cameraPos, gameState->playerPos,
-        CAMERA_FOLLOW_LERP_MAG);
 
+    gameState->cameraPos = Lerp(gameState->cameraPos, cameraTarget, CAMERA_FOLLOW_LERP_MAG);
     gameState->cameraPos.y = ClampFloat32(gameState->cameraPos.y, CAMERA_MIN_Y, CAMERA_MAX_Y);
 }
 
@@ -579,7 +594,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->numVertices = 0;
 		floorCollider->vertices[floorCollider->numVertices++] = { -31.5f, -10.0f };
 		floorCollider->vertices[floorCollider->numVertices++] = { 31.5f, -10.0f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
@@ -588,7 +602,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { -20.17f, -4.17f };
         floorCollider->vertices[floorCollider->numVertices++] = { -15.27f, -4.03f };
         floorCollider->vertices[floorCollider->numVertices++] = { -13.90f, -5.43f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
@@ -599,13 +612,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { 6.68f, -4.50f };
         floorCollider->vertices[floorCollider->numVertices++] = { 10.48f, -4.42f };
         floorCollider->vertices[floorCollider->numVertices++] = { 11.29f, -5.46f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -5.81f, -2.69f };
         floorCollider->vertices[floorCollider->numVertices++] = { -4.49f, -2.70f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
@@ -613,26 +624,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { 15.25f, -4.31f };
         floorCollider->vertices[floorCollider->numVertices++] = { 18.22f, -4.28f };
         floorCollider->vertices[floorCollider->numVertices++] = { 20.51f, -4.18f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 11.40f, -2.45f };
         floorCollider->vertices[floorCollider->numVertices++] = { 12.15f, -2.45f };
         floorCollider->vertices[floorCollider->numVertices++] = { 12.89f, -1.63f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 22.01f, -4.41f };
         floorCollider->vertices[floorCollider->numVertices++] = { 23.16f, -4.45f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 23.56f, -4.71f };
         floorCollider->vertices[floorCollider->numVertices++] = { 24.69f, -4.73f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         // Ground level
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
@@ -643,7 +650,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { -17.39f, 0.05f };
         floorCollider->vertices[floorCollider->numVertices++] = { -12.35f, 0.05f };
         floorCollider->vertices[floorCollider->numVertices++] = { -6.52f, 0.04f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
@@ -652,7 +658,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { 0.73f, -0.03f };
         floorCollider->vertices[floorCollider->numVertices++] = { 4.28f, -0.08f };
         floorCollider->vertices[floorCollider->numVertices++] = { 7.75f, -0.06f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
@@ -664,62 +669,69 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         floorCollider->vertices[floorCollider->numVertices++] = { 26.44f, -0.10f };
         floorCollider->vertices[floorCollider->numVertices++] = { 29.95f, -0.18f };
         floorCollider->vertices[floorCollider->numVertices++] = { 31.28f, -0.13f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -22.39f, 1.62f };
         floorCollider->vertices[floorCollider->numVertices++] = { -21.23f, 1.59f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -9.58f, 1.62f };
         floorCollider->vertices[floorCollider->numVertices++] = { -8.39f, 1.58f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         // Top level
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -30.29f, 4.45f };
         floorCollider->vertices[floorCollider->numVertices++] = { -25.63f, 4.41f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -20.51f, 4.36f };
         floorCollider->vertices[floorCollider->numVertices++] = { -15.88f, 4.50f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -11.38f, 4.44f };
         floorCollider->vertices[floorCollider->numVertices++] = { -6.73f, 4.43f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -2.86f, 4.44f };
         floorCollider->vertices[floorCollider->numVertices++] = { 1.80f, 4.41f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 5.69f, 4.36f };
         floorCollider->vertices[floorCollider->numVertices++] = { 10.37f, 4.50f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 14.82f, 4.46f };
         floorCollider->vertices[floorCollider->numVertices++] = { 19.50f, 4.41f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { 23.35f, 4.45f };
         floorCollider->vertices[floorCollider->numVertices++] = { 28.02f, 4.40f };
-        DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
+
+        const Vec2 LEDGE_OFFSET = { PLAYER_RADIUS * 0.8f, 0.1f };
+        for (int i = 0; i < gameState->numFloorColliders; i++) {
+            FloorCollider* fc = &gameState->floorColliders[i];
+            DEBUG_ASSERT(fc->numVertices + 2 <= FLOOR_COLLIDER_MAX_VERTICES);
+
+            for (int v = fc->numVertices; v > 0; v--) {
+                fc->vertices[v] = fc->vertices[v - 1];
+            }
+            fc->vertices[0] = fc->vertices[1];
+            fc->vertices[0].x -= LEDGE_OFFSET.x;
+            fc->vertices[0].y -= LEDGE_OFFSET.y;
+            fc->vertices[fc->numVertices + 1] = fc->vertices[fc->numVertices];
+            fc->vertices[fc->numVertices + 1].x += LEDGE_OFFSET.x;
+            fc->vertices[fc->numVertices + 1].y -= LEDGE_OFFSET.y;
+            fc->numVertices += 2;
+        }
 
 		DEBUG_ASSERT(gameState->numFloorColliders <= FLOOR_COLLIDERS_MAX);
 
