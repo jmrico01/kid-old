@@ -888,6 +888,24 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             DEBUG_PANIC("Failed to load kid animation sprite");
         }
 
+        bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
+            "data/animations/barrel/barrel.kma",
+            gameState->spriteBarrel,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadBarrelAnim) {
+            DEBUG_PANIC("Failed to load barrel animation sprite");
+        }
+
+        bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
+            "data/animations/crystal/crystal.kma",
+            gameState->spriteCrystal,
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory);
+        if (!loadCrystalAnim) {
+            DEBUG_PANIC("Failed to load crystal animation sprite");
+        }
+
         /*gameState->tractor1.pos = { 2.0f, -0.2f };
         gameState->tractor1.anchor = { 0.5f, 0.0f };
         gameState->tractor1.scale = 1.0f;

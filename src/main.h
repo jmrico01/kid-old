@@ -121,6 +121,9 @@ struct GameState
     AnimatedSprite spriteKid;
     AnimatedSprite spritePaper;
 
+    AnimatedSprite spriteBarrel;
+    AnimatedSprite spriteCrystal;
+
     ObjectStatic background;
     ObjectStatic frame;
 
