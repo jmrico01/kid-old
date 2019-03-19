@@ -490,69 +490,6 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 #endif
 }
 
-void UpdateFishing(GameState* gameState, float32 deltaTime,
-	const GameInput* input, ScreenInfo screenInfo)
-{
-	const int PLAYER_MOVE_SPEED = 600;
-	const Vec2Int PLAYER_SIZE = { 170, 250 };
-	const int REF_X = (int)(screenInfo.size.x * 1080.0f / screenInfo.size.y);
-	const int MARGIN_X = (REF_X - 1440) / 2;
-
-	gameState->obstacleTimer += deltaTime;
-	if (gameState->obstacleTimer >= 0.25f) {
-		if (gameState->numObstacles < FISHING_OBSTACLES_MAX) {
-			FishingObstacle& newObstacle = gameState->obstacles[gameState->numObstacles];
-			newObstacle.pos = Vec2Int { rand() % REF_X, 0 };
-			newObstacle.vel = Vec2Int { 0, PLAYER_MOVE_SPEED - 100 + (rand() % 400) };
-			newObstacle.size = Vec2Int { 100, 100 };
-			gameState->numObstacles++;
-			gameState->obstacleTimer = 0.0f;
-		}
-	}
-	for (int i = 0; i < gameState->numObstacles; i++) {
-		gameState->obstacles[i].pos += gameState->obstacles[i].vel * deltaTime;
-	}
-
-	if (IsKeyPressed(input, KM_KEY_A)) {
-		gameState->playerPosX -= (int)(PLAYER_MOVE_SPEED * deltaTime);
-	}
-	if (IsKeyPressed(input, KM_KEY_D)) {
-		gameState->playerPosX += (int)(PLAYER_MOVE_SPEED * deltaTime);
-	}
-
-	int minX = MARGIN_X + PLAYER_SIZE.x / 2;
-	int maxX = REF_X - MARGIN_X - PLAYER_SIZE.x / 2;
-	if (gameState->playerPosX < minX) {
-		gameState->playerPosX = minX;
-	}
-	if (gameState->playerPosX > maxX) {
-		gameState->playerPosX = maxX;
-	}
-}
-
-void DrawFishing(GameState* gameState, SpriteDataGL* spriteDataGL, ScreenInfo screenInfo)
-{
-	const float32 REF_SCALE_FACTOR = screenInfo.size.y / 1080.0f;
-	const Vec2Int PLAYER_SIZE = { 170, 250 };
-
-	Vec2Int playerPos = { gameState->playerPosX, 700 };
-	playerPos *= REF_SCALE_FACTOR;
-	Vec2Int playerSize = PLAYER_SIZE * REF_SCALE_FACTOR;
-	DrawRect(gameState->rectGL, screenInfo,
-		playerPos, Vec2 { 0.5f, 0.0f }, playerSize,
-		Vec4 { 1.0f, 0.0f, 1.0f, 1.0f });
-
-	for (int i = 0; i < gameState->numObstacles; i++) {
-		Vec2Int obstaclePos = gameState->obstacles[i].pos;
-		obstaclePos *= REF_SCALE_FACTOR;
-		Vec2Int obstacleSize = gameState->obstacles[i].size;
-		obstacleSize *= REF_SCALE_FACTOR;
-		DrawRect(gameState->rectGL, screenInfo,
-			obstaclePos, Vec2 { 0.5f, 1.0f }, obstacleSize,
-			Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-	}
-}
-
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 {
 	// NOTE: for clarity
@@ -603,9 +540,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		// Game data
-		gameState->activeScene = SCENE_TOWN;
-
-		// town data init
         gameState->playerPos = Vec2 { 0.0f, FLOOR_LEVEL + 0.5f };
         gameState->playerVel = Vec2::zero;
         gameState->cameraPos = gameState->playerVel;
@@ -771,11 +705,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         wallCollider->height = 1.5f;
 
         DEBUG_ASSERT(gameState->numWallColliders <= WALL_COLLIDERS_MAX);
-
-		// fishing data init
-		gameState->playerPosX = screenInfo.size.x;
-		gameState->obstacleTimer = 0.0f;
-		gameState->numObstacles = 0;
 
 		gameState->grainTime = 0.0f;
 
@@ -1040,31 +969,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	// gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
 
-	if (WasKeyPressed(input, KM_KEY_1)) {
-		gameState->activeScene = SCENE_TOWN;
-	}
-	if (WasKeyPressed(input, KM_KEY_2)) {
-		gameState->activeScene = SCENE_FISHING;
-	}
-
 	// Toggle global mute
 	if (WasKeyPressed(input, KM_KEY_M)) {
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
-	switch (gameState->activeScene) {
-		case SCENE_TOWN: {
-			if (gameState->editor) {
-				if (input->mouseButtons[0].isDown) {
-					gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo);
-				}
-			}
-			UpdateTown(gameState, deltaTime, input);
-		} break;
-		case SCENE_FISHING: {
-			UpdateFishing(gameState, deltaTime, input, screenInfo);
-		} break;
+	if (gameState->editor) {
+		if (input->mouseButtons[0].isDown) {
+			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo);
+		}
 	}
+	UpdateTown(gameState, deltaTime, input);
 
 	// ---------------------------- Begin Rendering ---------------------------
 	glEnable(GL_DEPTH_TEST);
@@ -1079,14 +994,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
 
-	switch (gameState->activeScene) {
-		case SCENE_TOWN: {
-			DrawTown(gameState, spriteDataGL, worldMatrix, screenInfo);
-		} break;
-		case SCENE_FISHING: {
-			DrawFishing(gameState, spriteDataGL, screenInfo);
-		} break;
-	}
+	DrawTown(gameState, spriteDataGL, worldMatrix, screenInfo);
 
 	// ------------------------ Post processing passes ------------------------
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);

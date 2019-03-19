@@ -13,6 +13,6 @@ exit * Explode 0
 anim Explode
 dir explode
 fps 24
-timing 1 1 2 2 2 2 2 3 3 3 3 3 3 1
+timing 1 1 2 2 2 3 3 3 3 3 3 3 3 1
 
 start Idle

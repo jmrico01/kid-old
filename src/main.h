@@ -23,8 +23,6 @@
 
 #define WALL_COLLIDERS_MAX 4
 
-#define FISHING_OBSTACLES_MAX 1000
-
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
 enum PlayerState
@@ -32,12 +30,6 @@ enum PlayerState
 	PLAYER_STATE_GROUNDED,
 	PLAYER_STATE_JUMPING,
 	PLAYER_STATE_FALLING
-};
-
-enum Scene
-{
-	SCENE_TOWN,
-	SCENE_FISHING
 };
 
 struct FloorCollider
@@ -66,20 +58,11 @@ struct ObjectStatic
 	TextureGL texture;
 };
 
-struct FishingObstacle
-{
-	Vec2Int pos;
-	Vec2Int vel;
-	Vec2Int size;
-};
-
 struct GameState
 {
 	AudioState audioState;
 
-	Scene activeScene;
-
-	// Overworld state
+	// Game state
 	Vec2 cameraPos;
     float32 cameraVelY;
 	Vec2 playerPos;
@@ -97,13 +80,6 @@ struct GameState
     int numWallColliders;
     WallCollider wallColliders[WALL_COLLIDERS_MAX];
 
-	// Fishing state
-	int playerPosX;
-	float32 obstacleTimer;
-	int numObstacles;
-	FishingObstacle obstacles[FISHING_OBSTACLES_MAX];
-
-    // Other
 	float32 grainTime;
 
 #if GAME_INTERNAL
