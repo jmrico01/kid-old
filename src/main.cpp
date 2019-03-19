@@ -394,6 +394,26 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 #endif
 
+    int numBarrelNextAnims = 0;
+    HashKey barrelNextAnims[1];
+    if (WasKeyPressed(input, KM_KEY_Z)) {
+        numBarrelNextAnims = 1;
+        barrelNextAnims[0].WriteString("Carry");
+    }
+    if (WasKeyPressed(input, KM_KEY_X)) {
+        numBarrelNextAnims = 1;
+        barrelNextAnims[0].WriteString("Explode");
+    }
+    gameState->spriteBarrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
+
+    int numCrystalNextAnims = 0;
+    HashKey crystalNextAnims[1];
+    if (WasKeyPressed(input, KM_KEY_C)) {
+        numCrystalNextAnims = 1;
+        crystalNextAnims[0].WriteString("Explode");
+    }
+    gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);
+
     Vec2 cameraTarget = gameState->playerPos;
     if (gameState->playerPos.y > height) {
         cameraTarget.y = height;
@@ -416,6 +436,14 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
     //DrawObjectStatic(gameState->tractor1, spriteDataGL);
     //DrawObjectStatic(gameState->tractor2, spriteDataGL);
+
+    Vec2 barrelSize = ToVec2(gameState->spriteBarrel.textureSize) / REF_PIXELS_PER_UNIT;
+    gameState->spriteBarrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
+        1.0f, false);
+
+    Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
+    gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
+        1.0f, false);
 
 	{ // kid & me text
 		Vec2 anchor = { 0.5f, 0.1f };
