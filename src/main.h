@@ -85,6 +85,7 @@ struct GameState
 #if GAME_INTERNAL
 	bool32 debugView;
 	bool32 editor;
+    float32 editorWorldScale;
 #endif
 
     RenderState renderState;

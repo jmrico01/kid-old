@@ -442,6 +442,11 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
     Mat4 worldMatrix, ScreenInfo screenInfo)
 {
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        worldMatrix = worldMatrix * Scale(gameState->editorWorldScale);
+    }
+#endif
     spriteDataGL->numSprites = 0;
 
     DrawObjectStatic(gameState->background, spriteDataGL);
@@ -469,6 +474,12 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
 	Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
 	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+
+#if GAME_INTERNAL
+    if (gameState->editor) {
+        return;
+    }
+#endif
 
     spriteDataGL->numSprites = 0;
 
@@ -1006,8 +1017,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	if (gameState->editor) {
 		if (input->mouseButtons[0].isDown) {
-			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo);
+			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo)
+                / gameState->editorWorldScale;
 		}
+        float32 editorWorldScaleDelta = input->mouseWheelDelta * 0.001f;
+        gameState->editorWorldScale = ClampFloat32(
+            gameState->editorWorldScale + editorWorldScaleDelta, 0.01f, 10.0f);
 	}
 	UpdateTown(gameState, deltaTime, input);
 
@@ -1084,6 +1099,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	}
 	if (WasKeyPressed(input, KM_KEY_H)) {
 		gameState->editor = !gameState->editor;
+        gameState->editorWorldScale = 1.0f;
 	}
 
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
