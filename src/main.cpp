@@ -215,19 +215,32 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 
     gameState->playerVel.x = 0.0f;
 	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
-		gameState->playerVel.x -= speed;
-		gameState->facingRight = false;
+		gameState->playerVel.x = -speed;
+        gameState->facingRight = false;
 	}
 	if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
-		gameState->playerVel.x += speed;
-		gameState->facingRight = true;
+		gameState->playerVel.x = speed;
+        gameState->facingRight = true;
 	}
+    if (input->controllers[0].isConnected) {
+        float32 leftStickX = input->controllers[0].leftEnd.x;
+        if (leftStickX < 0.0f) {
+            gameState->playerVel.x = -speed;
+            gameState->facingRight = false;
+        }
+        else if (leftStickX > 0.0f) {
+            gameState->playerVel.x = speed;
+            gameState->facingRight = true;
+        }
+    }
 
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
-	if (gameState->playerState == PLAYER_STATE_GROUNDED
-	&& (WasKeyPressed(input, KM_KEY_SPACE) || WasKeyPressed(input, KM_KEY_ARROW_UP))
+    bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
+        || IsKeyPressed(input, KM_KEY_ARROW_UP)
+        || (input->controllers[0].isConnected && input->controllers[0].a.isDown);
+	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
         gameState->playerJumpHolding = true;
@@ -239,8 +252,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 
     if (gameState->playerJumpHolding) {
         gameState->playerJumpHold += deltaTime;
-        if (gameState->playerState == PLAYER_STATE_JUMPING
-        && WasKeyReleased(input, KM_KEY_SPACE)) {
+        if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
             gameState->playerJumpHolding = false;
             float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
                 / (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
