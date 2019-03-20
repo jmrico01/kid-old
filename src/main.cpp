@@ -214,11 +214,11 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
     }
 
     gameState->playerVel.x = 0.0f;
-	if (IsKeyPressed(input, KM_KEY_A)) {
+	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
 		gameState->playerVel.x -= speed;
 		gameState->facingRight = false;
 	}
-	if (IsKeyPressed(input, KM_KEY_D)) {
+	if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
 		gameState->playerVel.x += speed;
 		gameState->facingRight = true;
 	}
@@ -227,8 +227,8 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	ANIM_LAND.WriteString("Land");
 
 	if (gameState->playerState == PLAYER_STATE_GROUNDED
-	&& WasKeyPressed(input, KM_KEY_SPACE)
-	&& !KeyCompare(gameState->spriteKid.activeAnimation, ANIM_LAND)) {
+	&& (WasKeyPressed(input, KM_KEY_SPACE) || WasKeyPressed(input, KM_KEY_ARROW_UP))
+	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
         gameState->playerJumpHolding = true;
         gameState->playerJumpHold = 0.0f;
@@ -276,7 +276,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	HashKey nextAnims[4];
 	int numNextAnims = 0;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
-		if (!KeyCompare(gameState->spriteKid.activeAnimation, ANIM_JUMP)) {
+		if (!KeyCompare(gameState->kid.activeAnimation, ANIM_JUMP)) {
 			numNextAnims = 1;
 			nextAnims[0] = ANIM_JUMP;
 		}
@@ -303,7 +303,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	if (gameState->playerState == PLAYER_STATE_JUMPING
-	&& KeyCompare(gameState->spriteKid.activeAnimation, ANIM_FALL)) {
+	&& KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)) {
 		gameState->playerState = PLAYER_STATE_FALLING;
 	}
 
@@ -312,7 +312,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
         deltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
     }
 	const HashKey* nextAnimations = nextAnims;
-	Vec2 rootMotion = gameState->spriteKid.Update(deltaTime, numNextAnims, nextAnimations);
+	Vec2 rootMotion = gameState->kid.Update(deltaTime, numNextAnims, nextAnimations);
     if (gameState->playerState == PLAYER_STATE_JUMPING) {
         rootMotion *= gameState->playerJumpMag;
     }
@@ -386,7 +386,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	gameState->playerPos = newPlayerPos;
 
-    gameState->spritePaper.Update(deltaTime, 0, nullptr);
+    gameState->paper.Update(deltaTime, 0, nullptr);
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
@@ -404,15 +404,15 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
         numBarrelNextAnims = 1;
         barrelNextAnims[0].WriteString("Explode");
     }
-    gameState->spriteBarrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
+    gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
 
-    int numCrystalNextAnims = 0;
+    /*int numCrystalNextAnims = 0;
     HashKey crystalNextAnims[1];
     if (WasKeyPressed(input, KM_KEY_C)) {
         numCrystalNextAnims = 1;
         crystalNextAnims[0].WriteString("Explode");
     }
-    gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);
+    gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
     Vec2 cameraTarget = gameState->playerPos;
     if (gameState->playerPos.y > height) {
@@ -437,20 +437,20 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
     //DrawObjectStatic(gameState->tractor1, spriteDataGL);
     //DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
-    Vec2 barrelSize = ToVec2(gameState->spriteBarrel.textureSize) / REF_PIXELS_PER_UNIT;
-    gameState->spriteBarrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
+    Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+    gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
         1.0f, false);
 
-    Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
+    /*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
     gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
-        1.0f, false);
+        1.0f, false);*/
 
 	{ // kid & me text
 		Vec2 anchor = { 0.5f, 0.1f };
-		Vec2 size = ToVec2(gameState->spriteKid.textureSize) / REF_PIXELS_PER_UNIT;
+		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
-		gameState->spriteKid.Draw(spriteDataGL, gameState->playerPos, size,
+		gameState->kid.Draw(spriteDataGL, gameState->playerPos, size,
 			anchor, 1.0f, !gameState->facingRight);
 	}
 
@@ -463,7 +463,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
     const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
     Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
 
-    gameState->spritePaper.Draw(spriteDataGL,
+    gameState->paper.Draw(spriteDataGL,
         Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, 0.5f,
         false);
 
@@ -863,6 +863,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             DEBUG_PANIC("Failed to load crystal animation sprite");
         }
 
+        gameState->kid.animatedSprite = &gameState->spriteKid;
+        gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
+        gameState->kid.activeFrame = 0;
+        gameState->kid.activeFrameRepeat = 0;
+        gameState->kid.activeFrameTime = 0.0f;
+
+        gameState->barrel.animatedSprite = &gameState->spriteBarrel;
+        gameState->barrel.activeAnimation = gameState->spriteBarrel.startAnimation;
+        gameState->barrel.activeFrame = 0;
+        gameState->barrel.activeFrameRepeat = 0;
+        gameState->barrel.activeFrameTime = 0.0f;
+
         /*gameState->tractor1.pos = { 2.0f, -0.2f };
         gameState->tractor1.anchor = { 0.5f, 0.0f };
         gameState->tractor1.scale = 1.0f;
@@ -896,6 +908,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         if (!loadPaperAnim) {
             DEBUG_PANIC("Failed to load paper animation sprite");
         }
+
+        gameState->paper.animatedSprite = &gameState->spritePaper;
+        gameState->paper.activeAnimation = gameState->spritePaper.startAnimation;
+        gameState->paper.activeFrame = 0;
+        gameState->paper.activeFrameRepeat = 0;
+        gameState->paper.activeFrameTime = 0.0f;
 
         bool32 loadFrame = LoadPNGOpenGL(thread,
             "data/sprites/frame.png",

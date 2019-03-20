@@ -100,6 +100,11 @@ struct GameState
     AnimatedSprite spriteBarrel;
     AnimatedSprite spriteCrystal;
 
+    AnimatedSpriteInstance kid;
+    AnimatedSpriteInstance paper;
+
+    AnimatedSpriteInstance barrel;
+
     ObjectStatic background;
     ObjectStatic frame;
 

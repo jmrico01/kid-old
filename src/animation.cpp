@@ -37,10 +37,10 @@ static bool32 ReadElementInSplitString(const char* string, int stringLength, cha
 	return true;
 }
 
-Vec2 AnimatedSprite::Update(float32 deltaTime,
+Vec2 AnimatedSpriteInstance::Update(float32 deltaTime,
 	int numNextAnimations, const HashKey* nextAnimations)
 {
-	const Animation* activeAnim = animations.GetValue(activeAnimation);
+	const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
 	Vec2 rootMotion = Vec2::zero;
 
 	activeFrameTime += deltaTime;
@@ -64,7 +64,7 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 					activeFrame = *exitToFrame;
 					activeFrameRepeat = 0;
 
-					activeAnim = animations.GetValue(activeAnimation);
+					activeAnim = animatedSprite->animations.GetValue(activeAnimation);
 					// TODO transitions between rootfollow-enabled animations don't work for now
 					//rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
 				}
@@ -95,10 +95,10 @@ Vec2 AnimatedSprite::Update(float32 deltaTime,
 	return rootMotion;
 }
 
-void AnimatedSprite::Draw(SpriteDataGL* spriteDataGL,
+void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 		Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha, bool32 flipHorizontal) const
 {
-	Animation* activeAnim = animations.GetValue(activeAnimation);
+	Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
     Vec2 animAnchor = anchor;
     if (activeAnim->rootMotion) {
         animAnchor = activeAnim->frameRootAnchor[activeFrame];
@@ -406,7 +406,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		else if (KeywordCompare(keyword, keywordI, KEYWORD_START)) {
 			HashKey startAnim;
 			startAnim.WriteString(value, valueI);
-			outAnimatedSprite.activeAnimation = startAnim;
+			outAnimatedSprite.startAnimation = startAnim;
 		}
 		else if (KeywordCompare(keyword, keywordI, KEYWORD_COMMENT)) {
 			// Comment, ignore
@@ -428,10 +428,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	}
 
 	DEBUGPlatformFreeFileMemory(thread, &animFile);
-
-	outAnimatedSprite.activeFrame = 0;
-	outAnimatedSprite.activeFrameRepeat = 0;
-	outAnimatedSprite.activeFrameTime = 0.0f;
 
 	// TODO maybe provide a friendlier way of iterating through HashTable
 	const HashTable<Animation>* animTable = &outAnimatedSprite.animations;
