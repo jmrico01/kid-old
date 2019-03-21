@@ -200,6 +200,41 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 	}
 }
 
+Vec2 GetFloorNormal(const FloorCollider& floorCollider, float32 tX)
+{
+    DEBUG_ASSERT(floorCollider.numVertices >= 2);
+
+    float32 t = 0.0f;
+    Vec2 dir = floorCollider.vertices[1] - floorCollider.vertices[0];
+    for (int i = 1; i < floorCollider.numVertices; i++) {
+        Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
+        float32 edgeLength = Mag(edge);
+        if (t + edgeLength >= tX) {
+            Vec2 normal = Normalize(Vec2 { -edge.y, edge.x });
+            int prevVert = i == 1 ? 1 : i - 1;
+            int nextVert = i == floorCollider.numVertices - 1 ? floorCollider.numVertices - 1 : i + 1;
+            Vec2 prevEdge = floorCollider.vertices[prevVert]
+                - floorCollider.vertices[prevVert - 1];
+            Vec2 prevNormal = Normalize(Vec2 { -prevEdge.y, prevEdge.x });
+            Vec2 nextEdge = floorCollider.vertices[nextVert]
+                - floorCollider.vertices[nextVert - 1];
+            Vec2 nextNormal = Normalize(Vec2 { -nextEdge.y, nextEdge.x });
+
+            float32 tEdge = (tX - t) / edgeLength;
+            if (tEdge <= 0.5f) {
+                return Lerp(prevNormal, normal, tEdge * 2.0f);
+            }
+            else {
+                return Lerp(normal, nextNormal, (tEdge - 0.5f) * 2.0f);
+            }
+        }
+
+        t += edgeLength;
+    }
+
+    return Vec2 { 0.0f, 1.0f };
+}
+
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	const float32 PLAYER_WALK_SPEED = 3.5f;
@@ -462,18 +497,23 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
     gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
         1.0f, false);*/
 
-	{ // kid & me text
-		Vec2 anchor = { 0.5f, 0.1f };
-		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-		// Vec2 meTextOffset = { -0.1f, 0.1f };
-
-		gameState->kid.Draw(spriteDataGL, gameState->playerPos, size,
-			anchor, 1.0f, !gameState->facingRight);
-	}
-
 	Vec3 cameraPos = { gameState->cameraPos.x, gameState->cameraPos.y, 0.0f };
 	Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -cameraPos);
-	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+    Mat4 viewRotated = Rotate(Vec3{ 0.0f, 0.0f, cameraPos.x * 0.1f }) * view;
+	DrawSprites(gameState->renderState, *spriteDataGL, viewRotated, worldMatrix);
+
+    spriteDataGL->numSprites = 0;
+
+    { // kid & me text
+        Vec2 anchor = { 0.5f, 0.1f };
+        Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+        // Vec2 meTextOffset = { -0.1f, 0.1f };
+
+        gameState->kid.Draw(spriteDataGL, gameState->playerPos, size,
+            anchor, 1.0f, !gameState->facingRight);
+    }
+
+    DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
 
 #if GAME_INTERNAL
     if (gameState->editor) {
@@ -563,7 +603,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		// Game data
-        gameState->playerPos = Vec2 { 0.0f, FLOOR_LEVEL + 0.5f };
+        gameState->playerPos = Vec2 { -5.0f, FLOOR_LEVEL + 0.5f };
         gameState->playerVel = Vec2::zero;
         gameState->cameraPos = gameState->playerVel;
         gameState->cameraVelY = 0.0f;
@@ -574,12 +614,24 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->numFloorColliders = 0;
 		FloorCollider* floorCollider;
 
-        // Lower level
-		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+        floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
-		floorCollider->vertices[floorCollider->numVertices++] = { -31.5f, -10.0f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 31.5f, -10.0f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -20.0f, -0.05f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -5.0f, -0.05f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -4.0f, 0.05f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -3.0f, 0.2f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -2.0f, 0.4f };
+        floorCollider->vertices[floorCollider->numVertices++] = { -1.0f, 0.9f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  0.0f, 1.5f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  1.0f, 2.5f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  2.0f, 4.0f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  3.0f, 6.0f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  4.0f, 8.0f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  5.0f, 12.0f };
+        floorCollider->vertices[floorCollider->numVertices++] = {  5.5f, 20.0f };
 
+        #if 0
+        // Lower level
         floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
         floorCollider->numVertices = 0;
         floorCollider->vertices[floorCollider->numVertices++] = { -22.62f, -4.10f };
@@ -728,6 +780,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         wallCollider->height = 1.5f;
 
         DEBUG_ASSERT(gameState->numWallColliders <= WALL_COLLIDERS_MAX);
+        #endif
 
 		gameState->grainTime = 0.0f;
 
@@ -1154,10 +1207,16 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f --- VEL", gameState->playerVel.x, gameState->playerVel.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+        textPosRight.y -= textFont.height;
+        sprintf(textStr, "%.2f|%.2f --- VEL", gameState->playerVel.x, gameState->playerVel.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+        textPosRight.y -= textFont.height;
+        Vec2 normal = GetFloorNormal(gameState->floorColliders[0], gameState->playerPos.x + 20.0f);
+        sprintf(textStr, "%.2f|%.2f --- NML", normal.x, normal.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%d - STATE", gameState->playerState);
