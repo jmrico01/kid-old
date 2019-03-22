@@ -207,10 +207,6 @@ void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
     DEBUG_ASSERT(floorCollider.numVertices >= 2);
 
     const int EDGE_NEIGHBORS = 3;
-    float32 edgeWeights[EDGE_NEIGHBORS * 2 + 1];
-    for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
-        edgeWeights[n + EDGE_NEIGHBORS] = powf(E_F, (float32)(n * n));
-    }
 
     *outFloorPos = Vec2::zero;
     *outTangent = Vec2::unitX;
@@ -222,18 +218,19 @@ void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
         Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
         float32 edgeLength = Mag(edge);
         if (t + edgeLength >= tX) {
+            float32 tEdge = (tX - t) / edgeLength;
             Vec2 sumTangents = Vec2::zero;
             Vec2 sumNormals = Vec2::zero;
             for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
+                float32 edgeWeight = powf(E_F, (float32)(n * n) * 0.5f + tEdge - 0.5f);
                 int ind1 = ClampInt(i + n - 1, 0, floorCollider.numVertices - 1);
                 int ind2 = ClampInt(i + n,     1, floorCollider.numVertices);
                 Vec2 edgeTangent = Normalize(floorCollider.vertices[ind2]
                     - floorCollider.vertices[ind1]);
-                sumTangents += edgeTangent * edgeWeights[n + EDGE_NEIGHBORS];
-                sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x }
-                    * edgeWeights[n + EDGE_NEIGHBORS];
+                sumTangents += edgeTangent * edgeWeight;
+                sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
             }
-            *outFloorPos = floorCollider.vertices[i - 1] + edge / edgeLength * (tX - t);
+            *outFloorPos = floorCollider.vertices[i - 1] + edge * tEdge;
             *outTangent = Normalize(sumTangents);
             *outNormal = Normalize(sumNormals);
             return;
