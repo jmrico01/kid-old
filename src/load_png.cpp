@@ -61,9 +61,7 @@ void LoadPNGReadData(png_structp pngPtr,
 	}
 	png_bytep read = inputStream->data + readInd;
 	png_bytep write = outBuffer;
-	for (int i = 0; i < readLen; i++) {
-		*write++ = *read++;
-	}
+    MemCopy(write, read, readLen);
 	inputStream->readInd += readLen;
 }
 

@@ -65,7 +65,7 @@ struct GameState
 	// Game state
 	Vec2 cameraPos;
     float32 cameraVelY;
-	Vec2 playerPos;
+    Vec2 playerPos;
 	Vec2 playerVel;
 	const FloorCollider* currentFloor;
 	PlayerState playerState;

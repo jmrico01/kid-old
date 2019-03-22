@@ -5,6 +5,7 @@
 #include "km_defines.h"
 
 #define PI_F 3.14159265f
+#define E_F  2.71828182f
 
 inline int AbsInt(int n) {
 	return n >= 0 ? n : -n;
@@ -311,6 +312,11 @@ const Vec2Int Vec2Int::unitY = {
 inline Vec2 ToVec2(Vec2Int v)
 {
 	return Vec2 { (float32)v.x, (float32)v.y };
+}
+
+inline Vec3 ToVec3(Vec2 v, float32 z)
+{
+    return Vec3 { v.x, v.y, z };
 }
 
 inline Vec2Int operator-(Vec2Int v)
