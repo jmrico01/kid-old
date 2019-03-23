@@ -71,7 +71,7 @@ Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 
 Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
 {
-    float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
+	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
 
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
 	const Vec2 SCREEN_CENTER = {
@@ -80,13 +80,13 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
 	};
 
 	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT
-        - SCREEN_CENTER - CAMERA_OFFSET_VEC2 + cameraPos;
+		- SCREEN_CENTER - CAMERA_OFFSET_VEC2 + cameraPos;
 	return result;
 }
 
 Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo)
 {
-    float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
+	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
 	return ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT;
 }
 
@@ -95,7 +95,7 @@ void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteData
 	Vec2 size = objectStatic.scale * ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
 	PushSprite(spriteDataGL, objectStatic.pos, size,
 		objectStatic.anchor, 1.0f,
-        false, objectStatic.texture.textureID);
+		false, objectStatic.texture.textureID);
 }
 
 bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
@@ -115,12 +115,12 @@ bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, flo
 		vertPrev = vert;
 	}
 
-    if (refPos.x < floorCollider->vertices[0].x) {
-        *outHeight = floorCollider->vertices[0].y;
-    }
-    if (refPos.x > floorCollider->vertices[floorCollider->numVertices - 1].x) {
-        *outHeight = floorCollider->vertices[floorCollider->numVertices - 1].y;
-    }
+	if (refPos.x < floorCollider->vertices[0].x) {
+		*outHeight = floorCollider->vertices[0].y;
+	}
+	if (refPos.x > floorCollider->vertices[floorCollider->numVertices - 1].x) {
+		*outHeight = floorCollider->vertices[floorCollider->numVertices - 1].y;
+	}
 	return false;
 }
 
@@ -201,113 +201,144 @@ void GetFloorColliderIntersections(const FloorCollider floorColliders[], int num
 	}
 }
 
-void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
-    Vec2* outFloorPos, Vec2* outTangent, Vec2* outNormal)
+Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
 {
-    DEBUG_ASSERT(floorCollider.numVertices >= 2);
+	float32 oneMinusT = 1.0f - t;
+	return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
+}
 
-    const int EDGE_NEIGHBORS = 3;
+float32 GetFloorLength(const FloorCollider& floorCollider)
+{
+	float32 length = 0.0f;
+	for (int i = 1; i < floorCollider.numVertices; i++) {
+		length += Mag(floorCollider.vertices[i] - floorCollider.vertices[i - 1]);
+	}
 
-    *outFloorPos = Vec2::zero;
-    *outTangent = Vec2::unitX;
-    *outNormal = Vec2::unitY;
+	return length;
+}
 
-    float32 t = 0.0f;
-    Vec2 dir = floorCollider.vertices[1] - floorCollider.vertices[0];
-    for (int i = 1; i < floorCollider.numVertices; i++) {
-        Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
-        float32 edgeLength = Mag(edge);
-        if (t + edgeLength >= tX) {
-            float32 tEdge = (tX - t) / edgeLength;
-            Vec2 sumTangents = Vec2::zero;
-            Vec2 sumNormals = Vec2::zero;
-            for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
-                float32 edgeWeight = powf(E_F, (float32)(n * n) * 0.5f + tEdge - 0.5f);
-                int ind1 = ClampInt(i + n - 1, 0, floorCollider.numVertices - 1);
-                int ind2 = ClampInt(i + n,     1, floorCollider.numVertices);
-                Vec2 edgeTangent = Normalize(floorCollider.vertices[ind2]
-                    - floorCollider.vertices[ind1]);
-                sumTangents += edgeTangent * edgeWeight;
-                sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
-            }
-            *outFloorPos = floorCollider.vertices[i - 1] + edge * tEdge;
-            *outTangent = Normalize(sumTangents);
-            *outNormal = Normalize(sumNormals);
-            return;
-        }
+void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
+	Vec2* outFloorPos, Vec2* outTangent, Vec2* outNormal)
+{
+	DEBUG_ASSERT(floorCollider.numVertices >= 2);
 
-        t += edgeLength;
-    }
+	const int EDGE_NEIGHBORS = 3;
+
+	*outFloorPos = Vec2::zero;
+	*outTangent = Vec2::unitX;
+	*outNormal = Vec2::unitY;
+
+	float32 t = 0.0f;
+	Vec2 dir = floorCollider.vertices[1] - floorCollider.vertices[0];
+	for (int i = 1; i < floorCollider.numVertices; i++) {
+		Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
+		float32 edgeLength = Mag(edge);
+		if (t + edgeLength >= tX) {
+			float32 tEdge = (tX - t) / edgeLength;
+			Vec2 sumTangents = Vec2::zero;
+			Vec2 sumNormals = Vec2::zero;
+			for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
+				float32 edgeWeight = EDGE_NEIGHBORS - AbsFloat32(n - (tEdge - 0.5f));
+				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
+				int ind1 = ClampInt(i + n - 1, 0, floorCollider.numVertices - 1);
+				int ind2 = ClampInt(i + n,     1, floorCollider.numVertices);
+				Vec2 edgeTangent = Normalize(floorCollider.vertices[ind2]
+					- floorCollider.vertices[ind1]);
+				sumTangents += edgeTangent * edgeWeight;
+				sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
+			}
+			int indPrev = ClampInt(i - 1, 1, floorCollider.numVertices);
+			int indNext = ClampInt(i + 1, 1, floorCollider.numVertices);
+			Vec2 tangentPrev = Normalize(floorCollider.vertices[indPrev]
+				- floorCollider.vertices[indPrev - 1]);
+			Vec2 tangentNext = Normalize(floorCollider.vertices[indNext]
+				- floorCollider.vertices[indNext - 1]);
+			Vec2 bezierMid = (floorCollider.vertices[i - 1] + tangentPrev * edgeLength / 2.0f
+				+ floorCollider.vertices[i] - tangentNext * edgeLength / 2.0f) / 2.0f;
+			//*outFloorPos = floorCollider.vertices[i - 1] + edge * tEdge;
+			*outFloorPos = GetQuadraticBezierPoint(
+				floorCollider.vertices[i - 1],
+				bezierMid,
+				floorCollider.vertices[i],
+				tEdge
+			);
+			*outTangent = Normalize(sumTangents);
+			*outNormal = Normalize(sumNormals);
+			return;
+		}
+
+		t += edgeLength;
+	}
 }
 
 Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords)
 {
-    Vec2 floorPos, floorTangent, floorNormal;
-    GetFloorInfo(floorCollider, coords.x, &floorPos, &floorTangent, &floorNormal);
-    return floorPos + floorNormal * coords.y;
+	Vec2 floorPos, floorTangent, floorNormal;
+	GetFloorInfo(floorCollider, coords.x, &floorPos, &floorTangent, &floorNormal);
+	return floorPos + floorNormal * coords.y;
 }
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	const float32 PLAYER_WALK_SPEED = 3.5f;
-    const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
-    const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
-    const float32 PLAYER_JUMP_MAG_MAX = 1.5f;
-    const float32 PLAYER_JUMP_MAG_MIN = 0.5f;
+	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
+	const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
+	const float32 PLAYER_JUMP_MAG_MAX = 1.5f;
+	const float32 PLAYER_JUMP_MAG_MIN = 0.5f;
 
-    float32 speed = PLAYER_WALK_SPEED;
-    if (gameState->playerState == PLAYER_STATE_JUMPING) {
-        speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
-    }
+	float32 speed = PLAYER_WALK_SPEED;
+	if (gameState->playerState == PLAYER_STATE_JUMPING) {
+		speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
+	}
 
-    gameState->playerVel.x = 0.0f;
+	gameState->playerVel.x = 0.0f;
 	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
 		gameState->playerVel.x = -speed;
-        gameState->facingRight = false;
+		gameState->facingRight = false;
 	}
 	if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
 		gameState->playerVel.x = speed;
-        gameState->facingRight = true;
+		gameState->facingRight = true;
 	}
-    if (input->controllers[0].isConnected) {
-        float32 leftStickX = input->controllers[0].leftEnd.x;
-        if (leftStickX < 0.0f) {
-            gameState->playerVel.x = -speed;
-            gameState->facingRight = false;
-        }
-        else if (leftStickX > 0.0f) {
-            gameState->playerVel.x = speed;
-            gameState->facingRight = true;
-        }
-    }
+	if (input->controllers[0].isConnected) {
+		float32 leftStickX = input->controllers[0].leftEnd.x;
+		if (leftStickX < 0.0f) {
+			gameState->playerVel.x = -speed;
+			gameState->facingRight = false;
+		}
+		else if (leftStickX > 0.0f) {
+			gameState->playerVel.x = speed;
+			gameState->facingRight = true;
+		}
+	}
 
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
-    bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
-        || IsKeyPressed(input, KM_KEY_ARROW_UP)
-        || (input->controllers[0].isConnected && input->controllers[0].a.isDown);
+	bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
+		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
+		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
-        gameState->playerJumpHolding = true;
-        gameState->playerJumpHold = 0.0f;
-        gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
+		gameState->playerJumpHolding = true;
+		gameState->playerJumpHold = 0.0f;
+		gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
 		gameState->audioState.soundKick.playing = true;
 		gameState->audioState.soundKick.sampleIndex = 0;
 	}
 
-    if (gameState->playerJumpHolding) {
-        gameState->playerJumpHold += deltaTime;
-        if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
-            gameState->playerJumpHolding = false;
-            float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
-                / (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
-            timeT = ClampFloat32(timeT, 0.0f, 1.0f);
-            timeT = sqrtf(timeT);
-            gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
-        }
-    }
+	if (gameState->playerJumpHolding) {
+		gameState->playerJumpHold += deltaTime;
+		if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
+			gameState->playerJumpHolding = false;
+			float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
+				/ (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
+			timeT = ClampFloat32(timeT, 0.0f, 1.0f);
+			timeT = sqrtf(timeT);
+			gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
+		}
+	}
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -366,15 +397,15 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		gameState->playerState = PLAYER_STATE_FALLING;
 	}
 
-    float32 animDeltaTime = deltaTime;
-    if (gameState->playerState == PLAYER_STATE_JUMPING) {
-        deltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
-    }
+	float32 animDeltaTime = deltaTime;
+	if (gameState->playerState == PLAYER_STATE_JUMPING) {
+		deltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
+	}
 	const HashKey* nextAnimations = nextAnims;
 	Vec2 rootMotion = gameState->kid.Update(deltaTime, numNextAnims, nextAnimations);
-    if (gameState->playerState == PLAYER_STATE_JUMPING) {
-        rootMotion *= gameState->playerJumpMag;
-    }
+	if (gameState->playerState == PLAYER_STATE_JUMPING) {
+		rootMotion *= gameState->playerJumpMag;
+	}
 
 	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
 	Vec2 newPlayerPos = gameState->playerPos + deltaPos;
@@ -403,158 +434,158 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		}
 	}
 
-    for (int i = 0; i < gameState->numWallColliders; i++) {
-        const WallCollider& wallCollider = gameState->wallColliders[i];
-        Rect playerRect;
-        playerRect.minX = newPlayerPos.x - PLAYER_RADIUS;
-        playerRect.maxX = newPlayerPos.x + PLAYER_RADIUS;
-        playerRect.minY = newPlayerPos.y;
-        playerRect.maxY = newPlayerPos.y + PLAYER_HEIGHT;
-        float32 wallX = wallCollider.bottomPos.x;
-        float32 wallMinY = wallCollider.bottomPos.y;
-        float32 wallMaxY = wallMinY + wallCollider.height;
+	for (int i = 0; i < gameState->numWallColliders; i++) {
+		const WallCollider& wallCollider = gameState->wallColliders[i];
+		Rect playerRect;
+		playerRect.minX = newPlayerPos.x - PLAYER_RADIUS;
+		playerRect.maxX = newPlayerPos.x + PLAYER_RADIUS;
+		playerRect.minY = newPlayerPos.y;
+		playerRect.maxY = newPlayerPos.y + PLAYER_HEIGHT;
+		float32 wallX = wallCollider.bottomPos.x;
+		float32 wallMinY = wallCollider.bottomPos.y;
+		float32 wallMaxY = wallMinY + wallCollider.height;
 
-        if (playerRect.minX <= wallX && wallX <= playerRect.maxX) {
-            if (!((playerRect.minY <= wallMinY && playerRect.maxY <= wallMinY)
-            || (playerRect.minY >= wallMaxY && playerRect.maxY >= wallMaxY))) {
-                float32 pushDir = 1.0f;
-                if (newPlayerPos.x < wallX) {
-                    pushDir = -1.0f;
-                }
+		if (playerRect.minX <= wallX && wallX <= playerRect.maxX) {
+			if (!((playerRect.minY <= wallMinY && playerRect.maxY <= wallMinY)
+			|| (playerRect.minY >= wallMaxY && playerRect.maxY >= wallMaxY))) {
+				float32 pushDir = 1.0f;
+				if (newPlayerPos.x < wallX) {
+					pushDir = -1.0f;
+				}
 
-                // TODO this magic "5" just has to be greater than walk speed
-                newPlayerPos.x += pushDir * 5.0f * deltaTime;
-            }
-        }
-    }
+				// TODO this magic "5" just has to be greater than walk speed
+				newPlayerPos.x += pushDir * 5.0f * deltaTime;
+			}
+		}
+	}
 
-    float32 height = 0.0f;
-    bool isOverFloor = false;
-    if (gameState->currentFloor != nullptr) {
-        isOverFloor = GetFloorColliderHeight(gameState->currentFloor, newPlayerPos, &height);
-    }
+	float32 height = 0.0f;
+	bool isOverFloor = false;
+	if (gameState->currentFloor != nullptr) {
+		isOverFloor = GetFloorColliderHeight(gameState->currentFloor, newPlayerPos, &height);
+	}
 
 	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
 		if (isOverFloor) {
-            newPlayerPos.y = height;
+			newPlayerPos.y = height;
 		}
 		else {
-            gameState->playerState = PLAYER_STATE_FALLING;
+			gameState->playerState = PLAYER_STATE_FALLING;
 		}
 	}
 #endif
 	gameState->playerPos += gameState->playerVel * deltaTime;
 
-    gameState->paper.Update(deltaTime, 0, nullptr);
+	gameState->paper.Update(deltaTime, 0, nullptr);
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
-        return;
+		return;
 	}
 #endif
 
-    /*int numBarrelNextAnims = 0;
-    HashKey barrelNextAnims[1];
-    if (WasKeyPressed(input, KM_KEY_Z)) {
-        numBarrelNextAnims = 1;
-        barrelNextAnims[0].WriteString("Carry");
-    }
-    if (WasKeyPressed(input, KM_KEY_X)) {
-        numBarrelNextAnims = 1;
-        barrelNextAnims[0].WriteString("Explode");
-    }
-    gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);*/
+	/*int numBarrelNextAnims = 0;
+	HashKey barrelNextAnims[1];
+	if (WasKeyPressed(input, KM_KEY_Z)) {
+		numBarrelNextAnims = 1;
+		barrelNextAnims[0].WriteString("Carry");
+	}
+	if (WasKeyPressed(input, KM_KEY_X)) {
+		numBarrelNextAnims = 1;
+		barrelNextAnims[0].WriteString("Explode");
+	}
+	gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);*/
 
-    /*int numCrystalNextAnims = 0;
-    HashKey crystalNextAnims[1];
-    if (WasKeyPressed(input, KM_KEY_C)) {
-        numCrystalNextAnims = 1;
-        crystalNextAnims[0].WriteString("Explode");
-    }
-    gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
+	/*int numCrystalNextAnims = 0;
+	HashKey crystalNextAnims[1];
+	if (WasKeyPressed(input, KM_KEY_C)) {
+		numCrystalNextAnims = 1;
+		crystalNextAnims[0].WriteString("Explode");
+	}
+	gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
-    Vec2 cameraTarget = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
-    #if 0
-    if (cameraTarget.y > height) {
-        cameraTarget.y = height;
-    }
-    #endif
+	Vec2 cameraTarget = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
+	#if 0
+	if (cameraTarget.y > height) {
+		cameraTarget.y = height;
+	}
+	#endif
 
-    const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
-    const float32 CAMERA_MIN_Y = -2.6f;
-    const float32 CAMERA_MAX_Y = 3.8f;
+	const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
+	const float32 CAMERA_MIN_Y = -2.6f;
+	const float32 CAMERA_MAX_Y = 3.8f;
 
-    gameState->cameraPos = Lerp(gameState->cameraPos, cameraTarget, CAMERA_FOLLOW_LERP_MAG);
-    gameState->cameraPos = cameraTarget;
-    //gameState->cameraPos.y = ClampFloat32(gameState->cameraPos.y, CAMERA_MIN_Y, CAMERA_MAX_Y);
+	gameState->cameraPos = Lerp(gameState->cameraPos, cameraTarget, CAMERA_FOLLOW_LERP_MAG);
+	gameState->cameraPos = cameraTarget;
+	//gameState->cameraPos.y = ClampFloat32(gameState->cameraPos.y, CAMERA_MIN_Y, CAMERA_MAX_Y);
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
-    Mat4 worldMatrix, ScreenInfo screenInfo)
+	Mat4 worldMatrix, ScreenInfo screenInfo)
 {
 #if GAME_INTERNAL
-    if (gameState->editor) {
-        worldMatrix = worldMatrix * Scale(gameState->editorWorldScale);
-    }
+	if (gameState->editor) {
+		worldMatrix = worldMatrix * Scale(gameState->editorWorldScale);
+	}
 #endif
-    spriteDataGL->numSprites = 0;
+	spriteDataGL->numSprites = 0;
 
-    DrawObjectStatic(gameState->background, spriteDataGL);
+	DrawObjectStatic(gameState->background, spriteDataGL);
 
-    //DrawObjectStatic(gameState->tractor1, spriteDataGL);
-    //DrawObjectStatic(gameState->tractor2, spriteDataGL);
+	//DrawObjectStatic(gameState->tractor1, spriteDataGL);
+	//DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
-    /*Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-    gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
-        1.0f, false);*/
+	/*Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+	gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
+		1.0f, false);*/
 
-    /*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
-    gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
-        1.0f, false);*/
+	/*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
+	gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
+		1.0f, false);*/
 
-    Vec2 floorPos, floorTangent, floorNormal;
-    GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
-        &floorPos, &floorTangent, &floorNormal);
+	Vec2 floorPos, floorTangent, floorNormal;
+	GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
+		&floorPos, &floorTangent, &floorNormal);
 	Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -ToVec3(gameState->cameraPos, 0.0f));
-    Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
-        ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
+	Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
+		ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
 	DrawSprites(gameState->renderState, *spriteDataGL, viewRotated, worldMatrix);
 
-    spriteDataGL->numSprites = 0;
+	spriteDataGL->numSprites = 0;
 
-    { // kid & me text
-        Vec2 pos = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
-        Vec2 anchor = { 0.5f, 0.1f };
-        Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-        // Vec2 meTextOffset = { -0.1f, 0.1f };
+	{ // kid & me text
+		Vec2 pos = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
+		Vec2 anchor = { 0.5f, 0.1f };
+		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+		// Vec2 meTextOffset = { -0.1f, 0.1f };
 
-        gameState->kid.Draw(spriteDataGL, pos, size,
-            anchor, 1.0f, !gameState->facingRight);
-    }
+		gameState->kid.Draw(spriteDataGL, pos, size,
+			anchor, 1.0f, !gameState->facingRight);
+	}
 
-    DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
 
 #if GAME_INTERNAL
-    if (gameState->editor) {
-        return;
-    }
+	if (gameState->editor) {
+		return;
+	}
 #endif
 
-    spriteDataGL->numSprites = 0;
+	spriteDataGL->numSprites = 0;
 
-    const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-    Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
+	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
+	Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
 
-    gameState->paper.Draw(spriteDataGL,
-        Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, 0.5f,
-        false);
+	gameState->paper.Draw(spriteDataGL,
+		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, 0.5f,
+		false);
 
-    gameState->frame.pos = Vec2::zero;
-    gameState->frame.anchor = Vec2::one / 2.0f;
-    gameState->frame.scale = 1.0f;
-    DrawObjectStatic(gameState->frame, spriteDataGL);
+	gameState->frame.pos = Vec2::zero;
+	gameState->frame.anchor = Vec2::one / 2.0f;
+	gameState->frame.scale = 1.0f;
+	DrawObjectStatic(gameState->frame, spriteDataGL);
 
-    DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
+	DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
@@ -607,10 +638,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		// Game data
-        gameState->playerPos = Vec2 { 0.5f, 0.0f };
-        gameState->playerVel = Vec2::zero;
-        gameState->cameraPos = gameState->playerVel;
-        gameState->cameraVelY = 0.0f;
+		gameState->playerPos = Vec2 { 20.0f, 0.0f };
+		gameState->playerVel = Vec2::zero;
+		gameState->cameraPos = gameState->playerVel;
+		gameState->cameraVelY = 0.0f;
 		gameState->currentFloor = nullptr;
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
@@ -618,89 +649,89 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->numFloorColliders = 0;
 		FloorCollider* floorCollider;
 
-        floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
-        floorCollider->numVertices = 0;
-        floorCollider->vertices[floorCollider->numVertices++] = { -16.36f, 45.39f };
-        floorCollider->vertices[floorCollider->numVertices++] = { -14.33f, 45.36f };
-        floorCollider->vertices[floorCollider->numVertices++] = { -11.56f, 45.45f };
-        floorCollider->vertices[floorCollider->numVertices++] = { -8.43f, 45.40f };
-        floorCollider->vertices[floorCollider->numVertices++] = { -4.93f, 45.36f };
-        floorCollider->vertices[floorCollider->numVertices++] = { -0.96f, 45.36f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 2.18f, 45.36f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 5.38f, 45.38f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 8.31f, 45.41f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 10.33f, 45.37f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 13.80f, 45.28f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 17.09f, 45.28f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 18.52f, 44.97f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 19.60f, 44.57f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 20.65f, 44.04f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 21.46f, 43.52f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 22.05f, 42.96f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 22.58f, 42.33f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 23.09f, 41.69f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 23.58f, 41.06f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 23.97f, 40.19f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.26f, 39.40f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.42f, 38.60f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 37.61f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 36.96f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.61f, 35.82f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.66f, 34.09f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.76f, 32.13f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.65f, 29.76f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 27.01f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 25.14f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 22.89f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.79f, 21.78f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 24.93f, 21.04f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 25.10f, 20.39f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 25.44f, 19.76f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 25.72f, 19.15f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 26.04f, 18.60f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 26.18f, 18.49f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 26.63f, 17.76f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 27.27f, 17.18f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 27.72f, 16.75f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 28.34f, 16.29f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 28.99f, 15.88f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 29.58f, 15.58f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 30.24f, 15.24f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 31.05f, 15.05f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 32.19f, 14.83f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 33.27f, 14.76f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 34.79f, 14.87f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 36.21f, 14.82f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 38.38f, 14.84f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 41.54f, 14.88f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 43.48f, 14.88f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 45.74f, 14.79f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 47.27f, 14.61f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 48.13f, 14.43f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 48.90f, 14.14f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 49.58f, 13.85f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 50.56f, 13.45f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 51.27f, 12.91f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 51.85f, 12.35f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 52.41f, 11.78f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 52.84f, 11.04f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 53.14f, 10.35f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 53.53f, 9.63f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 53.85f, 8.88f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.10f, 7.65f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.22f, 6.57f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, 5.42f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.28f, 3.18f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.32f, 0.89f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.43f, -1.98f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -4.91f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -6.79f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.34f, -9.02f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -10.78f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, -14.38f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.31f, -16.44f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -17.57f };
-        floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -18.35f };
+		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		floorCollider->numVertices = 0;
+		floorCollider->vertices[floorCollider->numVertices++] = { -16.36f, 45.39f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -14.33f, 45.36f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -11.56f, 45.45f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -8.43f, 45.40f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -4.93f, 45.36f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -0.96f, 45.36f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 2.18f, 45.36f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 5.38f, 45.38f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 8.31f, 45.41f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 10.33f, 45.37f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 13.80f, 45.28f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 17.09f, 45.28f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 18.52f, 44.97f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 19.60f, 44.57f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 20.65f, 44.04f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 21.46f, 43.52f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 22.05f, 42.96f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 22.58f, 42.33f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 23.09f, 41.69f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 23.58f, 41.06f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 23.97f, 40.19f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.26f, 39.40f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.42f, 38.60f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 37.61f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 36.96f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.61f, 35.82f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.66f, 34.09f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.76f, 32.13f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.65f, 29.76f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 27.01f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 25.14f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 22.89f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.79f, 21.78f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 24.93f, 21.04f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 25.10f, 20.39f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 25.44f, 19.76f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 25.72f, 19.15f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 26.04f, 18.60f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 26.18f, 18.49f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 26.63f, 17.76f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 27.27f, 17.18f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 27.72f, 16.75f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 28.34f, 16.29f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 28.99f, 15.88f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 29.58f, 15.58f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 30.24f, 15.24f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 31.05f, 15.05f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 32.19f, 14.83f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 33.27f, 14.76f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 34.79f, 14.87f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 36.21f, 14.82f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 38.38f, 14.84f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 41.54f, 14.88f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 43.48f, 14.88f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 45.74f, 14.79f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 47.27f, 14.61f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 48.13f, 14.43f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 48.90f, 14.14f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 49.58f, 13.85f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 50.56f, 13.45f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 51.27f, 12.91f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 51.85f, 12.35f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 52.41f, 11.78f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 52.84f, 11.04f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 53.14f, 10.35f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 53.53f, 9.63f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 53.85f, 8.88f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.10f, 7.65f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.22f, 6.57f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, 5.42f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.28f, 3.18f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.32f, 0.89f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.43f, -1.98f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -4.91f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -6.79f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.34f, -9.02f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -10.78f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, -14.38f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.31f, -16.44f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -17.57f };
+		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -18.35f };
 
 		gameState->grainTime = 0.0f;
 
@@ -810,136 +841,136 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			"shaders/screen.vert", "shaders/blur.frag",
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
-        gameState->grainShader = LoadShaders(thread,
-            "shaders/screen.vert", "shaders/grain.frag",
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        gameState->lutShader = LoadShaders(thread,
-            "shaders/screen.vert", "shaders/lut.frag",
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
+		gameState->grainShader = LoadShaders(thread,
+			"shaders/screen.vert", "shaders/grain.frag",
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		gameState->lutShader = LoadShaders(thread,
+			"shaders/screen.vert", "shaders/lut.frag",
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
 
-        gameState->background.pos = { 0.0f, -5.5f };
-        gameState->background.anchor = { 0.5f, 0.5f };
-        gameState->background.scale = 1.0f;
-        bool32 loadBackground = LoadPNGOpenGL(thread,
-            "data/sprites/playground.png",
-            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->background.texture,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadBackground) {
-            DEBUG_PANIC("Failed to load background");
-        }
+		gameState->background.pos = { 0.0f, -5.5f };
+		gameState->background.anchor = { 0.5f, 0.5f };
+		gameState->background.scale = 1.0f;
+		bool32 loadBackground = LoadPNGOpenGL(thread,
+			"data/sprites/bg.png",
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->background.texture,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadBackground) {
+			DEBUG_PANIC("Failed to load background");
+		}
 
-        bool32 loadKidAnim = LoadAnimatedSprite(thread,
-            "data/animations/kid/kid.kma",
-            gameState->spriteKid,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadKidAnim) {
-            DEBUG_PANIC("Failed to load kid animation sprite");
-        }
+		bool32 loadKidAnim = LoadAnimatedSprite(thread,
+			"data/animations/kid/kid.kma",
+			gameState->spriteKid,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadKidAnim) {
+			DEBUG_PANIC("Failed to load kid animation sprite");
+		}
 
-        /*bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
-            "data/animations/barrel/barrel.kma",
-            gameState->spriteBarrel,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadBarrelAnim) {
-            DEBUG_PANIC("Failed to load barrel animation sprite");
-        }
+		/*bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
+			"data/animations/barrel/barrel.kma",
+			gameState->spriteBarrel,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadBarrelAnim) {
+			DEBUG_PANIC("Failed to load barrel animation sprite");
+		}
 
-        bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
-            "data/animations/crystal/crystal.kma",
-            gameState->spriteCrystal,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadCrystalAnim) {
-            DEBUG_PANIC("Failed to load crystal animation sprite");
-        }*/
+		bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
+			"data/animations/crystal/crystal.kma",
+			gameState->spriteCrystal,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadCrystalAnim) {
+			DEBUG_PANIC("Failed to load crystal animation sprite");
+		}*/
 
-        gameState->kid.animatedSprite = &gameState->spriteKid;
-        gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
-        gameState->kid.activeFrame = 0;
-        gameState->kid.activeFrameRepeat = 0;
-        gameState->kid.activeFrameTime = 0.0f;
+		gameState->kid.animatedSprite = &gameState->spriteKid;
+		gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
+		gameState->kid.activeFrame = 0;
+		gameState->kid.activeFrameRepeat = 0;
+		gameState->kid.activeFrameTime = 0.0f;
 
-        gameState->barrel.animatedSprite = &gameState->spriteBarrel;
-        gameState->barrel.activeAnimation = gameState->spriteBarrel.startAnimation;
-        gameState->barrel.activeFrame = 0;
-        gameState->barrel.activeFrameRepeat = 0;
-        gameState->barrel.activeFrameTime = 0.0f;
+		gameState->barrel.animatedSprite = &gameState->spriteBarrel;
+		gameState->barrel.activeAnimation = gameState->spriteBarrel.startAnimation;
+		gameState->barrel.activeFrame = 0;
+		gameState->barrel.activeFrameRepeat = 0;
+		gameState->barrel.activeFrameTime = 0.0f;
 
-        /*gameState->tractor1.pos = { 2.0f, -0.2f };
-        gameState->tractor1.anchor = { 0.5f, 0.0f };
-        gameState->tractor1.scale = 1.0f;
-        bool32 loadTractor1 = LoadPNGOpenGL(thread,
-            "data/sprites/tractor1.png",
-            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->tractor1.texture,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadTractor1) {
-            DEBUG_PANIC("Failed to load tractor 1");
-        }
-        gameState->tractor2.pos = { -5.0f, -0.45f };
-        gameState->tractor2.anchor = { 0.5f, 0.0f };
-        gameState->tractor2.scale = 1.0f;
-        bool32 loadTractor2 = LoadPNGOpenGL(thread,
-            "data/sprites/tractor2.png",
-            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->tractor2.texture,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadTractor2) {
-            DEBUG_PANIC("Failed to load tractor 2");
-        }*/
+		/*gameState->tractor1.pos = { 2.0f, -0.2f };
+		gameState->tractor1.anchor = { 0.5f, 0.0f };
+		gameState->tractor1.scale = 1.0f;
+		bool32 loadTractor1 = LoadPNGOpenGL(thread,
+			"data/sprites/tractor1.png",
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->tractor1.texture,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadTractor1) {
+			DEBUG_PANIC("Failed to load tractor 1");
+		}
+		gameState->tractor2.pos = { -5.0f, -0.45f };
+		gameState->tractor2.anchor = { 0.5f, 0.0f };
+		gameState->tractor2.scale = 1.0f;
+		bool32 loadTractor2 = LoadPNGOpenGL(thread,
+			"data/sprites/tractor2.png",
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->tractor2.texture,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadTractor2) {
+			DEBUG_PANIC("Failed to load tractor 2");
+		}*/
 
-        bool32 loadPaperAnim = LoadAnimatedSprite(thread,
-            "data/animations/paper/paper.kma",
-            gameState->spritePaper,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadPaperAnim) {
-            DEBUG_PANIC("Failed to load paper animation sprite");
-        }
+		bool32 loadPaperAnim = LoadAnimatedSprite(thread,
+			"data/animations/paper/paper.kma",
+			gameState->spritePaper,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadPaperAnim) {
+			DEBUG_PANIC("Failed to load paper animation sprite");
+		}
 
-        gameState->paper.animatedSprite = &gameState->spritePaper;
-        gameState->paper.activeAnimation = gameState->spritePaper.startAnimation;
-        gameState->paper.activeFrame = 0;
-        gameState->paper.activeFrameRepeat = 0;
-        gameState->paper.activeFrameTime = 0.0f;
+		gameState->paper.animatedSprite = &gameState->spritePaper;
+		gameState->paper.activeAnimation = gameState->spritePaper.startAnimation;
+		gameState->paper.activeFrame = 0;
+		gameState->paper.activeFrameRepeat = 0;
+		gameState->paper.activeFrameTime = 0.0f;
 
-        bool32 loadFrame = LoadPNGOpenGL(thread,
-            "data/sprites/frame.png",
-            GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->frame.texture,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadFrame) {
-            DEBUG_PANIC("Failed to load frame");
-        }
+		bool32 loadFrame = LoadPNGOpenGL(thread,
+			"data/sprites/frame.png",
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->frame.texture,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadFrame) {
+			DEBUG_PANIC("Failed to load frame");
+		}
 
-        bool32 loadLutBase = LoadPNGOpenGL(thread,
-            "data/luts/lutbase.png",
-            GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->lutBase,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadLutBase) {
-            DEBUG_PANIC("Failed to load base LUT");
-        }
+		bool32 loadLutBase = LoadPNGOpenGL(thread,
+			"data/luts/lutbase.png",
+			GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->lutBase,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadLutBase) {
+			DEBUG_PANIC("Failed to load base LUT");
+		}
 
-        bool32 loadLut1 = LoadPNGOpenGL(thread,
-            "data/luts/kodak5205.png",
-            GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-            gameState->lut1,
-            platformFuncs->DEBUGPlatformReadFile,
-            platformFuncs->DEBUGPlatformFreeFileMemory);
-        if (!loadLut1) {
-            DEBUG_PANIC("Failed to load base LUT");
-        }
+		bool32 loadLut1 = LoadPNGOpenGL(thread,
+			"data/luts/kodak5205.png",
+			GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			gameState->lut1,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory);
+		if (!loadLut1) {
+			DEBUG_PANIC("Failed to load base LUT");
+		}
 
 		memory->isInitialized = true;
 	}
@@ -974,11 +1005,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	if (gameState->editor) {
 		if (input->mouseButtons[0].isDown) {
 			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo)
-                / gameState->editorWorldScale;
+				/ gameState->editorWorldScale;
 		}
-        float32 editorWorldScaleDelta = input->mouseWheelDelta * 0.001f;
-        gameState->editorWorldScale = ClampFloat32(
-            gameState->editorWorldScale + editorWorldScaleDelta, 0.01f, 10.0f);
+		float32 editorWorldScaleDelta = input->mouseWheelDelta * 0.001f;
+		gameState->editorWorldScale = ClampFloat32(
+			gameState->editorWorldScale + editorWorldScaleDelta, 0.01f, 10.0f);
 	}
 
 	UpdateTown(gameState, deltaTime, input);
@@ -1003,15 +1034,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 
-    // Apply filters
-    // PostProcessGrain(gameState->framebuffersColorDepth[0], gameState->framebuffersColor[0],
-    //     gameState->screenQuadVertexArray,
-    //     gameState->grainShader, gameState->grainTime);
+	// Apply filters
+	// PostProcessGrain(gameState->framebuffersColorDepth[0], gameState->framebuffersColor[0],
+	//     gameState->screenQuadVertexArray,
+	//     gameState->grainShader, gameState->grainTime);
 
-    PostProcessLUT(gameState->framebuffersColorDepth[0],
-        gameState->framebuffersColor[0],
-        gameState->screenQuadVertexArray,
-        gameState->lutShader, gameState->lut1);
+	PostProcessLUT(gameState->framebuffersColorDepth[0],
+		gameState->framebuffersColor[0],
+		gameState->screenQuadVertexArray,
+		gameState->lutShader, gameState->lut1);
 
 	// Render to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1056,7 +1087,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	}
 	if (WasKeyPressed(input, KM_KEY_H)) {
 		gameState->editor = !gameState->editor;
-        gameState->editorWorldScale = 1.0f;
+		gameState->editorWorldScale = 1.0f;
 	}
 
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
@@ -1090,71 +1121,71 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFontSmall, screenInfo,
 			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosLeft.y -= textFontSmall.height;
-        sprintf(textStr, "[M] to toggle global audio mute");
-        DrawText(gameState->textGL, textFontSmall, screenInfo,
-            textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosLeft.y -= textFontSmall.height;
+		sprintf(textStr, "[M] to toggle global audio mute");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosLeft.y -= textFontSmall.height;
-        textPosLeft.y -= textFontSmall.height;
-        sprintf(textStr, "[F11] to toggle fullscreen");
-        DrawText(gameState->textGL, textFontSmall, screenInfo,
-            textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosLeft.y -= textFontSmall.height;
+		textPosLeft.y -= textFontSmall.height;
+		sprintf(textStr, "[F11] to toggle fullscreen");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		sprintf(textStr, "%.2f --- FPS", 1.0f / deltaTime);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-        textPosRight.y -= textFont.height;
-        sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerPos.x, gameState->playerPos.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerPos.x, gameState->playerPos.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosRight.y -= textFont.height;
-        Vec2 playerPosWorld = FloorCoordsToWorldPos(gameState->floorColliders[0],
-            gameState->playerPos);
-        sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		Vec2 playerPosWorld = FloorCoordsToWorldPos(gameState->floorColliders[0],
+			gameState->playerPos);
+		sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosRight.y -= textFont.height;
-        sprintf(textStr, "%.2f|%.2f --- VEL", gameState->playerVel.x, gameState->playerVel.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f --- VEL", gameState->playerVel.x, gameState->playerVel.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%d - STATE", gameState->playerState);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosRight.y -= textFont.height;
-        textPosRight.y -= textFont.height;
-        sprintf(textStr, "%.2f|%.2f --- CAM", gameState->cameraPos.x, gameState->cameraPos.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f --- CAM", gameState->cameraPos.x, gameState->cameraPos.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosRight.y -= textFont.height;
-        textPosRight.y -= textFont.height;
-        gameState->editorWorldScale = 1.0f;
-        Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo, gameState->cameraPos);
-        sprintf(textStr, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		textPosRight.y -= textFont.height;
+		gameState->editorWorldScale = 1.0f;
+		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo, gameState->cameraPos);
+		sprintf(textStr, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
-            DEBUG_PRINT("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
-        }
+		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
+			DEBUG_PRINT("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
+		}
 
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
-        Vec2 floorPos, floorTangent, floorNormal;
-        GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
-            &floorPos, &floorTangent, &floorNormal);
-        Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -ToVec3(gameState->cameraPos, 0.0f));
-        Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
-            ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
+		Vec2 floorPos, floorTangent, floorNormal;
+		GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
+			&floorPos, &floorTangent, &floorNormal);
+		Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -ToVec3(gameState->cameraPos, 0.0f));
+		Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
+			ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
 
 		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
 		for (int i = 0; i < gameState->numFloorColliders; i++) {
@@ -1191,13 +1222,26 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		Vec4 wallColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 		for (int i = 0; i < gameState->numWallColliders; i++) {
 			WallCollider* wall = &gameState->wallColliders[i];
-            
+			
 			lineData->count = 2;
-            lineData->pos[0] = Vec3 { wall->bottomPos.x, wall->bottomPos.y, 0.0f };
-            lineData->pos[1] = lineData->pos[0];
-            lineData->pos[1].y += wall->height;
+			lineData->pos[0] = Vec3 { wall->bottomPos.x, wall->bottomPos.y, 0.0f };
+			lineData->pos[1] = lineData->pos[0];
+			lineData->pos[1].y += wall->height;
 			DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, wallColliderColor);
 		}
+
+		Vec4 floorSmoothColor = { 0.0f, 0.0f, 0.0f, 0.5f };
+		const float32 FLOOR_SMOOTH_STEPS = 0.05f;
+		float32 floorLength = GetFloorLength(gameState->floorColliders[0]);
+		lineData->count = 0;
+		for (float32 floorX = 0.0f; floorX < floorLength; floorX += FLOOR_SMOOTH_STEPS) {
+			Vec2 fPos, fTangent, fNormal;
+			GetFloorInfo(gameState->floorColliders[0], floorX, &fPos, &fTangent, &fNormal);
+			lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
+			lineData->pos[lineData->count++] = ToVec3(fPos + fNormal, 0.0f);
+			lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
+		}
+		DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, floorSmoothColor);
 
 		// Player position cross
 		lineData->count = 2;
