@@ -2,6 +2,7 @@
 
 #include "animation.h"
 #include "audio.h"
+#include "collision.h"
 #include "framebuffer.h"
 #include "gui.h"
 #include "km_math.h"
@@ -18,10 +19,8 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define FLOOR_COLLIDER_MAX_VERTICES 16
-#define FLOOR_COLLIDERS_MAX 32
-
-#define WALL_COLLIDERS_MAX 4
+//#define FLOOR_COLLIDERS_MAX 32
+//#define WALL_COLLIDERS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
@@ -30,24 +29,6 @@ enum PlayerState
 	PLAYER_STATE_GROUNDED,
 	PLAYER_STATE_JUMPING,
 	PLAYER_STATE_FALLING
-};
-
-struct FloorCollider
-{
-    int numVertices;
-    Vec2 vertices[FLOOR_COLLIDER_MAX_VERTICES];
-};
-
-struct WallCollider
-{
-    Vec2 bottomPos;
-    float32 height;
-};
-
-struct ColliderBox
-{
-	Vec2 pos;
-	Vec2 size;
 };
 
 struct ObjectStatic
@@ -62,23 +43,23 @@ struct GameState
 {
 	AudioState audioState;
 
-	// Game state
 	Vec2 cameraPos;
-    float32 cameraVelY;
+	Quat cameraRot;
     Vec2 playerPos;
 	Vec2 playerVel;
-	const FloorCollider* currentFloor;
 	PlayerState playerState;
 	bool32 facingRight;
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
 
-    int numFloorColliders;
+    FloorCollider floor;
+
+    /*int numFloorColliders;
     FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
 
     int numWallColliders;
-    WallCollider wallColliders[WALL_COLLIDERS_MAX];
+    WallCollider wallColliders[WALL_COLLIDERS_MAX];*/
 
 	float32 grainTime;
 

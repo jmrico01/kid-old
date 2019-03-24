@@ -43,8 +43,8 @@ struct AnimatedSpriteInstance
 
     Vec2 Update(float32 deltaTime, int numNextAnimations, const HashKey* nextAnimations);
 
-    void Draw(SpriteDataGL* spriteDataGL,
-        Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha, bool32 flipHorizontal) const;
+    void Draw(SpriteDataGL* spriteDataGL, Vec2 pos, Vec2 size, Vec2 anchor, Quat rot,
+        float32 alpha, bool32 flipHorizontal) const;
 };
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,

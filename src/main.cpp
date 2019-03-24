@@ -17,8 +17,8 @@
 #include "render.h"
 
 #define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
-#define CAMERA_OFFSET_Y 0.0f
-//#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT / 6.0f)
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT / 6.0f)
+//#define CAMERA_OFFSET_Y 0.0f
 #define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, CAMERA_OFFSET_Y })
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
@@ -28,12 +28,6 @@
 #define PLAYER_HEIGHT 1.3f
 
 #define FLOOR_LINE_MARGIN 0.05f
-
-struct FloorColliderIntersect
-{
-	Vec2 pos;
-	const FloorCollider* collider;
-};
 
 inline float32 RandFloat32()
 {
@@ -93,189 +87,8 @@ Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo)
 void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
 {
 	Vec2 size = objectStatic.scale * ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
-	PushSprite(spriteDataGL, objectStatic.pos, size,
-		objectStatic.anchor, 1.0f,
-		false, objectStatic.texture.textureID);
-}
-
-bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
-{
-	DEBUG_ASSERT(floorCollider->numVertices > 1);
-
-	int numVertices = floorCollider->numVertices;
-	Vec2 vertPrev = floorCollider->vertices[0];
-	for (int i = 1; i < numVertices; i++) {
-		Vec2 vert = floorCollider->vertices[i];
-		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
-			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
-			*outHeight = vertPrev.y + t * (vert.y - vertPrev.y);
-			return true;
-		}
-
-		vertPrev = vert;
-	}
-
-	if (refPos.x < floorCollider->vertices[0].x) {
-		*outHeight = floorCollider->vertices[0].y;
-	}
-	if (refPos.x > floorCollider->vertices[floorCollider->numVertices - 1].x) {
-		*outHeight = floorCollider->vertices[floorCollider->numVertices - 1].y;
-	}
-	return false;
-}
-
-inline float32 Cross2D(Vec2 v1, Vec2 v2)
-{
-	return v1.x * v2.y - v1.y * v2.x;
-}
-
-// Source: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2Dir,
-	Vec2* outIntersect)
-{
-	Vec2 startDiff = line2Start - line1Start;
-	float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
-	float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
-
-	if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
-		// collinear
-		float32 magDir1 = MagSq(line1Dir);
-		float32 dotDirs = Dot(line1Dir, line2Dir);
-		float32 t = Dot(startDiff, line1Dir) / magDir1;
-		float32 tt = t + dotDirs / magDir1;
-		if ((t < 0.0f && tt < 0.0f) || (t > 1.0f && tt > 1.0f)) {
-			return false;
-		}
-
-		// Could return any point in interval [t, tt]
-		*outIntersect = line1Start + t * line1Dir;
-		return true;
-	}
-	else if (crossDirs12 == 0.0f) {
-		// parallel
-		return false;
-	}
-	else {
-		float32 t1 = Cross2D(startDiff, line2Dir) / crossDirs12;
-		float32 t2 = crossDiffDir1 / crossDirs12;
-
-		if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
-			// intersection
-			*outIntersect = line1Start + t1 * line1Dir;
-			return true;
-		}
-		else {
-			// no intersection
-			return false;
-		}
-	}
-}
-
-void GetFloorColliderIntersections(const FloorCollider floorColliders[], int numFloorColliders,
-	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
-	FloorColliderIntersect outIntersects[], int* outNumIntersects)
-{
-	*outNumIntersects = 0;
-	float32 deltaPosMag = Mag(deltaPos);
-	if (deltaPosMag == 0.0f) {
-		return;
-	}
-	Vec2 dir = deltaPos / deltaPosMag;
-	Vec2 playerDir = deltaPos + dir * movementMargin;
-
-	for (int c = 0; c < numFloorColliders; c++) {
-		DEBUG_ASSERT(floorColliders[c].numVertices >= 2);
-		Vec2 vertPrev = floorColliders[c].vertices[0];
-		for (int v = 1; v < floorColliders[c].numVertices; v++) {
-			Vec2 vert = floorColliders[c].vertices[v];
-			Vec2 intersectPoint;
-			if (Intersection(pos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
-				int intersectInd = *outNumIntersects;
-				outIntersects[intersectInd].pos = intersectPoint;
-				outIntersects[intersectInd].collider = &floorColliders[c];
-				(*outNumIntersects)++;
-				break;
-			}
-			vertPrev = vert;
-		}
-	}
-}
-
-Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
-{
-	float32 oneMinusT = 1.0f - t;
-	return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
-}
-
-float32 GetFloorLength(const FloorCollider& floorCollider)
-{
-	float32 length = 0.0f;
-	for (int i = 1; i < floorCollider.numVertices; i++) {
-		length += Mag(floorCollider.vertices[i] - floorCollider.vertices[i - 1]);
-	}
-
-	return length;
-}
-
-void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
-	Vec2* outFloorPos, Vec2* outTangent, Vec2* outNormal)
-{
-	DEBUG_ASSERT(floorCollider.numVertices >= 2);
-
-	const int EDGE_NEIGHBORS = 3;
-
-	*outFloorPos = Vec2::zero;
-	*outTangent = Vec2::unitX;
-	*outNormal = Vec2::unitY;
-
-	float32 t = 0.0f;
-	Vec2 dir = floorCollider.vertices[1] - floorCollider.vertices[0];
-	for (int i = 1; i < floorCollider.numVertices; i++) {
-		Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
-		float32 edgeLength = Mag(edge);
-		if (t + edgeLength >= tX) {
-			float32 tEdge = (tX - t) / edgeLength;
-			Vec2 sumTangents = Vec2::zero;
-			Vec2 sumNormals = Vec2::zero;
-			for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
-				float32 edgeWeight = EDGE_NEIGHBORS - AbsFloat32(n - (tEdge - 0.5f));
-				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
-				int ind1 = ClampInt(i + n - 1, 0, floorCollider.numVertices - 1);
-				int ind2 = ClampInt(i + n,     1, floorCollider.numVertices);
-				Vec2 edgeTangent = Normalize(floorCollider.vertices[ind2]
-					- floorCollider.vertices[ind1]);
-				sumTangents += edgeTangent * edgeWeight;
-				sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
-			}
-			int indPrev = ClampInt(i - 1, 1, floorCollider.numVertices);
-			int indNext = ClampInt(i + 1, 1, floorCollider.numVertices);
-			Vec2 tangentPrev = Normalize(floorCollider.vertices[indPrev]
-				- floorCollider.vertices[indPrev - 1]);
-			Vec2 tangentNext = Normalize(floorCollider.vertices[indNext]
-				- floorCollider.vertices[indNext - 1]);
-			Vec2 bezierMid = (floorCollider.vertices[i - 1] + tangentPrev * edgeLength / 2.0f
-				+ floorCollider.vertices[i] - tangentNext * edgeLength / 2.0f) / 2.0f;
-			//*outFloorPos = floorCollider.vertices[i - 1] + edge * tEdge;
-			*outFloorPos = GetQuadraticBezierPoint(
-				floorCollider.vertices[i - 1],
-				bezierMid,
-				floorCollider.vertices[i],
-				tEdge
-			);
-			*outTangent = Normalize(sumTangents);
-			*outNormal = Normalize(sumNormals);
-			return;
-		}
-
-		t += edgeLength;
-	}
-}
-
-Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords)
-{
-	Vec2 floorPos, floorTangent, floorNormal;
-	GetFloorInfo(floorCollider, coords.x, &floorPos, &floorTangent, &floorNormal);
-	return floorPos + floorNormal * coords.y;
+	Mat4 transform = CalculateTransform(objectStatic.pos, size, objectStatic.anchor, Quat::one);
+	PushSprite(spriteDataGL, transform, 1.0f, false, objectStatic.texture.textureID);
 }
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -351,7 +164,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	PlayerMovementInput(gameState, deltaTime, input);
 #endif
 
-#if 0
 	HashKey ANIM_IDLE;
 	ANIM_IDLE.WriteString("Idle");
 	HashKey ANIM_WALK;
@@ -392,11 +204,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		}
 	}
 
-	if (gameState->playerState == PLAYER_STATE_JUMPING
-	&& KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)) {
-		gameState->playerState = PLAYER_STATE_FALLING;
-	}
-
 	float32 animDeltaTime = deltaTime;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		deltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
@@ -407,10 +214,29 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		rootMotion *= gameState->playerJumpMag;
 	}
 
+	if (gameState->playerState == PLAYER_STATE_JUMPING
+	&& KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)) {
+		gameState->playerState = PLAYER_STATE_FALLING;
+	}
+
 	Vec2 deltaPos = gameState->playerVel * deltaTime + rootMotion;
 	Vec2 newPlayerPos = gameState->playerPos + deltaPos;
 
-	FloorColliderIntersect intersects[FLOOR_COLLIDERS_MAX];
+	Vec2 floorPos, floorTangent, floorNormal;
+	GetFloorInfo(gameState->floor, gameState->playerPos.x,
+		&floorPos, &floorTangent, &floorNormal);
+
+	float32 floorHeightCoord = 0.0f;
+	if (newPlayerPos.y < floorHeightCoord + FLOOR_LINE_MARGIN) {
+		if (gameState->playerState == PLAYER_STATE_FALLING) {
+			gameState->playerState = PLAYER_STATE_GROUNDED;
+			newPlayerPos.y = floorHeightCoord;
+		}
+	}
+
+	gameState->playerPos = newPlayerPos;
+
+	/*FloorColliderIntersect intersects[FLOOR_COLLIDERS_MAX];
 	int numIntersects;
 	GetFloorColliderIntersections(gameState->floorColliders, gameState->numFloorColliders,
 		gameState->playerPos, deltaPos, 0.05f,
@@ -472,9 +298,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		else {
 			gameState->playerState = PLAYER_STATE_FALLING;
 		}
-	}
-#endif
-	gameState->playerPos += gameState->playerVel * deltaTime;
+	}*/
 
 	gameState->paper.Update(deltaTime, 0, nullptr);
 
@@ -504,20 +328,23 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
-	Vec2 cameraTarget = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
-	#if 0
-	if (cameraTarget.y > height) {
-		cameraTarget.y = height;
+	Vec2 cameraPosTarget = FloorCoordsToWorldPos(gameState->floor, gameState->playerPos);
+	Quat cameraRotTarget = QuatRotBetweenVectors(Vec3::unitY, ToVec3(floorNormal, 0.0f));
+	Vec2 cameraPosDir = cameraPosTarget - floorPos;
+	float32 dotCamDirNormal = Dot(cameraPosDir, floorNormal);
+	if (dotCamDirNormal >= 0.0f) {
+		cameraPosDir -= dotCamDirNormal * floorNormal;
+		cameraPosTarget = floorPos + cameraPosDir;
 	}
-	#endif
 
 	const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
 	const float32 CAMERA_MIN_Y = -2.6f;
 	const float32 CAMERA_MAX_Y = 3.8f;
 
-	gameState->cameraPos = Lerp(gameState->cameraPos, cameraTarget, CAMERA_FOLLOW_LERP_MAG);
-	gameState->cameraPos = cameraTarget;
-	//gameState->cameraPos.y = ClampFloat32(gameState->cameraPos.y, CAMERA_MIN_Y, CAMERA_MAX_Y);
+	gameState->cameraPos = Lerp(gameState->cameraPos, cameraPosTarget,
+		CAMERA_FOLLOW_LERP_MAG);
+	gameState->cameraRot = Normalize(Lerp(gameState->cameraRot, cameraRotTarget,
+		CAMERA_FOLLOW_LERP_MAG));
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -543,26 +370,17 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
 		1.0f, false);*/
 
-	Vec2 floorPos, floorTangent, floorNormal;
-	GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
-		&floorPos, &floorTangent, &floorNormal);
-	Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -ToVec3(gameState->cameraPos, 0.0f));
-	Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
-		ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
-	DrawSprites(gameState->renderState, *spriteDataGL, viewRotated, worldMatrix);
-
-	spriteDataGL->numSprites = 0;
-
 	{ // kid & me text
-		Vec2 pos = FloorCoordsToWorldPos(gameState->floorColliders[0], gameState->playerPos);
-		Vec2 anchor = { 0.5f, 0.1f };
+		Vec2 pos = FloorCoordsToWorldPos(gameState->floor, gameState->playerPos);
+		Vec2 anchorUnused = Vec2::zero;
 		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-		// Vec2 meTextOffset = { -0.1f, 0.1f };
-
-		gameState->kid.Draw(spriteDataGL, pos, size,
-			anchor, 1.0f, !gameState->facingRight);
+		gameState->kid.Draw(spriteDataGL, pos, size, anchorUnused, gameState->cameraRot,
+			1.0f, !gameState->facingRight);
 	}
 
+	Mat4 view = Translate(CAMERA_OFFSET_VEC3)
+		* UnitQuatToMat4(Inverse(gameState->cameraRot))
+		* Translate(ToVec3(-gameState->cameraPos, 0.0f));
 	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
 
 #if GAME_INTERNAL
@@ -575,9 +393,8 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
 	Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
-
 	gameState->paper.Draw(spriteDataGL,
-		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, 0.5f,
+		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
 
 	gameState->frame.pos = Vec2::zero;
@@ -638,19 +455,48 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		// Game data
-		gameState->playerPos = Vec2 { 20.0f, 0.0f };
+		gameState->playerPos = Vec2 { 8.33f, 0.0f };
 		gameState->playerVel = Vec2::zero;
-		gameState->cameraPos = gameState->playerVel;
-		gameState->cameraVelY = 0.0f;
-		gameState->currentFloor = nullptr;
+		gameState->cameraPos = gameState->playerPos;
+		gameState->cameraRot = Quat::one;
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 
-		gameState->numFloorColliders = 0;
-		FloorCollider* floorCollider;
-
-		floorCollider = &gameState->floorColliders[gameState->numFloorColliders++];
+		FloorCollider* floorCollider = &gameState->floor;
 		floorCollider->numVertices = 0;
+		floorCollider->vertices[floorCollider->numVertices++] = { -46.04f, 14.92f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -43.18f, 14.92f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -40.29f, 14.92f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -37.08f, 14.90f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -33.53f, 14.88f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -32.38f, 15.01f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -31.34f, 15.20f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -30.55f, 15.56f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -29.59f, 15.97f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -28.68f, 16.61f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -27.71f, 17.43f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -27.04f, 18.18f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -26.54f, 19.06f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -26.11f, 19.93f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.68f, 20.96f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.45f, 22.02f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.34f, 23.25f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.31f, 25.27f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.34f, 27.11f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.36f, 29.63f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.44f, 32.07f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.36f, 34.17f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.33f, 36.75f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -25.05f, 38.93f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -24.45f, 40.76f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -23.91f, 41.70f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -23.24f, 42.45f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -22.24f, 43.58f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -21.09f, 44.26f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -20.20f, 44.67f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -18.79f, 45.12f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -17.64f, 45.30f };
+		floorCollider->vertices[floorCollider->numVertices++] = { -16.83f, 45.42f };
 		floorCollider->vertices[floorCollider->numVertices++] = { -16.36f, 45.39f };
 		floorCollider->vertices[floorCollider->numVertices++] = { -14.33f, 45.36f };
 		floorCollider->vertices[floorCollider->numVertices++] = { -11.56f, 45.45f };
@@ -732,6 +578,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		floorCollider->vertices[floorCollider->numVertices++] = { 54.31f, -16.44f };
 		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -17.57f };
 		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -18.35f };
+		DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
 
 		gameState->grainTime = 0.0f;
 
@@ -854,7 +701,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->background.anchor = { 0.5f, 0.5f };
 		gameState->background.scale = 1.0f;
 		bool32 loadBackground = LoadPNGOpenGL(thread,
-			"data/sprites/bg.png",
+			"data/sprites/playground.png",
 			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 			gameState->background.texture,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -1143,8 +990,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		Vec2 playerPosWorld = FloorCoordsToWorldPos(gameState->floorColliders[0],
-			gameState->playerPos);
+		Vec2 playerPosWorld = FloorCoordsToWorldPos(gameState->floor, gameState->playerPos);
 		sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
@@ -1181,100 +1027,61 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
 		Vec2 floorPos, floorTangent, floorNormal;
-		GetFloorInfo(gameState->floorColliders[0], gameState->playerPos.x,
+		GetFloorInfo(gameState->floor, gameState->playerPos.x,
 			&floorPos, &floorTangent, &floorNormal);
-		Mat4 view = Translate(CAMERA_OFFSET_VEC3 + -ToVec3(gameState->cameraPos, 0.0f));
-		Mat4 viewRotated = UnitQuatToMat4(QuatRotBetweenVectors(
-			ToVec3(floorNormal, 0.0f), Vec3::unitY)) * view;
+		Mat4 view = Translate(CAMERA_OFFSET_VEC3)
+			* UnitQuatToMat4(Inverse(gameState->cameraRot))
+			* Translate(ToVec3(-gameState->cameraPos, 0.0f));
+		Mat4 viewNoRot = Translate(CAMERA_OFFSET_VEC3 + ToVec3(-gameState->cameraPos, 0.0f));
 
-		Vec4 floorColliderColor = { 0.6f, 0.0f, 0.6f, 1.0f };
-		for (int i = 0; i < gameState->numFloorColliders; i++) {
-			FloorCollider& floor = gameState->floorColliders[i];
-			DEBUG_ASSERT(floor.numVertices <= MAX_LINE_POINTS);
-
-			lineData->count = floor.numVertices;
-			for (int v = 0; v < floor.numVertices; v++) {
-				lineData->pos[v] = Vec3 {
-					floor.vertices[v].x,
-					floor.vertices[v].y,
-					0.0f
-				};
+		{ // floor
+			Vec4 floorSmoothColor = { 0.0f, 0.0f, 0.0f, 0.5f };
+			const float32 FLOOR_SMOOTH_STEPS = 0.05f;
+			float32 floorLength = GetFloorLength(gameState->floor);
+			lineData->count = 0;
+			for (float32 floorX = 0.0f; floorX < floorLength; floorX += FLOOR_SMOOTH_STEPS) {
+				Vec2 fPos, fTangent, fNormal;
+				GetFloorInfo(gameState->floor, floorX, &fPos, &fTangent, &fNormal);
+				lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
+				lineData->pos[lineData->count++] = ToVec3(fPos + fNormal / 5.0f, 0.0f);
+				lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
 			}
-			DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, floorColliderColor);
+			DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorSmoothColor);
 		}
 
-		Vec4 currentFloorColor = { 1.0f, 0.0f, 1.0f, 1.0f };
-		const FloorCollider* floorCollider = gameState->currentFloor;
-		if (floorCollider != nullptr) {
-			DEBUG_ASSERT(floorCollider->numVertices <= MAX_LINE_POINTS);
-
-			lineData->count = floorCollider->numVertices;
-			for (int v = 0; v < floorCollider->numVertices; v++) {
-				lineData->pos[v] = Vec3 {
-					floorCollider->vertices[v].x,
-					floorCollider->vertices[v].y,
-					0.0f
-				};
-			}
-			DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, currentFloorColor);
-		}
-
-		Vec4 wallColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-		for (int i = 0; i < gameState->numWallColliders; i++) {
-			WallCollider* wall = &gameState->wallColliders[i];
-			
+		{ // player
 			lineData->count = 2;
-			lineData->pos[0] = Vec3 { wall->bottomPos.x, wall->bottomPos.y, 0.0f };
-			lineData->pos[1] = lineData->pos[0];
-			lineData->pos[1].y += wall->height;
-			DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, wallColliderColor);
+			float32 crossSize = 0.1f;
+			Vec3 playerPos = ToVec3(FloorCoordsToWorldPos(gameState->floor, gameState->playerPos), 0.0f);
+			Vec4 playerPosColor = { 1.0f, 0.0f, 1.0f, 1.0f };
+
+			lineData->pos[0] = playerPos;
+			lineData->pos[0].x -= crossSize;
+			lineData->pos[1] = playerPos;
+			lineData->pos[1].x += crossSize;
+			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerPosColor);
+
+			lineData->pos[0] = playerPos;
+			lineData->pos[0].y -= crossSize;
+			lineData->pos[1] = playerPos;
+			lineData->pos[1].y += crossSize;
+			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerPosColor);
+
+			// Player collision box
+			lineData->count = 5;
+			Vec4 playerColliderColor = { 1.0f, 0.4f, 0.0f, 1.0f };
+
+			lineData->pos[0] = playerPos;
+			lineData->pos[0].x -= PLAYER_RADIUS;
+			lineData->pos[1] = playerPos;
+			lineData->pos[1].x += PLAYER_RADIUS;
+			lineData->pos[2] = lineData->pos[1];
+			lineData->pos[2].y += PLAYER_HEIGHT;
+			lineData->pos[3] = lineData->pos[0];
+			lineData->pos[3].y += PLAYER_HEIGHT;
+			lineData->pos[4] = lineData->pos[0];
+			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerColliderColor);
 		}
-
-		Vec4 floorSmoothColor = { 0.0f, 0.0f, 0.0f, 0.5f };
-		const float32 FLOOR_SMOOTH_STEPS = 0.05f;
-		float32 floorLength = GetFloorLength(gameState->floorColliders[0]);
-		lineData->count = 0;
-		for (float32 floorX = 0.0f; floorX < floorLength; floorX += FLOOR_SMOOTH_STEPS) {
-			Vec2 fPos, fTangent, fNormal;
-			GetFloorInfo(gameState->floorColliders[0], floorX, &fPos, &fTangent, &fNormal);
-			lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
-			lineData->pos[lineData->count++] = ToVec3(fPos + fNormal, 0.0f);
-			lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
-		}
-		DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, floorSmoothColor);
-
-		// Player position cross
-		lineData->count = 2;
-		float32 crossSize = 0.1f;
-		Vec3 playerPos = { gameState->playerPos.x, gameState->playerPos.y, 0.0f };
-		Vec4 playerPosColor = { 1.0f, 0.0f, 1.0f, 1.0f };
-
-		lineData->pos[0] = playerPos;
-		lineData->pos[0].x -= crossSize;
-		lineData->pos[1] = playerPos;
-		lineData->pos[1].x += crossSize;
-		DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, playerPosColor);
-
-		lineData->pos[0] = playerPos;
-		lineData->pos[0].y -= crossSize;
-		lineData->pos[1] = playerPos;
-		lineData->pos[1].y += crossSize;
-		DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, playerPosColor);
-
-		// Player collision box
-		lineData->count = 5;
-		Vec4 playerColliderColor = { 1.0f, 0.4f, 0.0f, 1.0f };
-
-		lineData->pos[0] = playerPos;
-		lineData->pos[0].x -= PLAYER_RADIUS;
-		lineData->pos[1] = playerPos;
-		lineData->pos[1].x += PLAYER_RADIUS;
-		lineData->pos[2] = lineData->pos[1];
-		lineData->pos[2].y += PLAYER_HEIGHT;
-		lineData->pos[3] = lineData->pos[0];
-		lineData->pos[3].y += PLAYER_HEIGHT;
-		lineData->pos[4] = lineData->pos[0];
-		DrawLine(gameState->lineGL, worldMatrix, viewRotated, lineData, playerColliderColor);
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {
@@ -1300,6 +1107,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #include "animation.cpp"
 #include "audio.cpp"
+#include "collision.cpp"
 #include "framebuffer.cpp"
 #include "gui.cpp"
 #include "km_input.cpp"

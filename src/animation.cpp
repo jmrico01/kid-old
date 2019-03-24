@@ -96,15 +96,15 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime,
 }
 
 void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
-		Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha, bool32 flipHorizontal) const
+	Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool32 flipHorizontal) const
 {
 	Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
     Vec2 animAnchor = anchor;
     if (activeAnim->rootMotion) {
         animAnchor = activeAnim->frameRootAnchor[activeFrame];
     }
-	PushSprite(spriteDataGL, pos, size,
-		animAnchor, alpha, flipHorizontal,
+    Mat4 transform = CalculateTransform(pos, size, animAnchor, rot);
+	PushSprite(spriteDataGL, transform, alpha, flipHorizontal,
 		activeAnim->frameTextures[activeFrame].textureID);
 }
 

@@ -21,8 +21,7 @@ struct RenderState
 struct SpriteDataGL
 {
 	int numSprites;
-	Vec3 pos[SPRITE_BATCH_SIZE];
-	Vec2 size[SPRITE_BATCH_SIZE];
+	Mat4 transform[SPRITE_BATCH_SIZE];
 	Vec4 uvInfo[SPRITE_BATCH_SIZE];
     float32 alpha[SPRITE_BATCH_SIZE];
 
@@ -31,14 +30,15 @@ struct SpriteDataGL
 	GLuint texture[SPRITE_BATCH_SIZE];
 };
 
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot);
+
 bool InitRenderState(RenderState& renderState,
 	const ThreadContext* thread,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 
 void PushSprite(SpriteDataGL* spriteDataGL,
-	Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha,
-    bool32 flipHorizontal, GLuint texture);
+	Mat4 transform, float32 alpha, bool32 flipHorizontal, GLuint texture);
 
 void DrawSprites(const RenderState& renderState,
 	const SpriteDataGL& spriteDataGL, Mat4 view, Mat4 proj);

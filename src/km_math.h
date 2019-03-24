@@ -874,6 +874,16 @@ inline Quat Normalize(Quat q)
 	return result;
 }
 
+inline Quat Lerp(Quat q1, Quat q2, float32 t)
+{
+	Quat q;
+	q.x = Lerp(q1.x, q2.x, t);
+	q.y = Lerp(q1.y, q2.y, t);
+	q.z = Lerp(q1.z, q2.z, t);
+	q.w = Lerp(q1.w, q2.w, t);
+	return q;
+}
+
 // Returns a new quaternion qInv such that q * qInv = Quat::one
 inline Quat Inverse(Quat q)
 {
@@ -914,22 +924,9 @@ Quat QuatFromAngleUnitAxis(float32 angle, Vec3 axis)
 	return quat;
 }
 
-// TODO not working
+// TODO is this working?
 Quat QuatFromEulerAngles(Vec3 euler)
 {
-	/*float32 cosYaw = cosf(euler.z * 0.5f);
-	float32 sinYaw = sinf(euler.z * 0.5f);
-	float32 cosRoll = cosf(euler.x * 0.5f);
-	float32 sinRoll = sinf(euler.x * 0.5f);
-	float32 cosPitch = cosf(euler.y * 0.5f);
-	float32 sinPitch = sinf(euler.y * 0.5f);
-
-	Quat q;
-	q.x = cosYaw*sinRoll*cosPitch - sinYaw*cosRoll*sinPitch;
-	q.y = cosYaw*cosRoll*sinPitch + sinYaw*sinRoll*cosPitch;
-	q.z = sinYaw*cosRoll*cosPitch - cosYaw*sinRoll*sinPitch;
-	q.w = cosYaw*cosRoll*cosPitch + sinYaw*sinRoll*sinPitch;
-	return q;*/
 	Quat quat = QuatFromAngleUnitAxis(euler.x, Vec3 { 1.0f, 0.0f, 0.0f });
 	quat = QuatFromAngleUnitAxis(euler.y, Vec3 { 0.0f, 1.0f, 0.0f }) * quat;
 	quat = QuatFromAngleUnitAxis(euler.z, Vec3 { 0.0f, 0.0f, 1.0f }) * quat;

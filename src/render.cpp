@@ -2,6 +2,15 @@
 
 #include "opengl_funcs.h"
 
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot)
+{
+	Vec2 anchorOffset = -Vec2 { anchor.x * size.x, anchor.y * size.y };
+	return Translate(ToVec3(pos, 0.0f))
+		* UnitQuatToMat4(rot)
+		* Translate(ToVec3(anchorOffset, 0.0f))
+		* Scale(ToVec3(size, 1.0f));
+}
+
 bool InitSpriteState(SpriteStateGL& spriteStateGL,
 	const ThreadContext* thread,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
@@ -116,18 +125,12 @@ bool InitRenderState(RenderState& renderState,
 }
 
 void PushSprite(SpriteDataGL* spriteDataGL,
-	Vec2 pos, Vec2 size, Vec2 anchor, float32 alpha,
-    bool32 flipHorizontal, GLuint texture)
+	Mat4 transform, float32 alpha, bool32 flipHorizontal, GLuint texture)
 {
 	DEBUG_ASSERT(spriteDataGL->numSprites < SPRITE_BATCH_SIZE);
 
 	int spriteInd = spriteDataGL->numSprites;
-	spriteDataGL->pos[spriteInd] = Vec3 {
-		pos.x - anchor.x * size.x,
-		pos.y - anchor.y * size.y,
-		0.0f
-	};
-	spriteDataGL->size[spriteInd] = size;
+	spriteDataGL->transform[spriteInd] = transform;
 	spriteDataGL->uvInfo[spriteInd] = Vec4 {
 		0.0f, 0.0f,
 		1.0f, 1.0f
@@ -165,10 +168,8 @@ void DrawSprites(const RenderState& renderState,
 	for (int i = 0; i < spriteDataGL.numSprites; i++) {
 		glBindTexture(GL_TEXTURE_2D, spriteDataGL.texture[i]);
 
-		loc = glGetUniformLocation(programID, "posBottomLeft");
-		glUniform3fv(loc, 1, &spriteDataGL.pos[i].e[0]);
-		loc = glGetUniformLocation(programID, "size");
-		glUniform2fv(loc, 1, &spriteDataGL.size[i].e[0]);
+		loc = glGetUniformLocation(programID, "transform");
+		glUniformMatrix4fv(loc, 1, GL_FALSE, &spriteDataGL.transform[i].e[0][0]);
         loc = glGetUniformLocation(programID, "uvInfo");
         glUniform4fv(loc, 1, &spriteDataGL.uvInfo[i].e[0]);
         loc = glGetUniformLocation(programID, "alpha");
