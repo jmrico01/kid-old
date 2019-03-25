@@ -50,13 +50,12 @@ void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
 	DEBUG_ASSERT(floorCollider.numVertices >= 2);
 
 	const int EDGE_NEIGHBORS = 3;
-
+	
 	*outFloorPos = Vec2::zero;
 	*outTangent = Vec2::unitX;
 	*outNormal = Vec2::unitY;
 
 	float32 t = 0.0f;
-	Vec2 dir = floorCollider.vertices[1] - floorCollider.vertices[0];
 	for (int i = 1; i < floorCollider.numVertices; i++) {
 		Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
 		float32 edgeLength = Mag(edge);

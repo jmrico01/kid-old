@@ -123,9 +123,7 @@ void PostProcessGrain(Framebuffer framebufferIn, Framebuffer framebufferOut,
 void PostProcessLUT(Framebuffer framebufferIn, Framebuffer framebufferOut,
     GLuint screenQuadVertexArray, GLuint shader, TextureGL lut)
 {
-    float32 grainMag = 0.2f;
     glBindFramebuffer(GL_FRAMEBUFFER, framebufferOut.framebuffer);
-    //glClear(GL_COLOR_BUFFER_BIT);
 
     glBindVertexArray(screenQuadVertexArray);
     glUseProgram(shader);

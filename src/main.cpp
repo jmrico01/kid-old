@@ -203,10 +203,10 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	float32 animDeltaTime = deltaTime;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
-		deltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
+		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
 	}
 	const HashKey* nextAnimations = nextAnims;
-	Vec2 rootMotion = gameState->kid.Update(deltaTime, numNextAnims, nextAnimations);
+	Vec2 rootMotion = gameState->kid.Update(animDeltaTime, numNextAnims, nextAnimations);
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		rootMotion *= gameState->playerJumpMag;
 	}
@@ -338,9 +338,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
-	const float32 CAMERA_MIN_Y = -2.6f;
-	const float32 CAMERA_MAX_Y = 3.8f;
-
 	gameState->cameraPos = Lerp(gameState->cameraPos, cameraPosTarget,
 		CAMERA_FOLLOW_LERP_MAG);
 	gameState->cameraRot = Normalize(Lerp(gameState->cameraRot, cameraRotTarget,
@@ -945,18 +942,20 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	// Render pillarbox
-	const Vec4 PILLARBOX_COLOR = { 0.965f, 0.957f, 0.91f, 1.0f };
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
+	#if 0
+	const Vec4 PILLARBOX_COLOR = { 0.965f, 0.957f, 0.91f, 1.0f };
 	Vec2Int pillarboxPos1 = Vec2Int::zero;
 	Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
 	Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
 	Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
 	if (pillarboxWidth > 0) {
-		/*DrawRect(gameState->rectGL, screenInfo,
+		DrawRect(gameState->rectGL, screenInfo,
 			pillarboxPos1, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
 		DrawRect(gameState->rectGL, screenInfo,
-			pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);*/
+			pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
 	}
+	#endif
 
 	// DrawRect(gameState->rectGL, screenInfo,
 	// 	input->mousePos, Vec2 { 0.5f, 0.5f }, Vec2Int { 5, 5 },

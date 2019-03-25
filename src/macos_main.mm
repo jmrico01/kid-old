@@ -708,7 +708,7 @@ int main(int argc, const char* argv[])
 	GameMemory gameMemory = {};
 	gameMemory.DEBUGShouldInitGlobalFuncs = true;
 	gameMemory.permanent.size = MEGABYTES(64);
-	gameMemory.transient.size = GIGABYTES(1);
+	gameMemory.transient.size = GIGABYTES(2);
 
 	// TODO Look into using large virtual pages for this
 	// potentially big allocation

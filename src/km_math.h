@@ -138,7 +138,7 @@ union Vec4
 	float32 e[4];
 };
 
-union Rect
+union Rectangle
 {
     struct
     {
