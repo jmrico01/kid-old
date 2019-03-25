@@ -26,7 +26,7 @@ struct SpriteDataGL
     float32 alpha[SPRITE_BATCH_SIZE];
 
 	// TODO temporary, probably make a sprite sheet and put this in uvInfo
-    // otherwise I think it's very inefficient, and prevents batching
+    // otherwise it's very inefficient, prevents batching
 	GLuint texture[SPRITE_BATCH_SIZE];
 };
 

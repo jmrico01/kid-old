@@ -97,7 +97,7 @@ bool32 LoadWAV(const ThreadContext* thread, const char* filePath,
 	}
 
 	if (format->sampleRate != audio->sampleRate) {
-		DEBUG_ASSERT(sizeof(AudioBuffer) <= transient->size);
+		DEBUG_ASSERT(transient->size >= sizeof(AudioBuffer));
 		AudioBuffer* origBuffer = (AudioBuffer*)transient->memory;
 		MemCopy(origBuffer->buffer, data, header->dataSize);
 		int targetLengthSamples = (int)((float32)lengthSamples /

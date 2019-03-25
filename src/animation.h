@@ -48,6 +48,6 @@ struct AnimatedSpriteInstance
 };
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
-	AnimatedSprite& outAnimatedSprite,
+	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);

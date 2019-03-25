@@ -1,12 +1,6 @@
 #include "collision.h"
 
 #if 0
-struct FloorColliderIntersect
-{
-	Vec2 pos;
-	const FloorCollider* collider;
-};
-
 bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
 {
 	DEBUG_ASSERT(floorCollider->numVertices > 1);
@@ -32,86 +26,9 @@ bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, flo
 	}
 	return false;
 }
-
-internal inline float32 Cross2D(Vec2 v1, Vec2 v2)
-{
-	return v1.x * v2.y - v1.y * v2.x;
-}
-
-// Source: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-bool32 Intersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2Dir,
-	Vec2* outIntersect)
-{
-	Vec2 startDiff = line2Start - line1Start;
-	float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
-	float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
-
-	if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
-		// collinear
-		float32 magDir1 = MagSq(line1Dir);
-		float32 dotDirs = Dot(line1Dir, line2Dir);
-		float32 t = Dot(startDiff, line1Dir) / magDir1;
-		float32 tt = t + dotDirs / magDir1;
-		if ((t < 0.0f && tt < 0.0f) || (t > 1.0f && tt > 1.0f)) {
-			return false;
-		}
-
-		// Could return any point in interval [t, tt]
-		*outIntersect = line1Start + t * line1Dir;
-		return true;
-	}
-	else if (crossDirs12 == 0.0f) {
-		// parallel
-		return false;
-	}
-	else {
-		float32 t1 = Cross2D(startDiff, line2Dir) / crossDirs12;
-		float32 t2 = crossDiffDir1 / crossDirs12;
-
-		if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
-			// intersection
-			*outIntersect = line1Start + t1 * line1Dir;
-			return true;
-		}
-		else {
-			// no intersection
-			return false;
-		}
-	}
-}
-
-void GetFloorColliderIntersections(const FloorCollider floorColliders[], int numFloorColliders,
-	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
-	FloorColliderIntersect outIntersects[], int* outNumIntersects)
-{
-	*outNumIntersects = 0;
-	float32 deltaPosMag = Mag(deltaPos);
-	if (deltaPosMag == 0.0f) {
-		return;
-	}
-	Vec2 dir = deltaPos / deltaPosMag;
-	Vec2 playerDir = deltaPos + dir * movementMargin;
-
-	for (int c = 0; c < numFloorColliders; c++) {
-		DEBUG_ASSERT(floorColliders[c].numVertices >= 2);
-		Vec2 vertPrev = floorColliders[c].vertices[0];
-		for (int v = 1; v < floorColliders[c].numVertices; v++) {
-			Vec2 vert = floorColliders[c].vertices[v];
-			Vec2 intersectPoint;
-			if (Intersection(pos, playerDir, vertPrev, vert - vertPrev, &intersectPoint)) {
-				int intersectInd = *outNumIntersects;
-				outIntersects[intersectInd].pos = intersectPoint;
-				outIntersects[intersectInd].collider = &floorColliders[c];
-				(*outNumIntersects)++;
-				break;
-			}
-			vertPrev = vert;
-		}
-	}
-}
 #endif
 
-Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
+internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
 {
 	float32 oneMinusT = 1.0f - t;
 	return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
@@ -186,4 +103,84 @@ Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords)
 	Vec2 floorPos, floorTangent, floorNormal;
 	GetFloorInfo(floorCollider, coords.x, &floorPos, &floorTangent, &floorNormal);
 	return floorPos + floorNormal * coords.y;
+}
+
+internal float32 Cross2D(Vec2 v1, Vec2 v2)
+{
+	return v1.x * v2.y - v1.y * v2.x;
+}
+
+// Source: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+bool32 LineSegmentIntersection(
+	Vec2 line1Start, Vec2 line1Dir,
+	Vec2 line2Start, Vec2 line2Dir,
+	Vec2* outIntersect)
+{
+	Vec2 startDiff = line2Start - line1Start;
+	float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
+	float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
+
+	if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
+		// collinear
+		float32 magDir1 = MagSq(line1Dir);
+		float32 dotDirs = Dot(line1Dir, line2Dir);
+		float32 t = Dot(startDiff, line1Dir) / magDir1;
+		float32 tt = t + dotDirs / magDir1;
+		if ((t < 0.0f && tt < 0.0f) || (t > 1.0f && tt > 1.0f)) {
+			return false;
+		}
+
+		// Could return any point in interval [t, tt]
+		*outIntersect = line1Start + t * line1Dir;
+		return true;
+	}
+	else if (crossDirs12 == 0.0f) {
+		// parallel
+		return false;
+	}
+	else {
+		float32 t1 = Cross2D(startDiff, line2Dir) / crossDirs12;
+		float32 t2 = crossDiffDir1 / crossDirs12;
+
+		if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
+			// intersection
+			*outIntersect = line1Start + t1 * line1Dir;
+			return true;
+		}
+		else {
+			// no intersection
+			return false;
+		}
+	}
+}
+
+void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
+	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
+	LineColliderIntersect outIntersects[], int* outNumIntersects)
+{
+	*outNumIntersects = 0;
+	float32 deltaPosMag = Mag(deltaPos);
+	if (deltaPosMag == 0.0f) {
+		return;
+	}
+	Vec2 dir = deltaPos / deltaPosMag;
+	Vec2 playerDir = deltaPos + dir * movementMargin;
+
+	for (int c = 0; c < numLineColliders; c++) {
+		DEBUG_ASSERT(lineColliders[c].numVertices >= 2);
+		Vec2 vertPrev = lineColliders[c].vertices[0];
+		for (int v = 1; v < lineColliders[c].numVertices; v++) {
+			Vec2 vert = lineColliders[c].vertices[v];
+			Vec2 intersectPoint;
+			if (LineSegmentIntersection(pos, playerDir, vertPrev, vert - vertPrev,
+			&intersectPoint)) {
+				int intersectInd = *outNumIntersects;
+				outIntersects[intersectInd].pos = intersectPoint;
+				outIntersects[intersectInd].collider = &lineColliders[c];
+				(*outNumIntersects)++;
+				break;
+			}
+			vertPrev = vert;
+		}
+	}
 }

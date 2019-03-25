@@ -30,7 +30,7 @@ void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 		DEBUG_PRINT("Load PNG double-error: NO ERROR POINTER!\n");
 	}
 
-	// DEBUG_PANIC("IDK what happens now\n");
+	DEBUG_PANIC("IDK what happens now\n");
 }
 void LoadPNGWarning(png_structp pngPtr, png_const_charp msg)
 {
@@ -68,7 +68,7 @@ void LoadPNGReadData(png_structp pngPtr,
 // TODO pass a custom allocator to libPNG
 bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
     GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-    TextureGL& outTextureGL,
+    TextureGL& outTextureGL, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
@@ -156,24 +156,11 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	int rowBytes = (int)png_get_rowbytes(pngPtr, infoPtr);
 	rowBytes += 3 - ((rowBytes - 1) % 4); // 4-byte align
 
-	// TODO remove this malloc
-	// This section of code borrowed from:
-	// https://github.com/DavidEGrayson/ahrs-visualizer/blob/master/png_texture.cpp
-	png_byte* data = (png_byte*)malloc(rowBytes * height
-		* sizeof(png_byte) + 15); // TODO what are these 15 bytes?
-	if (!data) {
-		DEBUG_PRINT("Load PNG image data memory allocation failed\n");
-		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
-		DEBUGPlatformFreeFileMemory(thread, &pngFile);
-		return false;
-	}
-	png_byte** rowPtrs = (png_byte**)malloc(height * sizeof(png_byte*));
-	if (!rowPtrs) {
-		DEBUG_PRINT("Load PNG row pointers memory allocation failed\n");
-		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
-		DEBUGPlatformFreeFileMemory(thread, &pngFile);
-		return false;
-	}
+	int dataSize = rowBytes * height * sizeof(png_byte) + 15; // TODO what are these 15 bytes?
+	int rowPtrsSize = height * sizeof(png_byte*);
+	DEBUG_ASSERT(transient.size >= dataSize + rowPtrsSize);
+	png_byte* data = (png_byte*)transient.memory;
+	png_byte** rowPtrs = (png_byte**)(data + dataSize);
 	for (int i = 0; i < height; i++) {
 		rowPtrs[height - 1 - i] = data + i * rowBytes;
 	}
@@ -185,7 +172,7 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height,
 		0, format, GL_UNSIGNED_BYTE, (const GLvoid*)data);
-	// TODO expose these to loading API?
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);

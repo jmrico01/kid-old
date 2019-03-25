@@ -12,6 +12,6 @@ struct TextureGL
 
 bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
     GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-    TextureGL& outTextureGL,
+    TextureGL& outTextureGL, MemoryBlock transient,
     DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
     DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);

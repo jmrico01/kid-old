@@ -114,7 +114,7 @@ bool32 KeywordCompare(const char* keyword, int keywordLength, const char* refKey
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
-	AnimatedSprite& outAnimatedSprite,
+	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {
@@ -215,7 +215,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				// TODO probably make a DoesFileExist function?
 				bool32 frameResult = LoadPNGOpenGL(thread, spritePath,
                     GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                    frameTextureGL,
+                    frameTextureGL, transient,
 					DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
 				if (!frameResult) {
 					break;

@@ -19,7 +19,7 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-//#define FLOOR_COLLIDERS_MAX 32
+#define LINE_COLLIDERS_MAX 16
 //#define WALL_COLLIDERS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
@@ -45,9 +45,10 @@ struct GameState
 
 	Vec2 cameraPos;
 	Quat cameraRot;
-    Vec2 playerPos;
+    Vec2 playerCoords;
 	Vec2 playerVel;
 	PlayerState playerState;
+	const LineCollider* currentPlatform;
 	bool32 facingRight;
     float32 playerJumpMag;
     bool playerJumpHolding;
@@ -55,6 +56,8 @@ struct GameState
 
     FloorCollider floor;
 
+    int numLineColliders;
+    LineCollider lineColliders[LINE_COLLIDERS_MAX];
     /*int numFloorColliders;
     FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
 
