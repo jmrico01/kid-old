@@ -131,6 +131,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
+        gameState->currentPlatform = nullptr;
 		gameState->playerJumpHolding = true;
 		gameState->playerJumpHold = 0.0f;
 		gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
@@ -217,33 +218,40 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
-	Vec2 newPlayerCoords = gameState->playerCoords + deltaCoords;
+    if (deltaCoords.y < 0.0f) {
+        Vec2 playerPos = FloorCoordsToWorldPos(gameState->floor,
+            gameState->playerCoords);
+        Vec2 playerPosNew = FloorCoordsToWorldPos(gameState->floor,
+            gameState->playerCoords + deltaCoords);
+        Vec2 deltaPos = playerPosNew - playerPos;
 
-	/*LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
-	int numIntersects;
-	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
-		newPlayerPos, deltaPos, LINE_COLLIDER_MARGIN,
-		intersects, &numIntersects);
-	if (deltaPos.y < 0.0f && numIntersects > 0) {
-		float32 minDist = Mag(intersects[0].pos - gameState->playerCoords);
-		int minDistInd = 0;
-		for (int i = 1; i < numIntersects; i++) {
-			float32 dist = Mag(intersects[i].pos - gameState->playerCoords);
-			if (dist < minDist) {
-				minDist = dist;
-				minDistInd = i;
-			}
-		}
+        LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
+        int numIntersects;
+        GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+            playerPos, deltaPos, LINE_COLLIDER_MARGIN,
+            intersects, &numIntersects);
+        if (numIntersects > 0) {
+            float32 minDist = Mag(intersects[0].pos - playerPos);
+            int minDistInd = 0;
+            for (int i = 1; i < numIntersects; i++) {
+                float32 dist = Mag(intersects[i].pos - playerPos);
+                if (dist < minDist) {
+                    minDist = dist;
+                    minDistInd = i;
+                }
+            }
 
-		gameState->currentPlatform = intersects[minDistInd].collider;
+            gameState->currentPlatform = intersects[minDistInd].collider;
+            float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
+            deltaCoords.x *= tX;
 
-		if (gameState->playerState == PLAYER_STATE_FALLING) {
-			newPlayerCoords = intersects[minDistInd].pos;
-			gameState->playerState = PLAYER_STATE_GROUNDED;
-		}
-	}
+            if (gameState->playerState == PLAYER_STATE_FALLING) {
+                gameState->playerState = PLAYER_STATE_GROUNDED;
+            }
+        }
+    }
 
-	for (int i = 0; i < gameState->numWallColliders; i++) {
+	/*for (int i = 0; i < gameState->numWallColliders; i++) {
 		const WallCollider& wallCollider = gameState->wallColliders[i];
 		Rect playerRect;
 		playerRect.minX = newPlayerCoords.x - PLAYER_RADIUS;
@@ -266,35 +274,31 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 				newPlayerCoords.x += pushDir * 5.0f * deltaTime;
 			}
 		}
-	}
-
-	float32 height = 0.0f;
-	bool isOverFloor = false;
-	if (gameState->currentFloor != nullptr) {
-		isOverFloor = GetFloorColliderHeight(gameState->currentFloor, newPlayerCoords, &height);
-	}
-
-	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
-		if (isOverFloor) {
-			newPlayerCoords.y = height;
-		}
-		else {
-			gameState->playerState = PLAYER_STATE_FALLING;
-		}
 	}*/
 
 	float32 floorHeightCoord = 0.0f;
 	if (gameState->currentPlatform != nullptr) {
+        float32 platformHeight;
+        bool32 playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
+            *gameState->currentPlatform,
+            gameState->floor, gameState->playerCoords.x + deltaCoords.x,
+            &platformHeight);
+        if (playerOverPlatform) {
+            floorHeightCoord = platformHeight;
+        }
+        else {
+            gameState->currentPlatform = nullptr;
+            gameState->playerState = PLAYER_STATE_FALLING;
+        }
 	}
 
-	if (newPlayerCoords.y < floorHeightCoord + LINE_COLLIDER_MARGIN) {
-		if (gameState->playerState == PLAYER_STATE_FALLING) {
-			gameState->playerState = PLAYER_STATE_GROUNDED;
-			newPlayerCoords.y = floorHeightCoord;
-		}
-	}
+    Vec2 playerCoordsNew = gameState->playerCoords + deltaCoords;
+    if (playerCoordsNew.y < floorHeightCoord || gameState->currentPlatform != nullptr) {
+        playerCoordsNew.y = floorHeightCoord;
+        gameState->playerState = PLAYER_STATE_GROUNDED;
+    }
 
-	gameState->playerCoords = newPlayerCoords;
+	gameState->playerCoords = playerCoordsNew;
 
 	gameState->paper.Update(deltaTime, 0, nullptr);
 
@@ -325,17 +329,19 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
 	Vec2 floorPos, floorTangent, floorNormal;
-	GetFloorInfo(gameState->floor, newPlayerCoords.x,
+	GetFloorInfo(gameState->floor, gameState->playerCoords.x,
 		&floorPos, &floorTangent, &floorNormal);
 
 	Vec2 cameraPosTarget = FloorCoordsToWorldPos(gameState->floor, gameState->playerCoords);
 	Quat cameraRotTarget = QuatRotBetweenVectors(Vec3::unitY, ToVec3(floorNormal, 0.0f));
-	Vec2 cameraPosDir = cameraPosTarget - floorPos;
-	float32 dotCamDirNormal = Dot(cameraPosDir, floorNormal);
-	if (dotCamDirNormal >= 0.0f) {
-		cameraPosDir -= dotCamDirNormal * floorNormal;
-		cameraPosTarget = floorPos + cameraPosDir;
-	}
+    if (gameState->currentPlatform == nullptr) {
+        Vec2 cameraPosDir = cameraPosTarget - floorPos;
+        float32 dotCamDirNormal = Dot(cameraPosDir, floorNormal);
+        if (dotCamDirNormal >= 0.0f) {
+            cameraPosDir -= dotCamDirNormal * floorNormal;
+            cameraPosTarget = floorPos + cameraPosDir;
+        }
+    }
 
 	const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
 	gameState->cameraPos = Lerp(gameState->cameraPos, cameraPosTarget,

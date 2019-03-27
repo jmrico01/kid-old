@@ -1,5 +1,7 @@
 #pragma once
 
+#include "km_math.h"
+
 #define FLOOR_COLLIDER_MAX_VERTICES 128
 #define LINE_COLLIDER_MAX_VERTICES 32
 
@@ -35,3 +37,7 @@ Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords);
 void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
 	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
 	LineColliderIntersect outIntersects[], int* outNumIntersects);
+
+bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
+    const FloorCollider& floorCollider, float32 coordX,
+    float32* outHeight);

@@ -1,5 +1,7 @@
 #include "collision.h"
 
+#include "km_debug.h"
+
 #if 0
 bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
 {
@@ -109,48 +111,54 @@ internal float32 Cross2D(Vec2 v1, Vec2 v2)
 	return v1.x * v2.y - v1.y * v2.x;
 }
 
-// Source: https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-bool32 LineSegmentIntersection(
-	Vec2 line1Start, Vec2 line1Dir,
-	Vec2 line2Start, Vec2 line2Dir,
-	Vec2* outIntersect)
+// Generalization of this solution to line segment intersection:
+// https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+bool32 RayIntersectionCoefficients(
+    Vec2 line1Start, Vec2 line1Dir,
+    Vec2 line2Start, Vec2 line2Dir,
+    float32* t1, float32* t2)
 {
-	Vec2 startDiff = line2Start - line1Start;
-	float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
-	float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
+    Vec2 startDiff = line2Start - line1Start;
+    float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
+    float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
 
-	if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
-		// collinear
-		float32 magDir1 = MagSq(line1Dir);
-		float32 dotDirs = Dot(line1Dir, line2Dir);
-		float32 t = Dot(startDiff, line1Dir) / magDir1;
-		float32 tt = t + dotDirs / magDir1;
-		if ((t < 0.0f && tt < 0.0f) || (t > 1.0f && tt > 1.0f)) {
-			return false;
-		}
+    if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
+        // collinear
+        float32 magDir1 = MagSq(line1Dir);
+        float32 dotDirs = Dot(line1Dir, line2Dir);
+        *t1 = Dot(startDiff, line1Dir) / magDir1;
+        *t2 = *t1 + dotDirs / magDir1;
+        return true;
+    }
+    else if (crossDirs12 == 0.0f) {
+        // parallel
+        return false;
+    }
+    else {
+        *t1 = Cross2D(startDiff, line2Dir) / crossDirs12;
+        *t2 = crossDiffDir1 / crossDirs12;
+        return true;
+    }
+}
 
-		// Could return any point in interval [t, tt]
-		*outIntersect = line1Start + t * line1Dir;
-		return true;
-	}
-	else if (crossDirs12 == 0.0f) {
-		// parallel
-		return false;
-	}
-	else {
-		float32 t1 = Cross2D(startDiff, line2Dir) / crossDirs12;
-		float32 t2 = crossDiffDir1 / crossDirs12;
-
-		if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
-			// intersection
-			*outIntersect = line1Start + t1 * line1Dir;
-			return true;
-		}
-		else {
-			// no intersection
-			return false;
-		}
-	}
+bool32 LineSegmentIntersection(
+    Vec2 line1Start, Vec2 line1Dir,
+    Vec2 line2Start, Vec2 line2Dir,
+    Vec2* outIntersect)
+{
+    float32 t1, t2;
+    bool32 rayIntersect = RayIntersectionCoefficients(line1Start, line1Dir, line2Start, line2Dir,
+        &t1, &t2);
+    if (!rayIntersect) {
+        return false;
+    }
+    else if (0.0f <= t1 && t1 <= 1.0f && 0.0f <= t2 && t2 <= 1.0f) {
+        *outIntersect = line1Start + line1Dir * t1;
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
@@ -182,4 +190,29 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 			vertPrev = vert;
 		}
 	}
+}
+
+bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
+    const FloorCollider& floorCollider, float32 coordX,
+    float32* outHeight)
+{
+    Vec2 floorPos, floorTangent, floorNormal;
+    GetFloorInfo(floorCollider, coordX, &floorPos, &floorTangent, &floorNormal);
+
+    DEBUG_ASSERT(lineCollider.numVertices >= 2);
+    Vec2 vertPrev = lineCollider.vertices[0];
+    for (int v = 1; v < lineCollider.numVertices; v++) {
+        Vec2 vert = lineCollider.vertices[v];
+        float32 t1, t2;
+        bool32 rayIntersect = RayIntersectionCoefficients(
+            floorPos, floorNormal, vertPrev, vert - vertPrev,
+            &t1, &t2);
+        if (rayIntersect && t1 >= 0.0f && 0.0f <= t2 && t2 <= 1.0f) {
+            *outHeight = t1;
+            return true;
+        }
+        vertPrev = vert;
+    }
+
+    return false;
 }
