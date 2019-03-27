@@ -101,7 +101,6 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
 	}
 
-	gameState->playerVel.x = 0.0f;
 	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
 		gameState->playerVel.x = -speed;
 		gameState->facingRight = false;
@@ -154,6 +153,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
+	gameState->playerVel.x = 0.0f;
 #if GAME_INTERNAL
 	if (!gameState->editor) {
 		PlayerMovementInput(gameState, deltaTime, input);
@@ -295,6 +295,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
     Vec2 playerCoordsNew = gameState->playerCoords + deltaCoords;
     if (playerCoordsNew.y < floorHeightCoord || gameState->currentPlatform != nullptr) {
         playerCoordsNew.y = floorHeightCoord;
+        gameState->prevFloorCoordY = floorHeightCoord;
         gameState->playerState = PLAYER_STATE_GROUNDED;
     }
 
@@ -328,26 +329,29 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 	gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
-	Vec2 floorPos, floorTangent, floorNormal;
-	GetFloorInfo(gameState->floor, gameState->playerCoords.x,
-		&floorPos, &floorTangent, &floorNormal);
+	const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
+	const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
+	float32 cameraFollowLerpMag = 0.08f;
+	Vec2 cameraCoordsTarget = gameState->playerCoords;
+	if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
+		cameraCoordsTarget.y = gameState->prevFloorCoordY;
+	}
+	Vec2 distVector = cameraCoordsTarget - gameState->cameraCoords;
+	float32 dist = Mag(distVector);
+	if (dist > CAMERA_FOLLOW_ACCEL_DIST_MIN) {
+		float32 lerpMagAccelT = (dist - CAMERA_FOLLOW_ACCEL_DIST_MIN)
+			/ (CAMERA_FOLLOW_ACCEL_DIST_MAX - CAMERA_FOLLOW_ACCEL_DIST_MIN);
+		lerpMagAccelT = ClampFloat32(lerpMagAccelT, 0.0f, 1.0f);
+		cameraFollowLerpMag += (1.0f - cameraFollowLerpMag) * lerpMagAccelT;
+	}
+	gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
+		cameraFollowLerpMag);
 
-	Vec2 cameraPosTarget = FloorCoordsToWorldPos(gameState->floor, gameState->playerCoords);
-	Quat cameraRotTarget = QuatRotBetweenVectors(Vec3::unitY, ToVec3(floorNormal, 0.0f));
-    if (gameState->currentPlatform == nullptr) {
-        Vec2 cameraPosDir = cameraPosTarget - floorPos;
-        float32 dotCamDirNormal = Dot(cameraPosDir, floorNormal);
-        if (dotCamDirNormal >= 0.0f) {
-            cameraPosDir -= dotCamDirNormal * floorNormal;
-            cameraPosTarget = floorPos + cameraPosDir;
-        }
-    }
-
-	const float32 CAMERA_FOLLOW_LERP_MAG = 0.08f;
-	gameState->cameraPos = Lerp(gameState->cameraPos, cameraPosTarget,
-		CAMERA_FOLLOW_LERP_MAG);
-	gameState->cameraRot = Normalize(Lerp(gameState->cameraRot, cameraRotTarget,
-		CAMERA_FOLLOW_LERP_MAG));
+	gameState->cameraPos = FloorCoordsToWorldPos(gameState->floor, gameState->cameraCoords);
+	Vec2 camFloorPos, camFloorTangent, camFloorNormal;
+	GetFloorInfo(gameState->floor, gameState->cameraCoords.x,
+		&camFloorPos, &camFloorTangent, &camFloorNormal);
+	gameState->cameraRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(camFloorNormal, 0.0f));
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -617,6 +621,58 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->vertices[lineCollider->numVertices++] = {  2.95f, 51.57f };
 		lineCollider->vertices[lineCollider->numVertices++] = {  4.18f, 51.59f };
 		lineCollider->vertices[lineCollider->numVertices++] = {  5.16f, 51.54f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 27.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 27.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 30.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 30.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 33.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 33.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 36.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 36.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 39.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 39.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 42.44f, 28.73f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 42.44f, 32.64f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 17.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 17.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 20.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 20.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 23.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 23.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 26.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 26.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 29.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 29.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 32.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 32.41f };
+
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 35.41f };
+		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 35.41f };
 
 		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
 		for (int i = 0; i < gameState->numLineColliders; i++) {
@@ -1106,6 +1162,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorSmoothColor);
 		}
 
+#if 0
 		{ // player
 			lineData->count = 2;
 			float32 crossSize = 0.1f;
@@ -1140,6 +1197,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->pos[4] = lineData->pos[0];
 			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerColliderColor);
 		}
+#endif
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {

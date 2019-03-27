@@ -19,7 +19,7 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define LINE_COLLIDERS_MAX 16
+#define LINE_COLLIDERS_MAX 32
 //#define WALL_COLLIDERS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
@@ -45,6 +45,8 @@ struct GameState
 
 	Vec2 cameraPos;
 	Quat cameraRot;
+	Vec2 cameraCoords;
+	float32 prevFloorCoordY;
     Vec2 playerCoords;
 	Vec2 playerVel;
 	PlayerState playerState;
