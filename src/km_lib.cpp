@@ -36,6 +36,20 @@ bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
     return true;
 }
 
+template <typename T, uint32 S>
+void FixedArray<T, S>::Append(T element)
+{
+    DEBUG_ASSERT(size < S);
+    array[size++] = T;
+}
+
+template <typename T, uint32 S>
+inline T& FixedArray<T, S>::operator[](int index) const
+{
+    DEBUG_ASSERT(index > 0 && index < size);
+    return array[index];
+}
+
 template <typename T>
 void DynamicArray<T>::Init()
 {

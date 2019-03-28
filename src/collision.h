@@ -7,12 +7,14 @@
 
 struct FloorCollider
 {
+	FixedArray<Vec2, FLOOR_COLLIDER_MAX_VERTICES> line; // TODO use this
     int numVertices;
     Vec2 vertices[FLOOR_COLLIDER_MAX_VERTICES];
 };
 
 struct LineCollider
 {
+	FixedArray<Vec2, FLOOR_COLLIDER_MAX_VERTICES> line; // TODO use this
 	int numVertices;
 	Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
 };

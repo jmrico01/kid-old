@@ -4,6 +4,17 @@
 
 #define STRING_KEY_MAX_LENGTH 32
 
+template <typename T, uint32 S>
+struct FixedArray
+{
+	uint32 size;
+	T array[S];
+
+	void Append(T element);
+	
+	inline T& operator[](int index) const;
+};
+
 template <typename T>
 struct DynamicArray
 {
