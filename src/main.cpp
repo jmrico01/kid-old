@@ -1130,18 +1130,29 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		{ // floor
-			Vec4 floorSmoothColor = { 0.3f, 0.3f, 0.3f, 1.0f };
-			const float32 FLOOR_SMOOTH_STEPS = 0.05f;
-			float32 floorLength = GetFloorLength(gameState->floor);
-			lineData->count = 0;
-			for (float32 floorX = 0.0f; floorX < floorLength; floorX += FLOOR_SMOOTH_STEPS) {
-				Vec2 fPos, fTangent, fNormal;
-				GetFloorInfo(gameState->floor, floorX, &fPos, &fTangent, &fNormal);
-				lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
-				lineData->pos[lineData->count++] = ToVec3(fPos + fNormal / 5.0f, 0.0f);
-				lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
+			Vec4 floorSmoothColorMax = { 0.4f, 0.4f, 0.5f, 1.0f };
+			Vec4 floorSmoothColorMin = { 0.4f, 0.4f, 0.5f, 0.2f };
+			const float32 FLOOR_SMOOTH_STEPS = 0.2f;
+			const int FLOOR_HEIGHT_NUM_STEPS = 10;
+			const float32 FLOOR_HEIGHT_STEP = 0.5f;
+			const float32 FLOOR_NORMAL_LENGTH = FLOOR_HEIGHT_STEP;
+			const float32 FLOOR_LENGTH = GetFloorLength(gameState->floor);
+			for (int i = 0; i < FLOOR_HEIGHT_NUM_STEPS; i++) {
+				float32 height = i * FLOOR_HEIGHT_STEP;
+				lineData->count = 0;
+				for (float32 floorX = 0.0f; floorX < FLOOR_LENGTH; floorX += FLOOR_SMOOTH_STEPS) {
+					Vec2 fPos, fTangent, fNormal;
+					GetFloorInfo(gameState->floor, floorX, &fPos, &fTangent, &fNormal);
+					Vec2 pos = fPos + fNormal * height;
+					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
+					lineData->pos[lineData->count++] = ToVec3(
+						pos + fNormal * FLOOR_NORMAL_LENGTH, 0.0f);
+					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
+				}
+				DrawLine(gameState->lineGL, worldMatrix, view, lineData,
+					Lerp(floorSmoothColorMax, floorSmoothColorMin,
+						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
-			DrawLine(gameState->lineGL, worldMatrix, view, lineData, floorSmoothColor);
 		}
 
 #if 0

@@ -2,34 +2,6 @@
 
 #include "km_debug.h"
 
-#if 0
-bool GetFloorColliderHeight(const FloorCollider* floorCollider, Vec2 refPos, float32* outHeight)
-{
-	DEBUG_ASSERT(floorCollider->numVertices > 1);
-
-	int numVertices = floorCollider->numVertices;
-	Vec2 vertPrev = floorCollider->vertices[0];
-	for (int i = 1; i < numVertices; i++) {
-		Vec2 vert = floorCollider->vertices[i];
-		if (vertPrev.x <= refPos.x && vert.x >= refPos.x) {
-			float32 t = (refPos.x - vertPrev.x) / (vert.x - vertPrev.x);
-			*outHeight = vertPrev.y + t * (vert.y - vertPrev.y);
-			return true;
-		}
-
-		vertPrev = vert;
-	}
-
-	if (refPos.x < floorCollider->vertices[0].x) {
-		*outHeight = floorCollider->vertices[0].y;
-	}
-	if (refPos.x > floorCollider->vertices[floorCollider->numVertices - 1].x) {
-		*outHeight = floorCollider->vertices[floorCollider->numVertices - 1].y;
-	}
-	return false;
-}
-#endif
-
 internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
 {
 	float32 oneMinusT = 1.0f - t;
