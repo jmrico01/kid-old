@@ -60,11 +60,6 @@ struct GameState
 
     int numLineColliders;
     LineCollider lineColliders[LINE_COLLIDERS_MAX];
-    /*int numFloorColliders;
-    FloorCollider floorColliders[FLOOR_COLLIDERS_MAX];
-
-    int numWallColliders;
-    WallCollider wallColliders[WALL_COLLIDERS_MAX];*/
 
 	float32 grainTime;
 

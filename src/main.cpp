@@ -60,6 +60,13 @@ Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER);
 }
 
+Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
+{
+	return Translate(CAMERA_OFFSET_VEC3)
+		* UnitQuatToMat4(Inverse(cameraRot))
+		* Translate(ToVec3(-cameraPos, 0.0f));
+}
+
 Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
 {
 	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
@@ -121,6 +128,8 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		}
 	}
 
+	HashKey ANIM_FALL;
+	ANIM_FALL.WriteString("Fall");
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
@@ -128,6 +137,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
 		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
+	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
         gameState->currentPlatform = nullptr;
@@ -218,63 +228,35 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
-    if (deltaCoords.y < 0.0f) {
-        Vec2 playerPos = FloorCoordsToWorldPos(gameState->floor,
-            gameState->playerCoords);
-        Vec2 playerPosNew = FloorCoordsToWorldPos(gameState->floor,
-            gameState->playerCoords + deltaCoords);
-        Vec2 deltaPos = playerPosNew - playerPos;
 
-        LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
-        int numIntersects;
-        GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
-            playerPos, deltaPos, LINE_COLLIDER_MARGIN,
-            intersects, &numIntersects);
-        if (numIntersects > 0) {
-            float32 minDist = Mag(intersects[0].pos - playerPos);
-            int minDistInd = 0;
-            for (int i = 1; i < numIntersects; i++) {
-                float32 dist = Mag(intersects[i].pos - playerPos);
-                if (dist < minDist) {
-                    minDist = dist;
-                    minDistInd = i;
-                }
-            }
+    Vec2 playerPos = FloorCoordsToWorldPos(gameState->floor,
+        gameState->playerCoords);
+    Vec2 playerPosNew = FloorCoordsToWorldPos(gameState->floor,
+        gameState->playerCoords + deltaCoords);
+    Vec2 deltaPos = playerPosNew - playerPos;
 
-            gameState->currentPlatform = intersects[minDistInd].collider;
-            float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
-            deltaCoords.x *= tX;
-
-            if (gameState->playerState == PLAYER_STATE_FALLING) {
-                gameState->playerState = PLAYER_STATE_GROUNDED;
+    LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
+    int numIntersects;
+    GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+        playerPos, deltaPos, LINE_COLLIDER_MARGIN,
+        intersects, &numIntersects);
+    if (numIntersects > 0) {
+        float32 minDist = Mag(intersects[0].pos - playerPos);
+        int minDistInd = 0;
+        for (int i = 1; i < numIntersects; i++) {
+            float32 dist = Mag(intersects[i].pos - playerPos);
+            if (dist < minDist) {
+                minDist = dist;
+                minDistInd = i;
             }
         }
+
+        if (gameState->playerState == PLAYER_STATE_FALLING) {
+	        gameState->currentPlatform = intersects[minDistInd].collider;
+	        float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
+	        deltaCoords.x *= tX;
+        }
     }
-
-	/*for (int i = 0; i < gameState->numWallColliders; i++) {
-		const WallCollider& wallCollider = gameState->wallColliders[i];
-		Rect playerRect;
-		playerRect.minX = newPlayerCoords.x - PLAYER_RADIUS;
-		playerRect.maxX = newPlayerCoords.x + PLAYER_RADIUS;
-		playerRect.minY = newPlayerCoords.y;
-		playerRect.maxY = newPlayerCoords.y + PLAYER_HEIGHT;
-		float32 wallX = wallCollider.bottomPos.x;
-		float32 wallMinY = wallCollider.bottomPos.y;
-		float32 wallMaxY = wallMinY + wallCollider.height;
-
-		if (playerRect.minX <= wallX && wallX <= playerRect.maxX) {
-			if (!((playerRect.minY <= wallMinY && playerRect.maxY <= wallMinY)
-			|| (playerRect.minY >= wallMaxY && playerRect.maxY >= wallMaxY))) {
-				float32 pushDir = 1.0f;
-				if (newPlayerCoords.x < wallX) {
-					pushDir = -1.0f;
-				}
-
-				// TODO this magic "5" just has to be greater than walk speed
-				newPlayerCoords.x += pushDir * 5.0f * deltaTime;
-			}
-		}
-	}*/
 
 	float32 floorHeightCoord = 0.0f;
 	if (gameState->currentPlatform != nullptr) {
@@ -309,7 +291,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	}
 #endif
 
-	/*int numBarrelNextAnims = 0;
+	int numBarrelNextAnims = 0;
 	HashKey barrelNextAnims[1];
 	if (WasKeyPressed(input, KM_KEY_Z)) {
 		numBarrelNextAnims = 1;
@@ -319,7 +301,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		numBarrelNextAnims = 1;
 		barrelNextAnims[0].WriteString("Explode");
 	}
-	gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);*/
+	gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
 
 	/*int numCrystalNextAnims = 0;
 	HashKey crystalNextAnims[1];
@@ -369,9 +351,9 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	//DrawObjectStatic(gameState->tractor1, spriteDataGL);
 	//DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
-	/*Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-	gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero,
-		1.0f, false);*/
+	Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+	gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero, Quat::one,
+		1.0f, false);
 
 	/*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
 	gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
@@ -385,9 +367,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 			1.0f, !gameState->facingRight);
 	}
 
-	Mat4 view = Translate(CAMERA_OFFSET_VEC3)
-		* UnitQuatToMat4(Inverse(gameState->cameraRot))
-		* Translate(ToVec3(-gameState->cameraPos, 0.0f));
+	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
 
 #if GAME_INTERNAL
@@ -464,8 +444,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// Game data
 		gameState->playerCoords = Vec2 { 72.0f, 0.0f };
 		gameState->playerVel = Vec2::zero;
-		gameState->cameraPos = gameState->playerCoords;
-		gameState->cameraRot = Quat::one;
+		gameState->cameraCoords = gameState->playerCoords;
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 		gameState->currentPlatform = nullptr;
@@ -818,7 +797,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load kid animation sprite");
 		}
 
-		/*bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
+		bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
 			"data/animations/barrel/barrel.kma",
 			gameState->spriteBarrel, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -827,7 +806,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load barrel animation sprite");
 		}
 
-		bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
+		/*bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
 			"data/animations/crystal/crystal.kma",
 			gameState->spriteCrystal, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -1107,6 +1086,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
+		HashKey& kidActiveAnim = gameState->kid.activeAnimation;
+		sprintf(textStr, "%.*s -- ANIM", kidActiveAnim.length, kidActiveAnim.string);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosRight.y -= textFont.height;
 		textPosRight.y -= textFont.height;
 		sprintf(textStr, "%.2f|%.2f --- CAM", gameState->cameraPos.x, gameState->cameraPos.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
@@ -1130,10 +1115,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		Vec2 floorPos, floorTangent, floorNormal;
 		GetFloorInfo(gameState->floor, gameState->playerCoords.x,
 			&floorPos, &floorTangent, &floorNormal);
-		Mat4 view = Translate(CAMERA_OFFSET_VEC3)
-			* UnitQuatToMat4(Inverse(gameState->cameraRot))
-			* Translate(ToVec3(-gameState->cameraPos, 0.0f));
-		Mat4 viewNoRot = Translate(CAMERA_OFFSET_VEC3 + ToVec3(-gameState->cameraPos, 0.0f));
+		Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 
 		{ // line colliders
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
