@@ -292,10 +292,6 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	int numBarrelNextAnims = 0;
 	HashKey barrelNextAnims[1];
-	if (WasKeyPressed(input, KM_KEY_Z)) {
-		numBarrelNextAnims = 1;
-		barrelNextAnims[0].WriteString("Carry");
-	}
 	if (WasKeyPressed(input, KM_KEY_X)) {
 		numBarrelNextAnims = 1;
 		barrelNextAnims[0].WriteString("Explode");
@@ -349,15 +345,18 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	//DrawObjectStatic(gameState->tractor1, spriteDataGL);
 	//DrawObjectStatic(gameState->tractor2, spriteDataGL);
 
-	Vec2 barrelSize = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-	gameState->barrel.Draw(spriteDataGL, Vec2 { 1.0f, -1.0f }, barrelSize, Vec2::zero, Quat::one,
-		1.0f, false);
+	{ // barrel
+		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->barrelCoords);
+		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, Quat::one,
+			1.0f, false);
+	}
 
 	/*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
 	gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
 		1.0f, false);*/
 
-	{ // kid & me text
+	{ // kid
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 		Vec2 anchorUnused = Vec2::zero;
 		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
@@ -446,6 +445,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 		gameState->currentPlatform = nullptr;
+
+		gameState->barrelCoords = gameState->playerCoords - Vec2::unitX * 7.0f;
 
 		FloorCollider* floorCollider = &gameState->floor;
 		floorCollider->line.size = 0;
@@ -569,91 +570,91 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		LineCollider* lineCollider;
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 10.51f, 46.69f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 11.24f, 46.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 11.25f, 48.03f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 12.68f, 48.07f };
+		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
+		lineCollider->line.Append(Vec2 { 11.24f, 46.73f });
+		lineCollider->line.Append(Vec2 { 11.25f, 48.03f });
+		lineCollider->line.Append(Vec2 { 12.68f, 48.07f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 8.54f, 47.79f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 8.98f, 48.09f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 9.58f, 48.09f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 9.73f, 47.70f };
+		lineCollider->line.Append(Vec2 { 8.54f, 47.79f });
+		lineCollider->line.Append(Vec2 { 8.98f, 48.09f });
+		lineCollider->line.Append(Vec2 { 9.58f, 48.09f });
+		lineCollider->line.Append(Vec2 { 9.73f, 47.70f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 6.33f, 50.50f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 6.79f, 50.51f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 6.93f, 50.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 7.58f, 50.69f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 7.94f, 49.96f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 8.33f, 49.69f };
+		lineCollider->line.Append(Vec2 { 6.33f, 50.50f });
+		lineCollider->line.Append(Vec2 { 6.79f, 50.51f });
+		lineCollider->line.Append(Vec2 { 6.93f, 50.73f });
+		lineCollider->line.Append(Vec2 { 7.58f, 50.69f });
+		lineCollider->line.Append(Vec2 { 7.94f, 49.96f });
+		lineCollider->line.Append(Vec2 { 8.33f, 49.69f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { -1.89f, 52.59f };
-		lineCollider->vertices[lineCollider->numVertices++] = { -1.39f, 52.64f };
-		lineCollider->vertices[lineCollider->numVertices++] = { -0.56f, 52.86f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  0.19f, 52.86f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  0.79f, 52.51f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  1.25f, 52.43f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  2.95f, 51.57f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  4.18f, 51.59f };
-		lineCollider->vertices[lineCollider->numVertices++] = {  5.16f, 51.54f };
+		lineCollider->line.Append(Vec2 { -1.89f, 52.59f });
+		lineCollider->line.Append(Vec2 { -1.39f, 52.64f });
+		lineCollider->line.Append(Vec2 { -0.56f, 52.86f });
+		lineCollider->line.Append(Vec2 {  0.19f, 52.86f });
+		lineCollider->line.Append(Vec2 {  0.79f, 52.51f });
+		lineCollider->line.Append(Vec2 {  1.25f, 52.43f });
+		lineCollider->line.Append(Vec2 {  2.95f, 51.57f });
+		lineCollider->line.Append(Vec2 {  4.18f, 51.59f });
+		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 27.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 27.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 27.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 27.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 30.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 30.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 30.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 30.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 33.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 33.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 33.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 33.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 36.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 36.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 36.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 36.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 39.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 39.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 39.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 39.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 42.44f, 28.73f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 42.44f, 32.64f };
+		lineCollider->line.Append(Vec2 { 42.44f, 28.73f });
+		lineCollider->line.Append(Vec2 { 42.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 17.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 17.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 17.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 17.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 20.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 20.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 20.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 20.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 23.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 23.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 23.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 23.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 26.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 26.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 26.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 26.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 29.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 29.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 29.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 29.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 32.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 32.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 32.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 32.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->vertices[lineCollider->numVertices++] = { 38.40f, 35.41f };
-		lineCollider->vertices[lineCollider->numVertices++] = { 41.55f, 35.41f };
+		lineCollider->line.Append(Vec2 { 38.40f, 35.41f });
+		lineCollider->line.Append(Vec2 { 41.55f, 35.41f });
 
 		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
 		for (int i = 0; i < gameState->numLineColliders; i++) {
-			DEBUG_ASSERT(gameState->lineColliders[i].numVertices <= LINE_COLLIDER_MAX_VERTICES);
+			DEBUG_ASSERT(gameState->lineColliders[i].line.size <= LINE_COLLIDER_MAX_VERTICES);
 		}
 
 		gameState->grainTime = 0.0f;
@@ -1116,9 +1117,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			for (int i = 0; i < gameState->numLineColliders; i++) {
 				const LineCollider& lineCollider = gameState->lineColliders[i];
-				lineData->count = lineCollider.numVertices;
-				for (int v = 0; v < lineCollider.numVertices; v++) {
-					lineData->pos[v] = ToVec3(lineCollider.vertices[v], 0.0f);
+				lineData->count = lineCollider.line.size;
+				for (uint32 v = 0; v < lineCollider.line.size; v++) {
+					lineData->pos[v] = ToVec3(lineCollider.line.array[v], 0.0f);
 				}
 				DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
 			}

@@ -20,7 +20,6 @@
 #define NUM_FRAMEBUFFERS_GRAY         1
 
 #define LINE_COLLIDERS_MAX 32
-//#define WALL_COLLIDERS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
@@ -55,6 +54,8 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
+    
+	Vec2 barrelCoords;
 
     FloorCollider floor;
 

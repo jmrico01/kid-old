@@ -30,9 +30,7 @@ struct FloorCollider
 
 struct LineCollider
 {
-	FixedArray<Vec2, LINE_COLLIDER_MAX_VERTICES> line; // TODO use this
-	int numVertices;
-	Vec2 vertices[LINE_COLLIDER_MAX_VERTICES];
+	FixedArray<Vec2, LINE_COLLIDER_MAX_VERTICES> line;
 };
 
 struct LineColliderIntersect
@@ -40,11 +38,6 @@ struct LineColliderIntersect
 	Vec2 pos;
 	const LineCollider* collider;
 };
-
-float32 GetFloorLength(const FloorCollider& floorCollider);
-void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
-	Vec2* outFloorPos, Vec2* outTangent, Vec2* outNormal);
-Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords);
 
 void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
 	Vec2 pos, Vec2 deltaPos, float32 movementMargin,

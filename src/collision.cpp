@@ -154,10 +154,10 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 	Vec2 playerDir = deltaPos + dir * movementMargin;
 
 	for (int c = 0; c < numLineColliders; c++) {
-		DEBUG_ASSERT(lineColliders[c].numVertices >= 2);
-		Vec2 vertPrev = lineColliders[c].vertices[0];
-		for (int v = 1; v < lineColliders[c].numVertices; v++) {
-			Vec2 vert = lineColliders[c].vertices[v];
+		DEBUG_ASSERT(lineColliders[c].line.size >= 2);
+		Vec2 vertPrev = lineColliders[c].line.array[0];
+		for (uint32 v = 1; v < lineColliders[c].line.size; v++) {
+			Vec2 vert = lineColliders[c].line.array[v];
 			Vec2 intersectPoint;
 			if (LineSegmentIntersection(pos, playerDir, vertPrev, vert - vertPrev,
 			&intersectPoint)) {
@@ -179,10 +179,10 @@ bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
     Vec2 floorPos, floorNormal;
     floorCollider.GetInfoFromCoordX(coordX, &floorPos, &floorNormal);
 
-    DEBUG_ASSERT(lineCollider.numVertices >= 2);
-    Vec2 vertPrev = lineCollider.vertices[0];
-    for (int v = 1; v < lineCollider.numVertices; v++) {
-        Vec2 vert = lineCollider.vertices[v];
+    DEBUG_ASSERT(lineCollider.line.size >= 2);
+    Vec2 vertPrev = lineCollider.line.array[0];
+    for (uint32 v = 1; v < lineCollider.line.size; v++) {
+        Vec2 vert = lineCollider.line.array[v];
         float32 t1, t2;
         bool32 rayIntersect = RayIntersectionCoefficients(
             floorPos, floorNormal, vertPrev, vert - vertPrev,

@@ -2,12 +2,6 @@ anim Idle
 dir idle
 fps -1
 loop
-exit * Carry 0
-
-anim Carry
-dir carry
-fps -1
-loop
 exit * Explode 0
 
 anim Explode
