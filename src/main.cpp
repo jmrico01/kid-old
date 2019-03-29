@@ -280,6 +280,10 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
+	if (input->mouseButtons[0].isDown) {
+		gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
+	}
+
 	gameState->playerCoords = playerCoordsNew;
 
 	gameState->paper.Update(deltaTime, 0, nullptr);
@@ -348,7 +352,11 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	{ // barrel
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->barrelCoords);
 		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, Quat::one,
+		Vec2 barrelFloorPos, barrelFloorNormal;
+		gameState->floor.GetInfoFromCoordX(gameState->barrelCoords.x,
+			&barrelFloorPos, &barrelFloorNormal);
+		Quat barrelRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(barrelFloorNormal, 0.0f));
+		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, barrelRot,
 			1.0f, false);
 	}
 
