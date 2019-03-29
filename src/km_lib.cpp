@@ -40,7 +40,7 @@ template <typename T, uint32 S>
 void FixedArray<T, S>::Append(T element)
 {
     DEBUG_ASSERT(size < S);
-    array[size++] = T;
+    array[size++] = element;
 }
 
 template <typename T, uint32 S>

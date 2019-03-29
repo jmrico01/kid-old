@@ -2,80 +2,88 @@
 
 #include "km_debug.h"
 
+void FloorCollider::GetInfoFromCoordX(float32 coordX, Vec2* outPos, Vec2* outNormal) const
+{
+	float32 indFloat = coordX / FLOOR_PRECOMPUTED_STEP_LENGTH;
+	int ind1 = ClampInt((int)indFloat, 0, sampleVertices.size);
+	int ind2 = ClampInt(ind1 + 1,      0, sampleVertices.size);
+	FloorSampleVertex sampleVertex1 = sampleVertices.array[ind1];
+	FloorSampleVertex sampleVertex2 = sampleVertices.array[ind2];
+	float32 lerpT = indFloat - (float32)ind1;
+	*outPos = Lerp(sampleVertex1.pos, sampleVertex2.pos, lerpT);
+	*outNormal = Lerp(sampleVertex1.normal, sampleVertex2.normal, lerpT);
+}
+
+Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
+{
+	Vec2 floorPos, floorNormal;
+	GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
+	return floorPos + floorNormal * coords.y;
+}
+
+void FloorCollider::PrecomputeSampleVerticesFromLine()
+{
+	float32 lineLength = 0.0f;
+	for (uint32 i = 1; i < line.size; i++) {
+		lineLength += Mag(line.array[i] - line.array[i - 1]);
+	}
+	length = lineLength;
+
+	int precomputedPoints = (int)(lineLength / FLOOR_PRECOMPUTED_STEP_LENGTH);
+	DEBUG_ASSERT(precomputedPoints <= FLOOR_PRECOMPUTED_POINTS_MAX);
+	sampleVertices.size = precomputedPoints;
+	for (int i = 0; i < precomputedPoints; i++) {
+		float32 coordX = i * FLOOR_PRECOMPUTED_STEP_LENGTH;
+		FloorSampleVertex sampleVertex;
+		GetInfoFromCoordXSlow(coordX, &sampleVertex.pos, &sampleVertex.normal);
+		sampleVertices.array[i] = sampleVertex;
+	}
+}
+
 internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
 {
 	float32 oneMinusT = 1.0f - t;
 	return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
 }
 
-float32 GetFloorLength(const FloorCollider& floorCollider)
+void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const
 {
-	float32 length = 0.0f;
-	for (int i = 1; i < floorCollider.numVertices; i++) {
-		length += Mag(floorCollider.vertices[i] - floorCollider.vertices[i - 1]);
-	}
-
-	return length;
-}
-
-void GetFloorInfo(const FloorCollider& floorCollider, float32 tX,
-	Vec2* outFloorPos, Vec2* outTangent, Vec2* outNormal)
-{
-	DEBUG_ASSERT(floorCollider.numVertices >= 2);
-
 	const int EDGE_NEIGHBORS = 3;
 	
 	*outFloorPos = Vec2::zero;
-	*outTangent = Vec2::unitX;
 	*outNormal = Vec2::unitY;
 
 	float32 t = 0.0f;
-	for (int i = 1; i < floorCollider.numVertices; i++) {
-		Vec2 edge = floorCollider.vertices[i] - floorCollider.vertices[i - 1];
+	for (uint32 i = 1; i < line.size; i++) {
+		Vec2 edge = line.array[i] - line.array[i - 1];
 		float32 edgeLength = Mag(edge);
-		if (t + edgeLength >= tX) {
-			float32 tEdge = (tX - t) / edgeLength;
+		if (t + edgeLength >= coordX) {
+			float32 tEdge = (coordX - t) / edgeLength;
 			Vec2 sumTangents = Vec2::zero;
 			Vec2 sumNormals = Vec2::zero;
 			for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
 				float32 edgeWeight = EDGE_NEIGHBORS - AbsFloat32(n - (tEdge - 0.5f));
 				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
-				int ind1 = ClampInt(i + n - 1, 0, floorCollider.numVertices - 1);
-				int ind2 = ClampInt(i + n,     1, floorCollider.numVertices);
-				Vec2 edgeTangent = Normalize(floorCollider.vertices[ind2]
-					- floorCollider.vertices[ind1]);
+				int ind1 = ClampInt(i + n - 1, 0, line.size - 1);
+				int ind2 = ClampInt(i + n,     1, line.size);
+				Vec2 edgeTangent = Normalize(line.array[ind2] - line.array[ind1]);
 				sumTangents += edgeTangent * edgeWeight;
 				sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
 			}
-			int indPrev = ClampInt(i - 1, 1, floorCollider.numVertices);
-			int indNext = ClampInt(i + 1, 1, floorCollider.numVertices);
-			Vec2 tangentPrev = Normalize(floorCollider.vertices[indPrev]
-				- floorCollider.vertices[indPrev - 1]);
-			Vec2 tangentNext = Normalize(floorCollider.vertices[indNext]
-				- floorCollider.vertices[indNext - 1]);
-			Vec2 bezierMid = (floorCollider.vertices[i - 1] + tangentPrev * edgeLength / 2.0f
-				+ floorCollider.vertices[i] - tangentNext * edgeLength / 2.0f) / 2.0f;
-			//*outFloorPos = floorCollider.vertices[i - 1] + edge * tEdge;
-			*outFloorPos = GetQuadraticBezierPoint(
-				floorCollider.vertices[i - 1],
-				bezierMid,
-				floorCollider.vertices[i],
-				tEdge
-			);
-			*outTangent = Normalize(sumTangents);
+			int indPrev = ClampInt(i - 1, 1, line.size);
+			int indNext = ClampInt(i + 1, 1, line.size);
+			Vec2 tangentPrev = Normalize(line.array[indPrev] - line.array[indPrev - 1]);
+			Vec2 tangentNext = Normalize(line.array[indNext] - line.array[indNext - 1]);
+			Vec2 bezierMid = (line.array[i - 1] + tangentPrev * edgeLength / 2.0f
+				+ line.array[i] - tangentNext * edgeLength / 2.0f) / 2.0f;
+			*outFloorPos = GetQuadraticBezierPoint(line.array[i - 1], bezierMid, line.array[i],
+				tEdge);
 			*outNormal = Normalize(sumNormals);
 			return;
 		}
 
 		t += edgeLength;
 	}
-}
-
-Vec2 FloorCoordsToWorldPos(const FloorCollider& floorCollider, Vec2 coords)
-{
-	Vec2 floorPos, floorTangent, floorNormal;
-	GetFloorInfo(floorCollider, coords.x, &floorPos, &floorTangent, &floorNormal);
-	return floorPos + floorNormal * coords.y;
 }
 
 internal float32 Cross2D(Vec2 v1, Vec2 v2)
@@ -168,8 +176,8 @@ bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
     const FloorCollider& floorCollider, float32 coordX,
     float32* outHeight)
 {
-    Vec2 floorPos, floorTangent, floorNormal;
-    GetFloorInfo(floorCollider, coordX, &floorPos, &floorTangent, &floorNormal);
+    Vec2 floorPos, floorNormal;
+    floorCollider.GetInfoFromCoordX(coordX, &floorPos, &floorNormal);
 
     DEBUG_ASSERT(lineCollider.numVertices >= 2);
     Vec2 vertPrev = lineCollider.vertices[0];

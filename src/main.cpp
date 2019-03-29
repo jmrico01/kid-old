@@ -140,7 +140,7 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
-        gameState->currentPlatform = nullptr;
+		gameState->currentPlatform = nullptr;
 		gameState->playerJumpHolding = true;
 		gameState->playerJumpHold = 0.0f;
 		gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
@@ -229,57 +229,56 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
 
-    Vec2 playerPos = FloorCoordsToWorldPos(gameState->floor,
-        gameState->playerCoords);
-    Vec2 playerPosNew = FloorCoordsToWorldPos(gameState->floor,
-        gameState->playerCoords + deltaCoords);
-    Vec2 deltaPos = playerPosNew - playerPos;
+	Vec2 playerPos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
+	Vec2 playerPosNew = gameState->floor.GetWorldPosFromCoords(
+		gameState->playerCoords + deltaCoords);
+	Vec2 deltaPos = playerPosNew - playerPos;
 
-    LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
-    int numIntersects;
-    GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
-        playerPos, deltaPos, LINE_COLLIDER_MARGIN,
-        intersects, &numIntersects);
-    if (numIntersects > 0) {
-        float32 minDist = Mag(intersects[0].pos - playerPos);
-        int minDistInd = 0;
-        for (int i = 1; i < numIntersects; i++) {
-            float32 dist = Mag(intersects[i].pos - playerPos);
-            if (dist < minDist) {
-                minDist = dist;
-                minDistInd = i;
-            }
-        }
+	LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
+	int numIntersects;
+	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
+		intersects, &numIntersects);
+	if (numIntersects > 0) {
+		float32 minDist = Mag(intersects[0].pos - playerPos);
+		int minDistInd = 0;
+		for (int i = 1; i < numIntersects; i++) {
+			float32 dist = Mag(intersects[i].pos - playerPos);
+			if (dist < minDist) {
+				minDist = dist;
+				minDistInd = i;
+			}
+		}
 
-        if (gameState->playerState == PLAYER_STATE_FALLING) {
-	        gameState->currentPlatform = intersects[minDistInd].collider;
-	        float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
-	        deltaCoords.x *= tX;
-        }
-    }
+		if (gameState->playerState == PLAYER_STATE_FALLING) {
+			gameState->currentPlatform = intersects[minDistInd].collider;
+			float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
+			deltaCoords.x *= tX;
+		}
+	}
 
 	float32 floorHeightCoord = 0.0f;
 	if (gameState->currentPlatform != nullptr) {
-        float32 platformHeight;
-        bool32 playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
-            *gameState->currentPlatform,
-            gameState->floor, gameState->playerCoords.x + deltaCoords.x,
-            &platformHeight);
-        if (playerOverPlatform) {
-            floorHeightCoord = platformHeight;
-        }
-        else {
-            gameState->currentPlatform = nullptr;
-            gameState->playerState = PLAYER_STATE_FALLING;
-        }
+		float32 platformHeight;
+		bool32 playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
+			*gameState->currentPlatform,
+			gameState->floor, gameState->playerCoords.x + deltaCoords.x,
+			&platformHeight);
+		if (playerOverPlatform) {
+			floorHeightCoord = platformHeight;
+		}
+		else {
+			gameState->currentPlatform = nullptr;
+			gameState->playerState = PLAYER_STATE_FALLING;
+		}
 	}
 
-    Vec2 playerCoordsNew = gameState->playerCoords + deltaCoords;
-    if (playerCoordsNew.y < floorHeightCoord || gameState->currentPlatform != nullptr) {
-        playerCoordsNew.y = floorHeightCoord;
-        gameState->prevFloorCoordY = floorHeightCoord;
-        gameState->playerState = PLAYER_STATE_GROUNDED;
-    }
+	Vec2 playerCoordsNew = gameState->playerCoords + deltaCoords;
+	if (playerCoordsNew.y < floorHeightCoord || gameState->currentPlatform != nullptr) {
+		playerCoordsNew.y = floorHeightCoord;
+		gameState->prevFloorCoordY = floorHeightCoord;
+		gameState->playerState = PLAYER_STATE_GROUNDED;
+	}
 
 	gameState->playerCoords = playerCoordsNew;
 
@@ -329,10 +328,9 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
 		cameraFollowLerpMag);
 
-	gameState->cameraPos = FloorCoordsToWorldPos(gameState->floor, gameState->cameraCoords);
-	Vec2 camFloorPos, camFloorTangent, camFloorNormal;
-	GetFloorInfo(gameState->floor, gameState->cameraCoords.x,
-		&camFloorPos, &camFloorTangent, &camFloorNormal);
+	gameState->cameraPos = gameState->floor.GetWorldPosFromCoords(gameState->cameraCoords);
+	Vec2 camFloorPos, camFloorNormal;
+	gameState->floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
 	gameState->cameraRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(camFloorNormal, 0.0f));
 }
 
@@ -360,7 +358,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		1.0f, false);*/
 
 	{ // kid & me text
-		Vec2 pos = FloorCoordsToWorldPos(gameState->floor, gameState->playerCoords);
+		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 		Vec2 anchorUnused = Vec2::zero;
 		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		gameState->kid.Draw(spriteDataGL, pos, size, anchorUnused, gameState->cameraRot,
@@ -450,122 +448,122 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->currentPlatform = nullptr;
 
 		FloorCollider* floorCollider = &gameState->floor;
-		floorCollider->numVertices = 0;
-		floorCollider->vertices[floorCollider->numVertices++] = { -46.04f, 14.92f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -43.18f, 14.92f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -40.29f, 14.92f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -37.08f, 14.90f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -33.53f, 14.88f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -32.38f, 15.01f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -31.34f, 15.20f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -30.55f, 15.56f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -29.59f, 15.97f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -28.68f, 16.61f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -27.71f, 17.43f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -27.04f, 18.18f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -26.54f, 19.06f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -26.11f, 19.93f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.68f, 20.96f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.45f, 22.02f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.34f, 23.25f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.31f, 25.27f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.34f, 27.11f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.36f, 29.63f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.44f, 32.07f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.36f, 34.17f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.33f, 36.75f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -25.05f, 38.93f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -24.45f, 40.76f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -23.91f, 41.70f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -23.24f, 42.45f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -22.24f, 43.58f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -21.09f, 44.26f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -20.20f, 44.67f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -18.79f, 45.12f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -17.64f, 45.30f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -16.83f, 45.42f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -16.36f, 45.39f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -14.33f, 45.36f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -11.56f, 45.45f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -8.43f, 45.40f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -4.93f, 45.36f };
-		floorCollider->vertices[floorCollider->numVertices++] = { -0.96f, 45.36f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 2.18f, 45.36f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 5.38f, 45.38f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 8.31f, 45.41f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 10.33f, 45.37f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 13.80f, 45.28f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 17.09f, 45.28f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 18.52f, 44.97f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 19.60f, 44.57f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 20.65f, 44.04f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 21.46f, 43.52f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 22.05f, 42.96f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 22.58f, 42.33f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 23.09f, 41.69f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 23.58f, 41.06f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 23.97f, 40.19f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.26f, 39.40f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.42f, 38.60f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 37.61f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 36.96f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.61f, 35.82f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.66f, 34.09f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.76f, 32.13f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.65f, 29.76f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 27.01f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.57f, 25.14f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.64f, 22.89f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.79f, 21.78f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 24.93f, 21.04f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 25.10f, 20.39f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 25.44f, 19.76f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 25.72f, 19.15f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 26.04f, 18.60f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 26.18f, 18.49f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 26.63f, 17.76f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 27.27f, 17.18f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 27.72f, 16.75f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 28.34f, 16.29f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 28.99f, 15.88f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 29.58f, 15.58f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 30.24f, 15.24f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 31.05f, 15.05f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 32.19f, 14.83f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 33.27f, 14.76f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 34.79f, 14.87f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 36.21f, 14.82f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 38.38f, 14.84f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 41.54f, 14.88f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 43.48f, 14.88f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 45.74f, 14.79f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 47.27f, 14.61f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 48.13f, 14.43f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 48.90f, 14.14f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 49.58f, 13.85f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 50.56f, 13.45f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 51.27f, 12.91f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 51.85f, 12.35f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 52.41f, 11.78f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 52.84f, 11.04f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 53.14f, 10.35f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 53.53f, 9.63f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 53.85f, 8.88f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.10f, 7.65f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.22f, 6.57f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, 5.42f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.28f, 3.18f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.32f, 0.89f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.43f, -1.98f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -4.91f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -6.79f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.34f, -9.02f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.38f, -10.78f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.30f, -14.38f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.31f, -16.44f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -17.57f };
-		floorCollider->vertices[floorCollider->numVertices++] = { 54.26f, -18.35f };
-		DEBUG_ASSERT(floorCollider->numVertices <= FLOOR_COLLIDER_MAX_VERTICES);
+		floorCollider->line.size = 0;
+		floorCollider->line.Append(Vec2 { -46.04f, 14.92f });
+		floorCollider->line.Append(Vec2 { -43.18f, 14.92f });
+		floorCollider->line.Append(Vec2 { -40.29f, 14.92f });
+		floorCollider->line.Append(Vec2 { -37.08f, 14.90f });
+		floorCollider->line.Append(Vec2 { -33.53f, 14.88f });
+		floorCollider->line.Append(Vec2 { -32.38f, 15.01f });
+		floorCollider->line.Append(Vec2 { -31.34f, 15.20f });
+		floorCollider->line.Append(Vec2 { -30.55f, 15.56f });
+		floorCollider->line.Append(Vec2 { -29.59f, 15.97f });
+		floorCollider->line.Append(Vec2 { -28.68f, 16.61f });
+		floorCollider->line.Append(Vec2 { -27.71f, 17.43f });
+		floorCollider->line.Append(Vec2 { -27.04f, 18.18f });
+		floorCollider->line.Append(Vec2 { -26.54f, 19.06f });
+		floorCollider->line.Append(Vec2 { -26.11f, 19.93f });
+		floorCollider->line.Append(Vec2 { -25.68f, 20.96f });
+		floorCollider->line.Append(Vec2 { -25.45f, 22.02f });
+		floorCollider->line.Append(Vec2 { -25.34f, 23.25f });
+		floorCollider->line.Append(Vec2 { -25.31f, 25.27f });
+		floorCollider->line.Append(Vec2 { -25.34f, 27.11f });
+		floorCollider->line.Append(Vec2 { -25.36f, 29.63f });
+		floorCollider->line.Append(Vec2 { -25.44f, 32.07f });
+		floorCollider->line.Append(Vec2 { -25.36f, 34.17f });
+		floorCollider->line.Append(Vec2 { -25.33f, 36.75f });
+		floorCollider->line.Append(Vec2 { -25.05f, 38.93f });
+		floorCollider->line.Append(Vec2 { -24.45f, 40.76f });
+		floorCollider->line.Append(Vec2 { -23.91f, 41.70f });
+		floorCollider->line.Append(Vec2 { -23.24f, 42.45f });
+		floorCollider->line.Append(Vec2 { -22.24f, 43.58f });
+		floorCollider->line.Append(Vec2 { -21.09f, 44.26f });
+		floorCollider->line.Append(Vec2 { -20.20f, 44.67f });
+		floorCollider->line.Append(Vec2 { -18.79f, 45.12f });
+		floorCollider->line.Append(Vec2 { -17.64f, 45.30f });
+		floorCollider->line.Append(Vec2 { -16.83f, 45.42f });
+		floorCollider->line.Append(Vec2 { -16.36f, 45.39f });
+		floorCollider->line.Append(Vec2 { -14.33f, 45.36f });
+		floorCollider->line.Append(Vec2 { -11.56f, 45.45f });
+		floorCollider->line.Append(Vec2 { -8.43f, 45.40f });
+		floorCollider->line.Append(Vec2 { -4.93f, 45.36f });
+		floorCollider->line.Append(Vec2 { -0.96f, 45.36f });
+		floorCollider->line.Append(Vec2 { 2.18f, 45.36f });
+		floorCollider->line.Append(Vec2 { 5.38f, 45.38f });
+		floorCollider->line.Append(Vec2 { 8.31f, 45.41f });
+		floorCollider->line.Append(Vec2 { 10.33f, 45.37f });
+		floorCollider->line.Append(Vec2 { 13.80f, 45.28f });
+		floorCollider->line.Append(Vec2 { 17.09f, 45.28f });
+		floorCollider->line.Append(Vec2 { 18.52f, 44.97f });
+		floorCollider->line.Append(Vec2 { 19.60f, 44.57f });
+		floorCollider->line.Append(Vec2 { 20.65f, 44.04f });
+		floorCollider->line.Append(Vec2 { 21.46f, 43.52f });
+		floorCollider->line.Append(Vec2 { 22.05f, 42.96f });
+		floorCollider->line.Append(Vec2 { 22.58f, 42.33f });
+		floorCollider->line.Append(Vec2 { 23.09f, 41.69f });
+		floorCollider->line.Append(Vec2 { 23.58f, 41.06f });
+		floorCollider->line.Append(Vec2 { 23.97f, 40.19f });
+		floorCollider->line.Append(Vec2 { 24.26f, 39.40f });
+		floorCollider->line.Append(Vec2 { 24.42f, 38.60f });
+		floorCollider->line.Append(Vec2 { 24.57f, 37.61f });
+		floorCollider->line.Append(Vec2 { 24.64f, 36.96f });
+		floorCollider->line.Append(Vec2 { 24.61f, 35.82f });
+		floorCollider->line.Append(Vec2 { 24.66f, 34.09f });
+		floorCollider->line.Append(Vec2 { 24.76f, 32.13f });
+		floorCollider->line.Append(Vec2 { 24.65f, 29.76f });
+		floorCollider->line.Append(Vec2 { 24.64f, 27.01f });
+		floorCollider->line.Append(Vec2 { 24.57f, 25.14f });
+		floorCollider->line.Append(Vec2 { 24.64f, 22.89f });
+		floorCollider->line.Append(Vec2 { 24.79f, 21.78f });
+		floorCollider->line.Append(Vec2 { 24.93f, 21.04f });
+		floorCollider->line.Append(Vec2 { 25.10f, 20.39f });
+		floorCollider->line.Append(Vec2 { 25.44f, 19.76f });
+		floorCollider->line.Append(Vec2 { 25.72f, 19.15f });
+		floorCollider->line.Append(Vec2 { 26.04f, 18.60f });
+		floorCollider->line.Append(Vec2 { 26.18f, 18.49f });
+		floorCollider->line.Append(Vec2 { 26.63f, 17.76f });
+		floorCollider->line.Append(Vec2 { 27.27f, 17.18f });
+		floorCollider->line.Append(Vec2 { 27.72f, 16.75f });
+		floorCollider->line.Append(Vec2 { 28.34f, 16.29f });
+		floorCollider->line.Append(Vec2 { 28.99f, 15.88f });
+		floorCollider->line.Append(Vec2 { 29.58f, 15.58f });
+		floorCollider->line.Append(Vec2 { 30.24f, 15.24f });
+		floorCollider->line.Append(Vec2 { 31.05f, 15.05f });
+		floorCollider->line.Append(Vec2 { 32.19f, 14.83f });
+		floorCollider->line.Append(Vec2 { 33.27f, 14.76f });
+		floorCollider->line.Append(Vec2 { 34.79f, 14.87f });
+		floorCollider->line.Append(Vec2 { 36.21f, 14.82f });
+		floorCollider->line.Append(Vec2 { 38.38f, 14.84f });
+		floorCollider->line.Append(Vec2 { 41.54f, 14.88f });
+		floorCollider->line.Append(Vec2 { 43.48f, 14.88f });
+		floorCollider->line.Append(Vec2 { 45.74f, 14.79f });
+		floorCollider->line.Append(Vec2 { 47.27f, 14.61f });
+		floorCollider->line.Append(Vec2 { 48.13f, 14.43f });
+		floorCollider->line.Append(Vec2 { 48.90f, 14.14f });
+		floorCollider->line.Append(Vec2 { 49.58f, 13.85f });
+		floorCollider->line.Append(Vec2 { 50.56f, 13.45f });
+		floorCollider->line.Append(Vec2 { 51.27f, 12.91f });
+		floorCollider->line.Append(Vec2 { 51.85f, 12.35f });
+		floorCollider->line.Append(Vec2 { 52.41f, 11.78f });
+		floorCollider->line.Append(Vec2 { 52.84f, 11.04f });
+		floorCollider->line.Append(Vec2 { 53.14f, 10.35f });
+		floorCollider->line.Append(Vec2 { 53.53f, 9.63f });
+		floorCollider->line.Append(Vec2 { 53.85f, 8.88f });
+		floorCollider->line.Append(Vec2 { 54.10f, 7.65f });
+		floorCollider->line.Append(Vec2 { 54.22f, 6.57f });
+		floorCollider->line.Append(Vec2 { 54.30f, 5.42f });
+		floorCollider->line.Append(Vec2 { 54.28f, 3.18f });
+		floorCollider->line.Append(Vec2 { 54.32f, 0.89f });
+		floorCollider->line.Append(Vec2 { 54.43f, -1.98f });
+		floorCollider->line.Append(Vec2 { 54.38f, -4.91f });
+		floorCollider->line.Append(Vec2 { 54.38f, -6.79f });
+		floorCollider->line.Append(Vec2 { 54.34f, -9.02f });
+		floorCollider->line.Append(Vec2 { 54.38f, -10.78f });
+		floorCollider->line.Append(Vec2 { 54.30f, -14.38f });
+		floorCollider->line.Append(Vec2 { 54.31f, -16.44f });
+		floorCollider->line.Append(Vec2 { 54.26f, -17.57f });
+		floorCollider->line.Append(Vec2 { 54.26f, -18.35f });
+		floorCollider->PrecomputeSampleVerticesFromLine();
 
 		gameState->numLineColliders = 0;
 		LineCollider* lineCollider;
@@ -1070,7 +1068,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		Vec2 playerPosWorld = FloorCoordsToWorldPos(gameState->floor, gameState->playerCoords);
+		Vec2 playerPosWorld = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 		sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
@@ -1112,9 +1110,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
-		Vec2 floorPos, floorTangent, floorNormal;
-		GetFloorInfo(gameState->floor, gameState->playerCoords.x,
-			&floorPos, &floorTangent, &floorNormal);
 		Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 
 		{ // line colliders
@@ -1136,13 +1131,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			const int FLOOR_HEIGHT_NUM_STEPS = 10;
 			const float32 FLOOR_HEIGHT_STEP = 0.5f;
 			const float32 FLOOR_NORMAL_LENGTH = FLOOR_HEIGHT_STEP;
-			const float32 FLOOR_LENGTH = GetFloorLength(gameState->floor);
+			const float32 FLOOR_LENGTH = gameState->floor.length;
 			for (int i = 0; i < FLOOR_HEIGHT_NUM_STEPS; i++) {
 				float32 height = i * FLOOR_HEIGHT_STEP;
 				lineData->count = 0;
 				for (float32 floorX = 0.0f; floorX < FLOOR_LENGTH; floorX += FLOOR_SMOOTH_STEPS) {
-					Vec2 fPos, fTangent, fNormal;
-					GetFloorInfo(gameState->floor, floorX, &fPos, &fTangent, &fNormal);
+					Vec2 fPos, fNormal;
+					gameState->floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
 					Vec2 pos = fPos + fNormal * height;
 					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
 					lineData->pos[lineData->count++] = ToVec3(
