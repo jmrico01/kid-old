@@ -41,4 +41,4 @@ void PushSprite(SpriteDataGL* spriteDataGL,
 	Mat4 transform, float32 alpha, bool32 flipHorizontal, GLuint texture);
 
 void DrawSprites(const RenderState& renderState,
-	const SpriteDataGL& spriteDataGL, Mat4 view, Mat4 proj);
+	const SpriteDataGL& spriteDataGL, Mat4 transform);

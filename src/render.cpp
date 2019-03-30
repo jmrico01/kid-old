@@ -148,7 +148,7 @@ void PushSprite(SpriteDataGL* spriteDataGL,
 }
 
 void DrawSprites(const RenderState& renderState,
-	const SpriteDataGL& spriteDataGL, Mat4 view, Mat4 proj)
+	const SpriteDataGL& spriteDataGL, Mat4 transform)
 {
 	DEBUG_ASSERT(spriteDataGL.numSprites <= SPRITE_BATCH_SIZE);
 
@@ -156,9 +156,8 @@ void DrawSprites(const RenderState& renderState,
 	glUseProgram(programID);
 	GLint loc;
 
-	Mat4 vp = proj * view;
-	loc = glGetUniformLocation(programID, "vp");
-	glUniformMatrix4fv(loc, 1, GL_FALSE, &vp.e[0][0]);
+	loc = glGetUniformLocation(programID, "batchTransform");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, &transform.e[0][0]);
 
 	glActiveTexture(GL_TEXTURE0);
 	loc = glGetUniformLocation(programID, "textureSampler");

@@ -373,7 +373,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
-	DrawSprites(gameState->renderState, *spriteDataGL, view, worldMatrix);
+	DrawSprites(gameState->renderState, *spriteDataGL, worldMatrix * view);
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
@@ -394,7 +394,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	gameState->frame.scale = 1.0f;
 	DrawObjectStatic(gameState->frame, spriteDataGL);
 
-	DrawSprites(gameState->renderState, *spriteDataGL, Mat4::one, worldMatrix);
+	DrawSprites(gameState->renderState, *spriteDataGL, worldMatrix);
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
