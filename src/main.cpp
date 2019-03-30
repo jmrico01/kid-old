@@ -280,7 +280,13 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
-	if (input->mouseButtons[0].isDown) {
+	const float32 BARREL_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
+	const float32 BARREL_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
+	Vec2 toBarrelCoords = gameState->barrelCoords - gameState->playerCoords;
+	float32 distToBarrel = Mag(toBarrelCoords);
+	if (IsKeyPressed(input, KM_KEY_E)
+	&& BARREL_INTERACT_DIST_MIN <= distToBarrel
+	&& distToBarrel <= BARREL_INTERACT_DIST_MAX) {
 		gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
 	}
 
