@@ -202,6 +202,16 @@ inline Vec2Int ToVec2Int(Vec2 v)
 	return Vec2Int { (int)v.x, (int)v.y };
 }
 
+inline Vec3 ToVec3(Vec2 v, float32 z)
+{
+    return Vec3 { v.x, v.y, z };
+}
+
+inline Vec4 ToVec4(Vec2 v, float32 z, float32 w)
+{
+    return Vec4 { v.x, v.y, z, w };
+}
+
 inline Vec2 operator-(Vec2 v)
 {
 	Vec2 result;
@@ -312,11 +322,6 @@ const Vec2Int Vec2Int::unitY = {
 inline Vec2 ToVec2(Vec2Int v)
 {
 	return Vec2 { (float32)v.x, (float32)v.y };
-}
-
-inline Vec3 ToVec3(Vec2 v, float32 z)
-{
-    return Vec3 { v.x, v.y, z };
 }
 
 inline Vec2Int operator-(Vec2Int v)

@@ -54,7 +54,7 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
-    
+
 	Vec2 barrelCoords;
 
     FloorCollider floor;
@@ -67,7 +67,7 @@ struct GameState
 #if GAME_INTERNAL
 	bool32 debugView;
 	bool32 editor;
-    float32 editorWorldScale;
+    float32 editorScaleExponent;
 #endif
 
     RenderState renderState;

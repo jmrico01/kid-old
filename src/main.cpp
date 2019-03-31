@@ -36,13 +36,25 @@ inline float32 RandFloat32(float32 min, float32 max)
 	return RandFloat32() * (max - min) + min;
 }
 
+#if GAME_INTERNAL
+internal float32 ScaleExponentToWorldScale(float32 exponent)
+{
+	const float32 SCALE_MIN = 0.1f;
+	const float32 SCALE_MAX = 10.0f;
+	const float32 c = (SCALE_MAX * SCALE_MIN - 1.0f) / (SCALE_MAX + SCALE_MIN - 2.0f);
+	const float32 a = SCALE_MIN - c;
+	const float32 b = log2f((SCALE_MAX - c) / a);
+	return a * powf(2.0f, b * exponent) + c;
+}
+#endif
+
 int GetPillarboxWidth(ScreenInfo screenInfo)
 {
 	int targetWidth = (int)((float32)screenInfo.size.y * TARGET_ASPECT_RATIO);
 	return (screenInfo.size.x - targetWidth) / 2;
 }
 
-Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
+Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo)
 {
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
 	const Vec3 SCREEN_CENTER = {
@@ -60,6 +72,13 @@ Mat4 CalculateWorldMatrix(ScreenInfo screenInfo)
 		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER);
 }
 
+Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot)
+{
+	return Translate(ToVec3(cameraPos, 0.0f))
+		* UnitQuatToMat4(cameraRot)
+		* Translate(-CAMERA_OFFSET_VEC3);
+}
+
 Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
 {
 	return Translate(CAMERA_OFFSET_VEC3)
@@ -67,7 +86,8 @@ Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
 		* Translate(ToVec3(-cameraPos, 0.0f));
 }
 
-Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
+Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
+	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
 {
 	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
 
@@ -77,15 +97,20 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo, Vec2 cameraPos)
 		CAMERA_HEIGHT / 2.0f
 	};
 
-	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT
-		- SCREEN_CENTER - CAMERA_OFFSET_VEC2 + cameraPos;
-	return result;
+	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT - SCREEN_CENTER;
+	Vec4 result4 = CalculateInverseViewMatrix(cameraPos, cameraRot)
+		* Scale(1.0f / editorWorldScale)
+		* ToVec4(result, 0.0f, 1.0f);
+	return Vec2 { result4.x, result4.y };
 }
 
-Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo)
+Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo,
+	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
 {
 	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
-	return ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT;
+	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT / editorWorldScale;
+	Vec4 result4 = CalculateInverseViewMatrix(cameraPos, cameraRot) * ToVec4(result, 0.0f, 0.0f);
+	return Vec2 { result4.x, result4.y };
 }
 
 void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
@@ -341,13 +366,8 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 }
 
 void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
-	Mat4 worldMatrix, ScreenInfo screenInfo)
+	Mat4 projection, ScreenInfo screenInfo)
 {
-#if GAME_INTERNAL
-	if (gameState->editor) {
-		worldMatrix = worldMatrix * Scale(gameState->editorWorldScale);
-	}
-#endif
 	spriteDataGL->numSprites = 0;
 
 	DrawObjectStatic(gameState->background, spriteDataGL);
@@ -379,7 +399,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
-	DrawSprites(gameState->renderState, *spriteDataGL, worldMatrix * view);
+	DrawSprites(gameState->renderState, *spriteDataGL, projection * view);
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
@@ -400,7 +420,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	gameState->frame.scale = 1.0f;
 	DrawObjectStatic(gameState->frame, spriteDataGL);
 
-	DrawSprites(gameState->renderState, *spriteDataGL, worldMatrix);
+	DrawSprites(gameState->renderState, *spriteDataGL, projection);
 }
 
 extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
@@ -940,15 +960,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
+#if GAME_INTERNAL
 	if (gameState->editor) {
 		if (input->mouseButtons[0].isDown) {
-			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo)
-				/ gameState->editorWorldScale;
+			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo,
+				gameState->cameraPos, gameState->cameraRot,
+				ScaleExponentToWorldScale(gameState->editorScaleExponent));
 		}
-		float32 editorWorldScaleDelta = input->mouseWheelDelta * 0.001f;
-		gameState->editorWorldScale = ClampFloat32(
-			gameState->editorWorldScale + editorWorldScaleDelta, 0.01f, 10.0f);
+		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
+		gameState->editorScaleExponent = ClampFloat32(
+			gameState->editorScaleExponent + editorScaleExponentDelta, 0.0f, 1.0f);
 	}
+#endif
 
 	UpdateTown(gameState, deltaTime, input);
 
@@ -960,12 +983,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Mat4 worldMatrix = CalculateWorldMatrix(screenInfo);
+	Mat4 projection = CalculateProjectionMatrix(screenInfo);
+#if GAME_INTERNAL
+	if (gameState->editor) {
+		projection = projection * Scale(ScaleExponentToWorldScale(gameState->editorScaleExponent));
+	}
+#endif
 
 	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
 
-	DrawTown(gameState, spriteDataGL, worldMatrix, screenInfo);
+	DrawTown(gameState, spriteDataGL, projection, screenInfo);
 
 	// ------------------------ Post processing passes ------------------------
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1027,7 +1055,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	}
 	if (WasKeyPressed(input, KM_KEY_H)) {
 		gameState->editor = !gameState->editor;
-		gameState->editorWorldScale = 1.0f;
+		gameState->editorScaleExponent = 0.5f;
 	}
 
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
@@ -1112,8 +1140,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		textPosRight.y -= textFont.height;
 		textPosRight.y -= textFont.height;
-		gameState->editorWorldScale = 1.0f;
-		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo, gameState->cameraPos);
+		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo,
+			gameState->cameraPos, gameState->cameraRot,
+			ScaleExponentToWorldScale(gameState->editorScaleExponent));
 		sprintf(textStr, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
@@ -1135,7 +1164,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				for (uint32 v = 0; v < lineCollider.line.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line.array[v], 0.0f);
 				}
-				DrawLine(gameState->lineGL, worldMatrix, view, lineData, lineColliderColor);
+				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
 			}
 		}
 
@@ -1159,7 +1188,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 						pos + fNormal * FLOOR_NORMAL_LENGTH, 0.0f);
 					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
 				}
-				DrawLine(gameState->lineGL, worldMatrix, view, lineData,
+				DrawLine(gameState->lineGL, projection, view, lineData,
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
@@ -1177,13 +1206,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->pos[0].x -= crossSize;
 			lineData->pos[1] = playerPos;
 			lineData->pos[1].x += crossSize;
-			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerPosColor);
+			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerPosColor);
 
 			lineData->pos[0] = playerPos;
 			lineData->pos[0].y -= crossSize;
 			lineData->pos[1] = playerPos;
 			lineData->pos[1].y += crossSize;
-			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerPosColor);
+			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerPosColor);
 
 			// Player collision box
 			lineData->count = 5;
@@ -1198,7 +1227,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->pos[3] = lineData->pos[0];
 			lineData->pos[3].y += PLAYER_HEIGHT;
 			lineData->pos[4] = lineData->pos[0];
-			DrawLine(gameState->lineGL, worldMatrix, viewNoRot, lineData, playerColliderColor);
+			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerColliderColor);
 		}
 #endif
 	}
