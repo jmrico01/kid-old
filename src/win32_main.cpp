@@ -229,7 +229,7 @@ internal inline uint32 SafeTruncateUInt64(uint64 value)
     return result;
 }
 
-#if GAME_INTERNAL
+//#if GAME_INTERNAL
 
 DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrint)
 {
@@ -332,7 +332,7 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
     return bytesWritten == memorySize;
 }
 
-#endif
+//#endif
 
 internal void Win32LoadXInput()
 {

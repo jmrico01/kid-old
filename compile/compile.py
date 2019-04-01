@@ -1,3 +1,4 @@
+from enum import Enum
 import hashlib
 import json
 import os
@@ -6,6 +7,11 @@ import random
 import shutil
 import sys
 import string
+
+class CompileMode(Enum):
+    DEBUG    = "debug"
+    INTERNAL = "internal"
+    RELEASE  = "release"
 
 PROJECT_NAME = "kid"
 
@@ -92,13 +98,29 @@ if platform.system() == "Linux":
 
 NormalizePathSlashes(paths)
 
-def WinCompileDebug():
+def WinCompile(compileMode):
     macros = " ".join([
-        "/DGAME_INTERNAL=1",
-        "/DGAME_SLOW=1",
         "/DGAME_WIN32",
         "/D_CRT_SECURE_NO_WARNINGS"
     ])
+    if compileMode == CompileMode.DEBUG:
+        macros = " ".join([
+            macros,
+            "/DGAME_INTERNAL=1",
+            "/DGAME_SLOW=1"
+        ])
+    elif compileMode == CompileMode.INTERNAL:
+        macros = " ".join([
+            macros,
+            "/DGAME_INTERNAL=1",
+            "/DGAME_SLOW=0"
+        ])
+    elif compileMode == CompileMode.RELEASE:
+        macros = " ".join([
+            macros,
+            "/DGAME_INTERNAL=0",
+            "/DGAME_SLOW=0"
+        ])
     compilerFlags = " ".join([
         "/MTd",     # CRT static link (debug)
         "/nologo",  # disable the "Microsoft C/C++ Optimizing Compiler" message
@@ -110,6 +132,20 @@ def WinCompileDebug():
         "/Oi",      # ...except, optimize compiler intrinsics (do I need this?)
         "/Z7"       # minimal "old school" debug information
     ])
+    if compileMode == CompileMode.DEBUG:
+        compilerFlags = " ".join([
+            compilerFlags,
+            "/MTd",
+            "/Od",
+            "/Oi",
+            "/Z7"
+        ])
+    elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+        compilerFlags = " ".join([
+            compilerFlags,
+            "/MT",
+            "/Ox"
+        ])
     compilerWarningFlags = " ".join([
         "/WX",      # treat warnings as errors
         "/W4",      # level 4 warnings
@@ -142,106 +178,22 @@ def WinCompileDebug():
         "/LIBPATH:" + paths["lib-freetype-win-d"],
         "/LIBPATH:" + paths["lib-libpng-win-d"]
     ])
+    if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+        libPathsGame = " ".join([
+            "/LIBPATH:" + paths["lib-freetype-win-r"],
+            "/LIBPATH:" + paths["lib-libpng-win-r"]
+        ])
     libsGame = " ".join([
         "freetype281MTd.lib",
         "libpng16.lib",
         "zlib.lib"
     ])
-
-    # Clear old PDB files
-    for fileName in os.listdir(paths["build"]):
-        if ".pdb" in fileName:
-            try:
-                os.remove(os.path.join(paths["build"], fileName))
-            except:
-                print("Couldn't remove " + fileName)
-
-    pdbName = PROJECT_NAME + "_game" + str(random.randrange(99999)) + ".pdb"
-    compileDLLCommand = " ".join([
-        "cl",
-        macros, compilerFlags, compilerWarningFlags, includePaths,
-        "/LD", "/Fe" + PROJECT_NAME + "_game.dll",
-        paths["main-cpp"],
-        "/link", linkerFlags, libPathsGame, libsGame,
-        "/EXPORT:GameUpdateAndRender", "/PDB:" + pdbName])
-
-    compileCommand = " ".join([
-        "cl", "/DGAME_PLATFORM_CODE",
-        macros, compilerFlags, compilerWarningFlags, includePaths,
-        "/Fe" + PROJECT_NAME + "_win32.exe",
-        "/Fm" + PROJECT_NAME + "_win32.map",
-        paths["win32-main-cpp"],
-        "/link", linkerFlags, libPathsPlatform, libsPlatform])
-    
-    devenvCommand = "rem"
-    if len(sys.argv) > 2:
-        if sys.argv[2] == "devenv":
-            devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
-
-    loadCompiler = "call \"" + paths["win32-vcvarsall"] + "\" x64"
-    os.system(" & ".join([
-        "pushd " + paths["build"],
-        loadCompiler,
-        compileDLLCommand,
-        compileCommand,
-        devenvCommand,
-        "popd"
-    ]))
-
-def WinCompileRelease():
-    macros = " ".join([
-        "/DGAME_INTERNAL=1",
-        "/DGAME_SLOW=0",
-        "/DGAME_WIN32",
-        "/D_CRT_SECURE_NO_WARNINGS"
-    ])
-    compilerFlags = " ".join([
-        "/MT",     # CRT static link (debug)
-        "/nologo",  # disable the "Microsoft C/C++ Optimizing Compiler" message
-        "/Gm-",     # disable incremental build things
-        "/GR-",     # disable type information
-        "/EHa-",    # disable exception handling
-        "/EHsc",    # handle stdlib errors
-        "/Ox",      # full optimization
-        "/Z7"       # minimal "old school" debug information
-    ])
-    compilerWarningFlags = " ".join([
-        "/WX",      # treat warnings as errors
-        "/W4",      # level 4 warnings
-
-        # disable the following warnings:
-        "/wd4100",  # unused function arguments
-        "/wd4189",  # unused initialized local variable
-        "/wd4201",  # nonstandard extension used: nameless struct/union
-        "/wd4505",  # unreferenced local function has been removed
-    ])
-    includePaths = " ".join([
-        "/I" + paths["include-freetype-win"],
-        "/I" + paths["include-libpng-win"]
-    ])
-
-    linkerFlags = " ".join([
-        "/incremental:no",  # disable incremental linking
-        "/opt:ref"          # get rid of extraneous linkages
-    ])
-    libPathsPlatform = " ".join([
-    ])
-    libsPlatform = " ".join([
-        "user32.lib",
-        "gdi32.lib",
-        "opengl32.lib",
-        "ole32.lib",
-        "winmm.lib"
-    ])
-    libPathsGame = " ".join([
-        "/LIBPATH:" + paths["lib-freetype-win-r"],
-        "/LIBPATH:" + paths["lib-libpng-win-r"]
-    ])
-    libsGame = " ".join([
-        "freetype281MT.lib",
-        "libpng16.lib",
-        "zlib.lib"
-    ])
+    if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+        libsGame = " ".join([
+            "freetype281MT.lib",
+            "libpng16.lib",
+            "zlib.lib"
+        ])
 
     # Clear old PDB files
     for fileName in os.listdir(paths["build"]):
@@ -286,7 +238,7 @@ def WinCompileRelease():
 def WinRun():
     os.system(paths["build"] + os.sep + PROJECT_NAME + "_win32.exe")
 
-def LinuxCompileDebug():
+def LinuxCompile(compileMode):
     macros = " ".join([
         "-DGAME_INTERNAL=1",
         "-DGAME_SLOW=1",
@@ -497,6 +449,13 @@ def MacCompileRelease():
         "popd > /dev/null"
     ]) + "\"")
 
+def MacCompile(compileMode):
+    print("TODO: clean up mac compile modes!")
+    if compileMode == CompileMode.DEBUG:
+        MacCompileDebug()
+    elif compileMode == CompileMode.RELEASE:
+        MacCompileRelease()
+
 def MacRun():
     os.system(paths["build"] + os.sep + PROJECT_NAME + "_macos")
 
@@ -537,7 +496,8 @@ def Debug():
 
     platformName = platform.system()
     if platformName == "Windows":
-        WinCompileDebug()
+        WinCompile(CompileMode.DEBUG)
+        #WinCompileDebug()
     elif platformName == "Linux":
         LinuxCompileDebug()
     elif platformName == "Darwin":
@@ -575,7 +535,8 @@ def Release():
 
     platformName = platform.system()
     if platformName == "Windows":
-        WinCompileRelease()
+        WinCompile(CompileMode.RELEASE)
+        #WinCompileRelease()
     elif platformName == "Linux":
         print("Release: UNIMPLEMENTED")
     elif platformName == "Darwin":

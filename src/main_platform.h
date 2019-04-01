@@ -13,7 +13,7 @@ struct ThreadContext
 };
 
 // ---------------------------- Platform functions ----------------------------
-#if GAME_INTERNAL
+//#if GAME_INTERNAL
 
 struct DEBUGReadFileResult
 {
@@ -41,7 +41,7 @@ typedef DEBUG_PLATFORM_READ_FILE_FUNC(DEBUGPlatformReadFileFunc);
         uint32 memorySize, const void* memory)
 typedef DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFileFunc);
 
-#endif
+//#endif
 
 #define MAX_KEYS_PER_FRAME 256
 
@@ -130,13 +130,13 @@ struct GameAudio
 
 struct PlatformFunctions
 {
-#if GAME_INTERNAL
+//#if GAME_INTERNAL
 	DEBUGPlatformPrintFunc*             DEBUGPlatformPrint;
 	DEBUGPlatformFlushGlFunc*           DEBUGPlatformFlushGl;
 	DEBUGPlatformFreeFileMemoryFunc*    DEBUGPlatformFreeFileMemory;
 	DEBUGPlatformReadFileFunc*          DEBUGPlatformReadFile;
 	DEBUGPlatformWriteFileFunc*         DEBUGPlatformWriteFile;
-#endif
+//#endif
 
     OpenGLFunctions glFunctions;
 };
@@ -162,9 +162,9 @@ struct GameMemory
 	//uint64 transientStorageSize;
 	//void* transientStorage;
 
-#if GAME_INTERNAL
+//#if GAME_INTERNAL
     bool32 DEBUGShouldInitGlobalFuncs;
-#endif
+//#endif
 };
 
 // ------------------------------ Game functions ------------------------------
