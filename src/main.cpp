@@ -158,12 +158,22 @@ void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInpu
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
+	bool fallPressed = IsKeyPressed(input, KM_KEY_S)
+		|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
+		|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
+	if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
+	&& gameState->currentPlatform != nullptr) {
+		gameState->playerState = PLAYER_STATE_FALLING;
+		gameState->currentPlatform = nullptr;
+		gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
+	}
+
 	bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
 		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
 		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
-	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL)
-	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)) {
+	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) // TODO fall anim + grounded state seems sketchy
+	/*&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)*/) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
 		gameState->currentPlatform = nullptr;
 		gameState->playerJumpHolding = true;
