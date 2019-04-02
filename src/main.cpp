@@ -1029,9 +1029,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
+	#if 0
 	// Render pillarbox
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
-	#if 0
 	const Vec4 PILLARBOX_COLOR = { 0.965f, 0.957f, 0.91f, 1.0f };
 	Vec2Int pillarboxPos1 = Vec2Int::zero;
 	Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
@@ -1056,6 +1056,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
+	int pillarboxWidth = GetPillarboxWidth(screenInfo);
+
 	if (WasKeyPressed(input, KM_KEY_G)) {
 		gameState->debugView = !gameState->debugView;
 	}
@@ -1199,43 +1201,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
 		}
-
-#if 0
-		{ // player
-			lineData->count = 2;
-			float32 crossSize = 0.1f;
-			Vec3 playerPos = ToVec3(FloorCoordsToWorldPos(gameState->floor,
-				gameState->playerCoords), 0.0f);
-			Vec4 playerPosColor = { 1.0f, 0.0f, 1.0f, 1.0f };
-
-			lineData->pos[0] = playerPos;
-			lineData->pos[0].x -= crossSize;
-			lineData->pos[1] = playerPos;
-			lineData->pos[1].x += crossSize;
-			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerPosColor);
-
-			lineData->pos[0] = playerPos;
-			lineData->pos[0].y -= crossSize;
-			lineData->pos[1] = playerPos;
-			lineData->pos[1].y += crossSize;
-			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerPosColor);
-
-			// Player collision box
-			lineData->count = 5;
-			Vec4 playerColliderColor = { 1.0f, 0.4f, 0.0f, 1.0f };
-
-			lineData->pos[0] = playerPos;
-			lineData->pos[0].x -= PLAYER_RADIUS;
-			lineData->pos[1] = playerPos;
-			lineData->pos[1].x += PLAYER_RADIUS;
-			lineData->pos[2] = lineData->pos[1];
-			lineData->pos[2].y += PLAYER_HEIGHT;
-			lineData->pos[3] = lineData->pos[0];
-			lineData->pos[3].y += PLAYER_HEIGHT;
-			lineData->pos[4] = lineData->pos[0];
-			DrawLine(gameState->lineGL, projection, viewNoRot, lineData, playerColliderColor);
-		}
-#endif
 	}
 	if (gameState->editor) {
 		Vec2Int editorStrPos = {

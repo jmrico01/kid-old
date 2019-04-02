@@ -158,7 +158,10 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 
 	int dataSize = rowBytes * height * sizeof(png_byte) + 15; // TODO what are these 15 bytes?
 	int rowPtrsSize = height * sizeof(png_byte*);
-	DEBUG_ASSERT(transient.size >= dataSize + rowPtrsSize);
+	if (transient.size < dataSize + rowPtrsSize) {
+		DEBUG_PRINT("Not enough memory to load PNG %s\n", filePath);
+		return false;
+	}
 	png_byte* data = (png_byte*)transient.memory;
 	png_byte** rowPtrs = (png_byte**)(data + dataSize);
 	for (int i = 0; i < height; i++) {

@@ -1,3 +1,4 @@
+import argparse
 from enum import Enum
 import hashlib
 import json
@@ -8,12 +9,12 @@ import shutil
 import sys
 import string
 
+PROJECT_NAME = "kid"
+
 class CompileMode(Enum):
     DEBUG    = "debug"
     INTERNAL = "internal"
     RELEASE  = "release"
-
-PROJECT_NAME = "kid"
 
 def GetScriptPath():
     path = os.path.realpath(__file__)
@@ -313,20 +314,46 @@ def LinuxCompile(compileMode):
 def LinuxRun():
     os.system(paths["build"] + os.sep + PROJECT_NAME + "_linux")
 
-def MacCompileDebug():
+def MacCompile(compileMode):
     macros = " ".join([
-        "-DGAME_INTERNAL=1",
-        "-DGAME_SLOW=1",
         "-DGAME_MACOS"
     ])
+    if compileMode == CompileMode.DEBUG:
+        macros = " ".join([
+            macros,
+            "-DGAME_INTERNAL=1",
+            "-DGAME_SLOW=1"
+        ])
+    elif compileMode == CompileMode.INTERNAL:
+        macros = " ".join([
+            macros,
+            "-DGAME_INTERNAL=1",
+            "-DGAME_SLOW=0"
+        ])
+    elif compileMode == CompileMode.RELEASE:
+        macros = " ".join([
+            macros,
+            "-DGAME_INTERNAL=0",
+            "-DGAME_SLOW=0"
+        ])
+
     compilerFlags = " ".join([
-        "-std=c++11",       # use C++11 standard
-        "-lstdc++",         # link to C++ standard library
-        "-g",
-        #"-ggdb3",           # generate level 3 (max) GDB debug info.
-        "-fno-rtti",        # disable run-time type info
-        "-fno-exceptions"   # disable C++ exceptions (ew)
+        "-std=c++11",     # use C++11 standard
+        "-lstdc++",       # link to C++ standard library
+        "-fno-rtti",      # disable run-time type info
+        "-fno-exceptions" # disable C++ exceptions (ew)
     ])
+    if compileMode == CompileMode.DEBUG:
+        compilerFlags = " ".join([
+            compilerFlags,
+            "-g" # generate debug info
+        ])
+    elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+        compilerFlags = " ".join([
+            compilerFlags,
+            "-O3" # full optimization
+        ])
+
     compilerWarningFlags = " ".join([
         "-Werror",  # treat warnings as errors
         "-Wall",    # enable all warnings
@@ -336,6 +363,7 @@ def MacCompileDebug():
         "-Wno-char-subscripts", # using char as an array subscript
         "-Wno-unused-function"
     ])
+
     includePaths = " ".join([
         "-I" + paths["include-freetype-mac"],
         "-I" + paths["include-libpng-mac"]
@@ -382,80 +410,6 @@ def MacCompileDebug():
         "popd > /dev/null"
     ]) + "\"")
 
-def MacCompileRelease():
-    macros = " ".join([
-        "-DGAME_INTERNAL=1",
-        "-DGAME_SLOW=0",
-        "-DGAME_MACOS"
-    ])
-    compilerFlags = " ".join([
-        "-std=c++11",       # use C++11 standard
-        "-lstdc++",         # link to C++ standard library
-        "-O3",              # full optimiation
-        "-fno-rtti",        # disable run-time type info
-        "-fno-exceptions"   # disable C++ exceptions (ew)
-    ])
-    compilerWarningFlags = " ".join([
-        "-Werror",  # treat warnings as errors
-        "-Wall",    # enable all warnings
-
-        # disable the following warnings:
-        "-Wno-missing-braces",  # braces around initialization of subobject (?)
-        "-Wno-char-subscripts", # using char as an array subscript
-        "-Wno-unused-variable"  # unused variables when macros are removed
-    ])
-    includePaths = " ".join([
-        "-I" + paths["include-freetype-mac"],
-        "-I" + paths["include-libpng-mac"]
-    ])
-
-    frameworks = " ".join([
-        "-framework Cocoa",
-        "-framework OpenGL",
-        "-framework AudioToolbox"
-    ])
-    linkerFlags = " ".join([
-        #"-fvisibility=hidden"
-    ])
-    libPaths = " ".join([
-        "-L" + paths["lib-freetype-mac"],
-        "-L" + paths["lib-libpng-mac"]
-    ])
-    libs = " ".join([
-        "-lfreetype",
-        "-lpng"
-    ])
-
-    compileLibCommand = " ".join([
-        "clang",
-        macros, compilerFlags, compilerWarningFlags, includePaths,
-        "-dynamiclib", paths["main-cpp"],
-        "-o " + PROJECT_NAME + "_game.dylib",
-        linkerFlags, libPaths, libs
-    ])
-
-    compileCommand = " ".join([
-        "clang", "-DGAME_PLATFORM_CODE",
-        macros, compilerFlags, compilerWarningFlags, #includePaths,
-        frameworks,
-        paths["macos-main-mm"],
-        "-o " + PROJECT_NAME + "_macos"
-    ])
-
-    os.system("bash -c \"" + " ; ".join([
-        "pushd " + paths["build"] + " > /dev/null",
-        compileLibCommand,
-        compileCommand,
-        "popd > /dev/null"
-    ]) + "\"")
-
-def MacCompile(compileMode):
-    print("TODO: clean up mac compile modes!")
-    if compileMode == CompileMode.DEBUG:
-        MacCompileDebug()
-    elif compileMode == CompileMode.RELEASE:
-        MacCompileRelease()
-
 def MacRun():
     os.system(paths["build"] + os.sep + PROJECT_NAME + "_macos")
 
@@ -489,60 +443,23 @@ def CopyDir(srcPath, dstPath):
         elif os.path.isdir(filePath):
             shutil.copytree(filePath, dstPath + os.sep + fileName)
 
-def Debug():
-    ComputeSrcHashes()
-    CopyDir(paths["data"], paths["build-data"])
-    CopyDir(paths["src-shaders"], paths["build-shaders"])
-
-    platformName = platform.system()
-    if platformName == "Windows":
-        WinCompile(CompileMode.DEBUG)
-        #WinCompileDebug()
-    elif platformName == "Linux":
-        LinuxCompileDebug()
-    elif platformName == "Darwin":
-        MacCompileDebug()
-    else:
-        print("Unsupported platform: " + platformName)
-        
-
-def IfChanged():
+def DidFilesChange():
     hashPath = paths["src-hashes"]
     oldHashPath = paths["src-hashes-old"]
 
-    changed = False
     if os.path.exists(hashPath):
         if os.path.exists(oldHashPath):
             os.remove(oldHashPath)
         os.rename(hashPath, oldHashPath)
     else:
-        changed = True
+        return True
 
     ComputeSrcHashes()
-    if not changed:
-        if os.path.getsize(hashPath) != os.path.getsize(oldHashPath) \
-        or open(hashPath, "r").read() != open(oldHashPath, "r").read():
-            changed = True
-    
-    if changed:
-        Debug()
-    else:
-        print("No changes. Nothing to compile.")
+    if os.path.getsize(hashPath) != os.path.getsize(oldHashPath) \
+    or open(hashPath, "r").read() != open(oldHashPath, "r").read():
+        return True
 
-def Release():
-    CopyDir(paths["data"], paths["build-data"])
-    CopyDir(paths["src-shaders"], paths["build-shaders"])
-
-    platformName = platform.system()
-    if platformName == "Windows":
-        WinCompile(CompileMode.RELEASE)
-        #WinCompileRelease()
-    elif platformName == "Linux":
-        print("Release: UNIMPLEMENTED")
-    elif platformName == "Darwin":
-        MacCompileRelease()
-    else:
-        print("Release: UNIMPLEMENTED")
+    return False
 
 def Clean():
     for fileName in os.listdir(paths["build"]):
@@ -569,25 +486,43 @@ def Run():
         print("Unsupported platform: " + platformName)
 
 def Main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="compilation mode")
+    parser.add_argument("--ifchanged", action="store_true",
+        help="run the specified compile command only if files have changed")
+    args = parser.parse_args()
+
     if not os.path.exists(paths["build"]):
         os.makedirs(paths["build"])
 
-    if (len(sys.argv) <= 1):
-        print("Compile script expected at least one argument")
-        return
+    if args.ifchanged:
+        if not DidFilesChange():
+            print("No changes, nothing to compile")
+            return
 
-    arg1 = sys.argv[1]
-    if arg1 == "debug":
-        Debug()
-    elif arg1 == "ifchanged":
-        IfChanged()
-    elif arg1 == "release":
-        Release()
-    elif arg1 == "clean":
+    compileModeDict = { cm.value: cm for cm in list(CompileMode) }
+
+    if args.mode == "clean":
         Clean()
-    elif arg1 == "run":
+    elif args.mode == "run":
         Run()
-    else:
-        print("Unrecognized argument: " + arg1)
+    elif args.mode in compileModeDict:
+        ComputeSrcHashes()
+        CopyDir(paths["data"], paths["build-data"])
+        CopyDir(paths["src-shaders"], paths["build-shaders"])
 
-Main()
+        compileMode = compileModeDict[args.mode]
+        platformName = platform.system()
+        if platformName == "Windows":
+            WinCompile(compileMode)
+        elif platformName == "Linux":
+            LinuxCompile(compileMode)
+        elif platformName == "Darwin":
+            MacCompile(compileMode)
+        else:
+            print("Unsupported platform: " + platformName)
+    else:
+        print("Unrecognized argument: " + args.mode)
+
+if __name__ == "__main__":
+    Main()

@@ -101,7 +101,7 @@ internal inline ino_t MacOSFileId(const char* fileName)
 	return attr.st_ino;
 }
 
-#if GAME_INTERNAL
+//#if GAME_INTERNAL
 
 DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrint)
 {
@@ -197,7 +197,7 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 	return result;
 }
 
-#endif
+//#endif
 
 #define LOAD_GL_FUNCTION(name) \
 	glFuncs->name = (name##Func*)MacOSLoadFunction(glLib, #name); \
@@ -220,12 +220,10 @@ internal bool32 MacOSInitOpenGL(
 	GL_FUNCTIONS_BASE
 #undef FUNC
 
-	const GLubyte* vendorString = glFuncs->glGetString(GL_VENDOR);
-	DEBUG_PRINT("GL_VENDOR: %s\n", vendorString);
-	const GLubyte* rendererString = glFuncs->glGetString(GL_RENDERER);
-	DEBUG_PRINT("GL_RENDERER: %s\n", rendererString);
 	const GLubyte* versionString = glFuncs->glGetString(GL_VERSION);
 	DEBUG_PRINT("GL_VERSION: %s\n", versionString);
+	DEBUG_PRINT("GL_VENDOR: %s\n", glFuncs->glGetString(GL_VENDOR));
+	DEBUG_PRINT("GL_RENDERER: %s\n", glFuncs->glGetString(GL_RENDERER));
 
 	int32 majorVersion = versionString[0] - '0';
 	int32 minorVersion = versionString[2] - '0';
@@ -240,9 +238,8 @@ internal bool32 MacOSInitOpenGL(
 	GL_FUNCTIONS_ALL
 #undef FUNC
 
-	const GLubyte* glslString =
-		glFuncs->glGetString(GL_SHADING_LANGUAGE_VERSION);
-	DEBUG_PRINT("GL_SHADING_LANGUAGE_VERSION: %s\n", glslString);
+	DEBUG_PRINT("GL_SHADING_LANGUAGE_VERSION: %s\n", 
+		glFuncs->glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	return true;
 }
