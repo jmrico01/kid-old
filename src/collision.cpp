@@ -151,18 +151,23 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 		return;
 	}
 	Vec2 dir = deltaPos / deltaPosMag;
-	Vec2 playerDir = deltaPos + dir * movementMargin;
+	Vec2 playerDelta = deltaPos + dir * movementMargin;
 
 	for (int c = 0; c < numLineColliders; c++) {
 		DEBUG_ASSERT(lineColliders[c].line.size >= 2);
 		Vec2 vertPrev = lineColliders[c].line.array[0];
 		for (uint32 v = 1; v < lineColliders[c].line.size; v++) {
 			Vec2 vert = lineColliders[c].line.array[v];
+			Vec2 edge = vert - vertPrev;
 			Vec2 intersectPoint;
-			if (LineSegmentIntersection(pos, playerDir, vertPrev, vert - vertPrev,
-			&intersectPoint)) {
+			if (LineSegmentIntersection(pos, playerDelta, vertPrev, edge, &intersectPoint)) {
+				Vec2 edgeDir = Normalize(edge);
+				Vec2 playerDir = Normalize(playerDelta);
+				float32 playerEdgeProj = Dot(playerDir, edgeDir);
+				Vec2 playerEdgePerp = playerDir * (1.0f - playerEdgeProj);
 				int intersectInd = *outNumIntersects;
 				outIntersects[intersectInd].pos = intersectPoint;
+				outIntersects[intersectInd].normal = playerDir * playerEdgeProj - playerEdgePerp;
 				outIntersects[intersectInd].collider = &lineColliders[c];
 				(*outNumIntersects)++;
 				break;

@@ -122,91 +122,10 @@ void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteData
 
 void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	const float32 PLAYER_WALK_SPEED = 3.5f;
-	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
-	const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
-	const float32 PLAYER_JUMP_MAG_MAX = 1.5f;
-	const float32 PLAYER_JUMP_MAG_MIN = 0.5f;
-
-	float32 speed = PLAYER_WALK_SPEED;
-	if (gameState->playerState == PLAYER_STATE_JUMPING) {
-		speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
-	}
-
-	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
-		gameState->playerVel.x = -speed;
-		gameState->facingRight = false;
-	}
-	if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
-		gameState->playerVel.x = speed;
-		gameState->facingRight = true;
-	}
-	if (input->controllers[0].isConnected) {
-		float32 leftStickX = input->controllers[0].leftEnd.x;
-		if (leftStickX < 0.0f) {
-			gameState->playerVel.x = -speed;
-			gameState->facingRight = false;
-		}
-		else if (leftStickX > 0.0f) {
-			gameState->playerVel.x = speed;
-			gameState->facingRight = true;
-		}
-	}
-
-	HashKey ANIM_FALL;
-	ANIM_FALL.WriteString("Fall");
-	HashKey ANIM_LAND;
-	ANIM_LAND.WriteString("Land");
-
-	bool fallPressed = IsKeyPressed(input, KM_KEY_S)
-		|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
-		|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
-	if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
-	&& gameState->currentPlatform != nullptr) {
-		gameState->playerState = PLAYER_STATE_FALLING;
-		gameState->currentPlatform = nullptr;
-		gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
-	}
-
-	bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
-		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
-		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
-	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
-	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) // TODO fall anim + grounded state seems sketchy
-	/*&& !KeyCompare(gameState->kid.activeAnimation, ANIM_LAND)*/) {
-		gameState->playerState = PLAYER_STATE_JUMPING;
-		gameState->currentPlatform = nullptr;
-		gameState->playerJumpHolding = true;
-		gameState->playerJumpHold = 0.0f;
-		gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
-		gameState->audioState.soundKick.playing = true;
-		gameState->audioState.soundKick.sampleIndex = 0;
-	}
-
-	if (gameState->playerJumpHolding) {
-		gameState->playerJumpHold += deltaTime;
-		if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
-			gameState->playerJumpHolding = false;
-			float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
-				/ (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
-			timeT = ClampFloat32(timeT, 0.0f, 1.0f);
-			timeT = sqrtf(timeT);
-			gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
-		}
-	}
 }
 
 void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
-	gameState->playerVel.x = 0.0f;
-#if GAME_INTERNAL
-	if (!gameState->editor) {
-		PlayerMovementInput(gameState, deltaTime, input);
-	}
-#else
-	PlayerMovementInput(gameState, deltaTime, input);
-#endif
-
 	HashKey ANIM_IDLE;
 	ANIM_IDLE.WriteString("Idle");
 	HashKey ANIM_WALK;
@@ -217,6 +136,83 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	ANIM_FALL.WriteString("Fall");
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
+
+	const float32 PLAYER_WALK_SPEED = 3.5f;
+	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
+	const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
+	const float32 PLAYER_JUMP_MAG_MAX = 1.5f;
+	const float32 PLAYER_JUMP_MAG_MIN = 0.5f;
+
+	gameState->playerVel.x = 0.0f;
+	bool skipPlayerInput = false;
+#if GAME_INTERNAL
+	if (gameState->editor) {
+		skipPlayerInput = true;
+	}
+#endif
+
+	if (!skipPlayerInput) {
+		float32 speed = PLAYER_WALK_SPEED;
+		if (gameState->playerState == PLAYER_STATE_JUMPING) {
+			speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
+		}
+
+		if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+			gameState->playerVel.x = -speed;
+			gameState->facingRight = false;
+		}
+		if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+			gameState->playerVel.x = speed;
+			gameState->facingRight = true;
+		}
+		if (input->controllers[0].isConnected) {
+			float32 leftStickX = input->controllers[0].leftEnd.x;
+			if (leftStickX < 0.0f) {
+				gameState->playerVel.x = -speed;
+				gameState->facingRight = false;
+			}
+			else if (leftStickX > 0.0f) {
+				gameState->playerVel.x = speed;
+				gameState->facingRight = true;
+			}
+		}
+
+		bool fallPressed = IsKeyPressed(input, KM_KEY_S)
+			|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
+			|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
+		if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
+		&& gameState->currentPlatform != nullptr) {
+			gameState->playerState = PLAYER_STATE_FALLING;
+			gameState->currentPlatform = nullptr;
+			gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
+		}
+
+		bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
+			|| IsKeyPressed(input, KM_KEY_ARROW_UP)
+			|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
+		if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
+		&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
+			gameState->playerState = PLAYER_STATE_JUMPING;
+			gameState->currentPlatform = nullptr;
+			gameState->playerJumpHolding = true;
+			gameState->playerJumpHold = 0.0f;
+			gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
+			gameState->audioState.soundKick.playing = true;
+			gameState->audioState.soundKick.sampleIndex = 0;
+		}
+
+		if (gameState->playerJumpHolding) {
+			gameState->playerJumpHold += deltaTime;
+			if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
+				gameState->playerJumpHolding = false;
+				float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
+					/ (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
+				timeT = ClampFloat32(timeT, 0.0f, 1.0f);
+				timeT = sqrtf(timeT);
+				gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
+			}
+		}
+	}
 
 	HashKey nextAnims[4];
 	int numNextAnims = 0;

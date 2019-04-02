@@ -36,6 +36,7 @@ struct LineCollider
 struct LineColliderIntersect
 {
 	Vec2 pos;
+	Vec2 normal;
 	const LineCollider* collider;
 };
 
