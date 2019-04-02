@@ -610,7 +610,7 @@ int main(int argc, const char* argv[])
 	ScreenInfo screenInfo;
 	screenInfo.changed = true;
 	screenInfo.size.x = 1280;
-	screenInfo.size.y = 800;
+	screenInfo.size.y = 720;
 	// TODO set these values (they aren't used for now)
 	/*screenInfo.colorBits = 32;
 	screenInfo.alphaBits = 8;
