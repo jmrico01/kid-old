@@ -164,10 +164,10 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 				Vec2 edgeDir = Normalize(edge);
 				Vec2 playerDir = Normalize(playerDelta);
 				float32 playerEdgeProj = Dot(playerDir, edgeDir);
-				Vec2 playerEdgePerp = playerDir * (1.0f - playerEdgeProj);
+				Vec2 playerEdgePerp = playerDir - playerEdgeProj * edgeDir;
 				int intersectInd = *outNumIntersects;
 				outIntersects[intersectInd].pos = intersectPoint;
-				outIntersects[intersectInd].normal = Normalize(playerDir * playerEdgeProj - playerEdgePerp);
+				outIntersects[intersectInd].normal = playerDir - playerEdgePerp * 2.0f;
 				outIntersects[intersectInd].collider = &lineColliders[c];
 				(*outNumIntersects)++;
 				break;

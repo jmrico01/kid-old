@@ -282,21 +282,25 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			}
 		}
 
-		/*const float32 COS_WALK_ANGLE = cosf(PI_F / 2.0f);
+		const float32 COS_WALK_ANGLE = cosf(PI_F / 2.0f);
 		float32 cosPlayerDirFloor = Dot(Normalize(deltaPos), intersects[minDistInd].normal);
-		if (cosPlayerDirFloor >= COS_WALK_ANGLE) {*/
+		DEBUG_PRINT("dot %.3f, cos walk angle %.3f\n", cosPlayerDirFloor, COS_WALK_ANGLE);
+		DEBUG_PRINT("deltaPos %.2f, %.2f ; normal %.2f, %.2f\n",
+			deltaPos.x, deltaPos.y,
+			intersects[minDistInd].normal.x, intersects[minDistInd].normal.y);
+		if (cosPlayerDirFloor <= -COS_WALK_ANGLE) {
+			// Landing downward to floor
+			DEBUG_PRINT("land\n");
 			if (gameState->playerState == PLAYER_STATE_FALLING) {
 				gameState->currentPlatform = intersects[minDistInd].collider;
 				float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
 				deltaCoords.x *= tX;
 			}
-		/*}
-		else if (AbsFloat32(cosPlayerDirFloor) < COS_WALK_ANGLE) {
-			// wall
 		}
-		else {
-			// upward intersection, nothing
-		}*/
+		else if (AbsFloat32(cosPlayerDirFloor) < COS_WALK_ANGLE) {
+			// Floor at steep angle (wall)
+			DEBUG_PRINT("wall\n");
+		}
 	}
 
 	float32 floorHeightCoord = 0.0f;
