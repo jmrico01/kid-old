@@ -438,7 +438,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	gameState->frame.pos = Vec2::zero;
 	gameState->frame.anchor = Vec2::one / 2.0f;
-	gameState->frame.scale = 1.0f;
+	gameState->frame.scale = (float32)REF_PIXEL_SCREEN_HEIGHT / gameState->frame.texture.size.y;
 	DrawObjectStatic(gameState->frame, spriteDataGL);
 
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
