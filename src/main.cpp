@@ -15,6 +15,7 @@
 #include "opengl_base.h"
 #include "post.h"
 #include "render.h"
+#include "temp_data.h"
 
 #define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_OFFSET_Y (-CAMERA_HEIGHT / 6.0f)
@@ -281,11 +282,21 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 			}
 		}
 
-		if (gameState->playerState == PLAYER_STATE_FALLING) {
-			gameState->currentPlatform = intersects[minDistInd].collider;
-			float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
-			deltaCoords.x *= tX;
+		/*const float32 COS_WALK_ANGLE = cosf(PI_F / 2.0f);
+		float32 cosPlayerDirFloor = Dot(Normalize(deltaPos), intersects[minDistInd].normal);
+		if (cosPlayerDirFloor >= COS_WALK_ANGLE) {*/
+			if (gameState->playerState == PLAYER_STATE_FALLING) {
+				gameState->currentPlatform = intersects[minDistInd].collider;
+				float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
+				deltaCoords.x *= tX;
+			}
+		/*}
+		else if (AbsFloat32(cosPlayerDirFloor) < COS_WALK_ANGLE) {
+			// wall
 		}
+		else {
+			// upward intersection, nothing
+		}*/
 	}
 
 	float32 floorHeightCoord = 0.0f;
@@ -489,121 +500,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->barrelCoords = gameState->playerCoords - Vec2::unitX * 7.0f;
 
 		FloorCollider* floorCollider = &gameState->floor;
-		floorCollider->line.size = 0;
-		floorCollider->line.Append(Vec2 { -46.04f, 14.92f });
-		floorCollider->line.Append(Vec2 { -43.18f, 14.92f });
-		floorCollider->line.Append(Vec2 { -40.29f, 14.92f });
-		floorCollider->line.Append(Vec2 { -37.08f, 14.90f });
-		floorCollider->line.Append(Vec2 { -33.53f, 14.88f });
-		floorCollider->line.Append(Vec2 { -32.38f, 15.01f });
-		floorCollider->line.Append(Vec2 { -31.34f, 15.20f });
-		floorCollider->line.Append(Vec2 { -30.55f, 15.56f });
-		floorCollider->line.Append(Vec2 { -29.59f, 15.97f });
-		floorCollider->line.Append(Vec2 { -28.68f, 16.61f });
-		floorCollider->line.Append(Vec2 { -27.71f, 17.43f });
-		floorCollider->line.Append(Vec2 { -27.04f, 18.18f });
-		floorCollider->line.Append(Vec2 { -26.54f, 19.06f });
-		floorCollider->line.Append(Vec2 { -26.11f, 19.93f });
-		floorCollider->line.Append(Vec2 { -25.68f, 20.96f });
-		floorCollider->line.Append(Vec2 { -25.45f, 22.02f });
-		floorCollider->line.Append(Vec2 { -25.34f, 23.25f });
-		floorCollider->line.Append(Vec2 { -25.31f, 25.27f });
-		floorCollider->line.Append(Vec2 { -25.34f, 27.11f });
-		floorCollider->line.Append(Vec2 { -25.36f, 29.63f });
-		floorCollider->line.Append(Vec2 { -25.44f, 32.07f });
-		floorCollider->line.Append(Vec2 { -25.36f, 34.17f });
-		floorCollider->line.Append(Vec2 { -25.33f, 36.75f });
-		floorCollider->line.Append(Vec2 { -25.05f, 38.93f });
-		floorCollider->line.Append(Vec2 { -24.45f, 40.76f });
-		floorCollider->line.Append(Vec2 { -23.91f, 41.70f });
-		floorCollider->line.Append(Vec2 { -23.24f, 42.45f });
-		floorCollider->line.Append(Vec2 { -22.24f, 43.58f });
-		floorCollider->line.Append(Vec2 { -21.09f, 44.26f });
-		floorCollider->line.Append(Vec2 { -20.20f, 44.67f });
-		floorCollider->line.Append(Vec2 { -18.79f, 45.12f });
-		floorCollider->line.Append(Vec2 { -17.64f, 45.30f });
-		floorCollider->line.Append(Vec2 { -16.83f, 45.42f });
-		floorCollider->line.Append(Vec2 { -16.36f, 45.39f });
-		floorCollider->line.Append(Vec2 { -14.33f, 45.36f });
-		floorCollider->line.Append(Vec2 { -11.56f, 45.45f });
-		floorCollider->line.Append(Vec2 { -8.43f, 45.40f });
-		floorCollider->line.Append(Vec2 { -4.93f, 45.36f });
-		floorCollider->line.Append(Vec2 { -0.96f, 45.36f });
-		floorCollider->line.Append(Vec2 { 2.18f, 45.36f });
-		floorCollider->line.Append(Vec2 { 5.38f, 45.38f });
-		floorCollider->line.Append(Vec2 { 8.31f, 45.41f });
-		floorCollider->line.Append(Vec2 { 10.33f, 45.37f });
-		floorCollider->line.Append(Vec2 { 13.80f, 45.28f });
-		floorCollider->line.Append(Vec2 { 17.09f, 45.28f });
-		floorCollider->line.Append(Vec2 { 18.52f, 44.97f });
-		floorCollider->line.Append(Vec2 { 19.60f, 44.57f });
-		floorCollider->line.Append(Vec2 { 20.65f, 44.04f });
-		floorCollider->line.Append(Vec2 { 21.46f, 43.52f });
-		floorCollider->line.Append(Vec2 { 22.05f, 42.96f });
-		floorCollider->line.Append(Vec2 { 22.58f, 42.33f });
-		floorCollider->line.Append(Vec2 { 23.09f, 41.69f });
-		floorCollider->line.Append(Vec2 { 23.58f, 41.06f });
-		floorCollider->line.Append(Vec2 { 23.97f, 40.19f });
-		floorCollider->line.Append(Vec2 { 24.26f, 39.40f });
-		floorCollider->line.Append(Vec2 { 24.42f, 38.60f });
-		floorCollider->line.Append(Vec2 { 24.57f, 37.61f });
-		floorCollider->line.Append(Vec2 { 24.64f, 36.96f });
-		floorCollider->line.Append(Vec2 { 24.61f, 35.82f });
-		floorCollider->line.Append(Vec2 { 24.66f, 34.09f });
-		floorCollider->line.Append(Vec2 { 24.76f, 32.13f });
-		floorCollider->line.Append(Vec2 { 24.65f, 29.76f });
-		floorCollider->line.Append(Vec2 { 24.64f, 27.01f });
-		floorCollider->line.Append(Vec2 { 24.57f, 25.14f });
-		floorCollider->line.Append(Vec2 { 24.64f, 22.89f });
-		floorCollider->line.Append(Vec2 { 24.79f, 21.78f });
-		floorCollider->line.Append(Vec2 { 24.93f, 21.04f });
-		floorCollider->line.Append(Vec2 { 25.10f, 20.39f });
-		floorCollider->line.Append(Vec2 { 25.44f, 19.76f });
-		floorCollider->line.Append(Vec2 { 25.72f, 19.15f });
-		floorCollider->line.Append(Vec2 { 26.04f, 18.60f });
-		floorCollider->line.Append(Vec2 { 26.18f, 18.49f });
-		floorCollider->line.Append(Vec2 { 26.63f, 17.76f });
-		floorCollider->line.Append(Vec2 { 27.27f, 17.18f });
-		floorCollider->line.Append(Vec2 { 27.72f, 16.75f });
-		floorCollider->line.Append(Vec2 { 28.34f, 16.29f });
-		floorCollider->line.Append(Vec2 { 28.99f, 15.88f });
-		floorCollider->line.Append(Vec2 { 29.58f, 15.58f });
-		floorCollider->line.Append(Vec2 { 30.24f, 15.24f });
-		floorCollider->line.Append(Vec2 { 31.05f, 15.05f });
-		floorCollider->line.Append(Vec2 { 32.19f, 14.83f });
-		floorCollider->line.Append(Vec2 { 33.27f, 14.76f });
-		floorCollider->line.Append(Vec2 { 34.79f, 14.87f });
-		floorCollider->line.Append(Vec2 { 36.21f, 14.82f });
-		floorCollider->line.Append(Vec2 { 38.38f, 14.84f });
-		floorCollider->line.Append(Vec2 { 41.54f, 14.88f });
-		floorCollider->line.Append(Vec2 { 43.48f, 14.88f });
-		floorCollider->line.Append(Vec2 { 45.74f, 14.79f });
-		floorCollider->line.Append(Vec2 { 47.27f, 14.61f });
-		floorCollider->line.Append(Vec2 { 48.13f, 14.43f });
-		floorCollider->line.Append(Vec2 { 48.90f, 14.14f });
-		floorCollider->line.Append(Vec2 { 49.58f, 13.85f });
-		floorCollider->line.Append(Vec2 { 50.56f, 13.45f });
-		floorCollider->line.Append(Vec2 { 51.27f, 12.91f });
-		floorCollider->line.Append(Vec2 { 51.85f, 12.35f });
-		floorCollider->line.Append(Vec2 { 52.41f, 11.78f });
-		floorCollider->line.Append(Vec2 { 52.84f, 11.04f });
-		floorCollider->line.Append(Vec2 { 53.14f, 10.35f });
-		floorCollider->line.Append(Vec2 { 53.53f, 9.63f });
-		floorCollider->line.Append(Vec2 { 53.85f, 8.88f });
-		floorCollider->line.Append(Vec2 { 54.10f, 7.65f });
-		floorCollider->line.Append(Vec2 { 54.22f, 6.57f });
-		floorCollider->line.Append(Vec2 { 54.30f, 5.42f });
-		floorCollider->line.Append(Vec2 { 54.28f, 3.18f });
-		floorCollider->line.Append(Vec2 { 54.32f, 0.89f });
-		floorCollider->line.Append(Vec2 { 54.43f, -1.98f });
-		floorCollider->line.Append(Vec2 { 54.38f, -4.91f });
-		floorCollider->line.Append(Vec2 { 54.38f, -6.79f });
-		floorCollider->line.Append(Vec2 { 54.34f, -9.02f });
-		floorCollider->line.Append(Vec2 { 54.38f, -10.78f });
-		floorCollider->line.Append(Vec2 { 54.30f, -14.38f });
-		floorCollider->line.Append(Vec2 { 54.31f, -16.44f });
-		floorCollider->line.Append(Vec2 { 54.26f, -17.57f });
-		floorCollider->line.Append(Vec2 { 54.26f, -18.35f });
+		floorCollider->line.size = FIXED_ARRAY_SIZE(FLOOR_VERTICES);
+		DEBUG_ASSERT(floorCollider->line.size <= FLOOR_COLLIDER_MAX_VERTICES);
+		MemCopy(floorCollider->line.array, FLOOR_VERTICES, sizeof(FLOOR_VERTICES));
 		floorCollider->PrecomputeSampleVerticesFromLine();
 
 		gameState->numLineColliders = 0;
