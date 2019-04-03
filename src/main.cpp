@@ -17,9 +17,8 @@
 #include "render.h"
 #include "temp_data.h"
 
-#define CAMERA_HEIGHT ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
-#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT / 6.0f)
-#define CAMERA_OFFSET_VEC2 (Vec2 { 0.0f, CAMERA_OFFSET_Y })
+#define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 6.0f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
@@ -55,77 +54,52 @@ int GetPillarboxWidth(ScreenInfo screenInfo)
 	return (screenInfo.size.x - targetWidth) / 2;
 }
 
-Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo)
+internal Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo)
 {
-	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-	const Vec3 SCREEN_CENTER = {
-		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
-		CAMERA_HEIGHT / 2.0f,
-		0.0f
-	};
-	const Vec3 SCALE_TO_NDC = {
-		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT / ASPECT_RATIO,
-		2.0f * REF_PIXELS_PER_UNIT / REF_PIXEL_SCREEN_HEIGHT,
+	float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
+	Vec3 scaleToNDC = {
+		2.0f / (CAMERA_HEIGHT_UNITS * aspectRatio),
+		2.0f / CAMERA_HEIGHT_UNITS,
 		1.0f
 	};
 
-	return Translate(Vec3 { -1.0f, -1.0f, 0.0f })
-		* Scale(SCALE_TO_NDC) * Translate(SCREEN_CENTER);
+	return Scale(scaleToNDC);
 }
 
-Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot)
+internal Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot)
 {
 	return Translate(ToVec3(cameraPos, 0.0f))
 		* UnitQuatToMat4(cameraRot)
 		* Translate(-CAMERA_OFFSET_VEC3);
 }
 
-Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
+internal Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
 {
 	return Translate(CAMERA_OFFSET_VEC3)
 		* UnitQuatToMat4(Inverse(cameraRot))
 		* Translate(ToVec3(-cameraPos, 0.0f));
 }
 
-Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
+internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
 {
-	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
-
-	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-	const Vec2 SCREEN_CENTER = {
-		CAMERA_HEIGHT * ASPECT_RATIO / 2.0f,
-		CAMERA_HEIGHT / 2.0f
-	};
-
-	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT - SCREEN_CENTER;
-	Vec4 result4 = CalculateInverseViewMatrix(cameraPos, cameraRot)
+	Vec2Int screenCenter = screenInfo.size / 2;
+	Vec2 beforeView = ToVec2(screenPos - screenCenter) / (float32)screenInfo.size.y
+		* CAMERA_HEIGHT_UNITS;
+	Vec4 result = CalculateInverseViewMatrix(cameraPos, cameraRot)
 		* Scale(1.0f / editorWorldScale)
-		* ToVec4(result, 0.0f, 1.0f);
-	return Vec2 { result4.x, result4.y };
+		* ToVec4(beforeView, 0.0f, 1.0f);
+	return Vec2 { result.x, result.y };
 }
 
-Vec2 ScreenToWorldScaleOnly(Vec2Int screenPos, ScreenInfo screenInfo,
-	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
-{
-	float32 screenScale = (float32)screenInfo.size.y / REF_PIXEL_SCREEN_HEIGHT;
-	Vec2 result = ToVec2(screenPos) / screenScale / REF_PIXELS_PER_UNIT / editorWorldScale;
-	Vec4 result4 = CalculateInverseViewMatrix(cameraPos, cameraRot) * ToVec4(result, 0.0f, 0.0f);
-	return Vec2 { result4.x, result4.y };
-}
-
-void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
+internal void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
 {
 	Vec2 size = objectStatic.scale * ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
 	Mat4 transform = CalculateTransform(objectStatic.pos, size, objectStatic.anchor, Quat::one);
 	PushSprite(spriteDataGL, transform, 1.0f, false, objectStatic.texture.textureID);
 }
 
-void PlayerMovementInput(GameState* gameState, float32 deltaTime, const GameInput* input)
-{
-}
-
-void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
+internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	HashKey ANIM_IDLE;
 	ANIM_IDLE.WriteString("Idle");
@@ -386,7 +360,7 @@ void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 	gameState->cameraRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(camFloorNormal, 0.0f));
 }
 
-void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
+internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	Mat4 projection, ScreenInfo screenInfo)
 {
 	spriteDataGL->numSprites = 0;
@@ -431,7 +405,7 @@ void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 	spriteDataGL->numSprites = 0;
 
 	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-	Vec2 screenSizeWorld = { CAMERA_HEIGHT * ASPECT_RATIO, CAMERA_HEIGHT };
+	Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * ASPECT_RATIO, CAMERA_HEIGHT_UNITS };
 	gameState->paper.Draw(spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
@@ -605,6 +579,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #if GAME_INTERNAL
 		gameState->debugView = false;
 		gameState->editor = false;
+		gameState->editorScaleExponent = 0.5f;
 #endif
 
 		// Rendering stuff
@@ -872,9 +847,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #if GAME_INTERNAL
 	if (gameState->editor) {
 		if (input->mouseButtons[0].isDown) {
-			gameState->cameraPos -= ScreenToWorldScaleOnly(input->mouseDelta, screenInfo,
+			Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
 				gameState->cameraPos, gameState->cameraRot,
 				ScaleExponentToWorldScale(gameState->editorScaleExponent));
+			Vec2 mouseWorldPosEnd = ScreenToWorld(input->mousePos + input->mouseDelta, screenInfo,
+				gameState->cameraPos, gameState->cameraRot,
+				ScaleExponentToWorldScale(gameState->editorScaleExponent));
+			gameState->cameraPos -= (mouseWorldPosEnd - mouseWorldPosStart);
 		}
 		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
 		gameState->editorScaleExponent = ClampFloat32(
@@ -1103,6 +1082,19 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
+		}
+
+		{ // player
+			const float32 CROSS_RADIUS = 0.2f;
+			Vec4 playerColor = { 1.0f, 0.2f, 0.2f, 1.0f };
+			Vec3 playerPosWorld3 = ToVec3(playerPosWorld, 0.0f);
+			lineData->count = 2;
+			lineData->pos[0] = playerPosWorld3 - Vec3::unitX * CROSS_RADIUS;
+			lineData->pos[1] = playerPosWorld3 + Vec3::unitX * CROSS_RADIUS;
+			DrawLine(gameState->lineGL, projection, view, lineData, playerColor);
+			lineData->pos[0] = playerPosWorld3 - Vec3::unitY * CROSS_RADIUS;
+			lineData->pos[1] = playerPosWorld3 + Vec3::unitY * CROSS_RADIUS;
+			DrawLine(gameState->lineGL, projection, view, lineData, playerColor);
 		}
 	}
 	if (gameState->editor) {
