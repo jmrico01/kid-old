@@ -245,35 +245,33 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
 		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
 		intersects, &numIntersects);
-	if (numIntersects > 0) {
-		float32 minDist = Mag(intersects[0].pos - playerPos);
-		int minDistInd = 0;
-		for (int i = 1; i < numIntersects; i++) {
-			float32 dist = Mag(intersects[i].pos - playerPos);
-			if (dist < minDist) {
-				minDist = dist;
-				minDistInd = i;
-			}
+	for (int i = 0; i < numIntersects; i++) {
+		if (gameState->currentPlatform == intersects[i].collider) {
+			continue;
 		}
 
-		const float32 COS_WALK_ANGLE = cosf(PI_F / 2.0f);
-		float32 cosPlayerDirFloor = Dot(Normalize(deltaPos), intersects[minDistInd].normal);
-		DEBUG_PRINT("dot %.3f, cos walk angle %.3f\n", cosPlayerDirFloor, COS_WALK_ANGLE);
-		DEBUG_PRINT("deltaPos %.2f, %.2f ; normal %.2f, %.2f\n",
-			deltaPos.x, deltaPos.y,
-			intersects[minDistInd].normal.x, intersects[minDistInd].normal.y);
-		if (cosPlayerDirFloor <= -COS_WALK_ANGLE) {
-			// Landing downward to floor
-			DEBUG_PRINT("land\n");
+		float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
+		float32 newDeltaCoordX = deltaCoords.x * tX;
+		Vec2 newFloorPos, newFloorNormal;
+		gameState->floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
+			&newFloorPos, &newFloorNormal);
+
+		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
+		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
+		DEBUG_PRINT("dot %.3f\n", dotCollisionFloorNormal);
+		DEBUG_PRINT("normals: floor %.3f, %.3f ; collision %.3f, %.3f\n",
+			newFloorNormal.x, newFloorNormal.y,
+			intersects[i].normal.x, intersects[i].normal.y);
+		if (AbsFloat32(dotCollisionFloorNormal) >= COS_WALK_ANGLE) {
+			// Walkable floor
 			if (gameState->playerState == PLAYER_STATE_FALLING) {
-				gameState->currentPlatform = intersects[minDistInd].collider;
-				float32 tX = (intersects[minDistInd].pos.x - playerPos.x) / deltaPos.x;
-				deltaCoords.x *= tX;
+				gameState->currentPlatform = intersects[i].collider;
+				deltaCoords.x = newDeltaCoordX;
 			}
 		}
-		else if (AbsFloat32(cosPlayerDirFloor) < COS_WALK_ANGLE) {
+		else {
 			// Floor at steep angle (wall)
-			DEBUG_PRINT("wall\n");
+			deltaCoords = Vec2::zero;
 		}
 	}
 

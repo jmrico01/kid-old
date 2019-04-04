@@ -38,6 +38,12 @@ struct ObjectStatic
 	TextureGL texture;
 };
 
+struct Rock
+{
+	Vec2 coords;
+	float32 radius;
+};
+
 struct GameState
 {
 	AudioState audioState;
