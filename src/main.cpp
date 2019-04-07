@@ -291,7 +291,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
-	bool32 interactKeyPressed = IsKeyPressed(input, KM_KEY_E)
+	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
 
 	{ // barrel
@@ -299,7 +299,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		const float32 BARREL_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
 		Vec2 toBarrelCoords = gameState->barrelCoords - gameState->playerCoords;
 		float32 distToBarrel = Mag(toBarrelCoords);
-		if (interactKeyPressed
+		if (pushPullKeyPressed
 		&& BARREL_INTERACT_DIST_MIN <= distToBarrel
 		&& distToBarrel <= BARREL_INTERACT_DIST_MAX) {
 			gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
@@ -323,7 +323,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		const float32 ROCK_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
 		Vec2 toRockCoords = gameState->rock.coords - gameState->playerCoords;
 		float32 distToRock = Mag(toRockCoords);
-		if (interactKeyPressed
+		if (pushPullKeyPressed
 		&& ROCK_INTERACT_DIST_MIN <= distToRock
 		&& distToRock <= ROCK_INTERACT_DIST_MAX) {
 			float32 deltaRockX = playerCoordsNew.x - gameState->playerCoords.x;

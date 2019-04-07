@@ -123,29 +123,25 @@ def WinCompile(compileMode):
             "/DGAME_SLOW=0"
         ])
     compilerFlags = " ".join([
-        "/MTd",     # CRT static link (debug)
         "/nologo",  # disable the "Microsoft C/C++ Optimizing Compiler" message
         "/Gm-",     # disable incremental build things
         "/GR-",     # disable type information
         "/EHa-",    # disable exception handling
-        "/EHsc",    # handle stdlib errors
-        "/Od",      # no optimization
-        "/Oi",      # ...except, optimize compiler intrinsics (do I need this?)
-        "/Z7"       # minimal "old school" debug information
+        "/EHsc"     # handle stdlib errors
     ])
     if compileMode == CompileMode.DEBUG:
         compilerFlags = " ".join([
             compilerFlags,
-            "/MTd",
-            "/Od",
-            "/Oi",
-            "/Z7"
+            "/MTd", # CRT static link (debug)
+            "/Od",  # no optimization
+            "/Oi",  # ...except, optimize compiler intrinsics (do I need this?)
+            "/Z7"   # minimal "old school" debug information
         ])
     elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
         compilerFlags = " ".join([
             compilerFlags,
-            "/MT",
-            "/Ox"
+            "/MT", # CRT static link
+            "/Ox"  # full optimization
         ])
     compilerWarningFlags = " ".join([
         "/WX",      # treat warnings as errors
