@@ -92,13 +92,6 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal void DrawObjectStatic(const ObjectStatic& objectStatic, SpriteDataGL* spriteDataGL)
-{
-	Vec2 size = objectStatic.scale * ToVec2(objectStatic.texture.size) / REF_PIXELS_PER_UNIT;
-	Mat4 transform = CalculateTransform(objectStatic.pos, size, objectStatic.anchor, Quat::one);
-	PushSprite(spriteDataGL, transform, 1.0f, false, objectStatic.texture.textureID);
-}
-
 internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	HashKey ANIM_IDLE;
@@ -298,14 +291,57 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
-	const float32 BARREL_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
-	const float32 BARREL_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
-	Vec2 toBarrelCoords = gameState->barrelCoords - gameState->playerCoords;
-	float32 distToBarrel = Mag(toBarrelCoords);
-	if (IsKeyPressed(input, KM_KEY_E)
-	&& BARREL_INTERACT_DIST_MIN <= distToBarrel
-	&& distToBarrel <= BARREL_INTERACT_DIST_MAX) {
-		gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
+	bool32 interactKeyPressed = IsKeyPressed(input, KM_KEY_E)
+		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
+
+	{ // barrel
+		const float32 BARREL_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
+		const float32 BARREL_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
+		Vec2 toBarrelCoords = gameState->barrelCoords - gameState->playerCoords;
+		float32 distToBarrel = Mag(toBarrelCoords);
+		if (interactKeyPressed
+		&& BARREL_INTERACT_DIST_MIN <= distToBarrel
+		&& distToBarrel <= BARREL_INTERACT_DIST_MAX) {
+			gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
+		}
+
+		int numBarrelNextAnims = 0;
+		HashKey barrelNextAnims[1];
+		if (WasKeyPressed(input, KM_KEY_X)) {
+			numBarrelNextAnims = 1;
+			barrelNextAnims[0].WriteString("Explode");
+		}
+		gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
+	}
+
+	{ // rock
+		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		float32 radius = size.y / 2.0f * 0.8f;
+		gameState->rock.coords.y = radius;
+
+		const float32 ROCK_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
+		const float32 ROCK_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
+		Vec2 toRockCoords = gameState->rock.coords - gameState->playerCoords;
+		float32 distToRock = Mag(toRockCoords);
+		if (interactKeyPressed
+		&& ROCK_INTERACT_DIST_MIN <= distToRock
+		&& distToRock <= ROCK_INTERACT_DIST_MAX) {
+			float32 deltaRockX = playerCoordsNew.x - gameState->playerCoords.x;
+			gameState->rock.coords.x += deltaRockX;
+			gameState->rock.angle += -deltaRockX / radius;
+		}
+
+		Vec2 rockFloorPos, rockFloorNormal;
+		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x,
+			&rockFloorPos, &rockFloorNormal);
+		Vec2 rockFloorTangent = { rockFloorNormal.y, -rockFloorNormal.x };
+		LineCollider* rockPlatform = &gameState->lineColliders[gameState->numLineColliders - 1];
+		Vec2 rockPos = rockFloorPos + gameState->rock.coords.y * rockFloorNormal;
+		float32 rockPlatformWidth = radius * 0.5f;
+		rockPlatform->line.array[0] = rockPos + radius * rockFloorNormal
+			- rockFloorTangent * rockPlatformWidth;
+		rockPlatform->line.array[1] = rockPos + radius * rockFloorNormal
+			+ rockFloorTangent * rockPlatformWidth;
 	}
 
 	gameState->playerCoords = playerCoordsNew;
@@ -317,22 +353,6 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		return;
 	}
 #endif
-
-	int numBarrelNextAnims = 0;
-	HashKey barrelNextAnims[1];
-	if (WasKeyPressed(input, KM_KEY_X)) {
-		numBarrelNextAnims = 1;
-		barrelNextAnims[0].WriteString("Explode");
-	}
-	gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
-
-	/*int numCrystalNextAnims = 0;
-	HashKey crystalNextAnims[1];
-	if (WasKeyPressed(input, KM_KEY_C)) {
-		numCrystalNextAnims = 1;
-		crystalNextAnims[0].WriteString("Explode");
-	}
-	gameState->spriteCrystal.Update(deltaTime, numCrystalNextAnims, crystalNextAnims);*/
 
 	const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
 	const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
@@ -363,10 +383,21 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 {
 	spriteDataGL->numSprites = 0;
 
-	DrawObjectStatic(gameState->background, spriteDataGL);
+	{ // background
+		Vec2 size = gameState->background.scale
+			* ToVec2(gameState->background.texture.size) / REF_PIXELS_PER_UNIT;
+		Mat4 transform = CalculateTransform(gameState->background.pos, size,
+			gameState->background.anchor, Quat::one);
+		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->background.texture.textureID);
+	}
 
-	//DrawObjectStatic(gameState->tractor1, spriteDataGL);
-	//DrawObjectStatic(gameState->tractor2, spriteDataGL);
+	{ // rock
+		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rock.coords);
+		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
+		Mat4 transform = CalculateTransform(pos, size, gameState->rock.anchor, rot);
+		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockTexture.textureID);
+	}
 
 	{ // barrel
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->barrelCoords);
@@ -378,10 +409,6 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, barrelRot,
 			1.0f, false);
 	}
-
-	/*Vec2 crystalSize = ToVec2(gameState->spriteCrystal.textureSize) / REF_PIXELS_PER_UNIT;
-	gameState->spriteCrystal.Draw(spriteDataGL, Vec2 { -3.0f, -1.0f }, crystalSize, Vec2::zero,
-		1.0f, false);*/
 
 	{ // kid
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
@@ -408,10 +435,13 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
 
-	gameState->frame.pos = Vec2::zero;
-	gameState->frame.anchor = Vec2::one / 2.0f;
-	gameState->frame.scale = (float32)REF_PIXEL_SCREEN_HEIGHT / gameState->frame.texture.size.y;
-	DrawObjectStatic(gameState->frame, spriteDataGL);
+	{ // frame
+		// TODO this sounds like I need another batch transform matrix
+		float32 scale = (float32)REF_PIXEL_SCREEN_HEIGHT / gameState->frame.size.y;
+		Vec2 size = scale * ToVec2(gameState->frame.size) / REF_PIXELS_PER_UNIT;
+		Mat4 transform = CalculateTransform(Vec2::zero, size, Vec2::one / 2.0f, Quat::one);
+		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->frame.textureID);
+	}
 
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
 }
@@ -567,6 +597,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 38.40f, 35.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 35.41f });
 
+		// reserved for rock
+		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+
 		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
 		for (int i = 0; i < gameState->numLineColliders; i++) {
 			DEBUG_ASSERT(gameState->lineColliders[i].line.size <= LINE_COLLIDER_MAX_VERTICES);
@@ -693,31 +728,40 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->background.pos = { 0.0f, -5.5f };
 		gameState->background.anchor = { 0.5f, 0.5f };
 		gameState->background.scale = 1.0f;
-		bool32 loadBackground = LoadPNGOpenGL(thread,
-			"data/sprites/playground.png",
-			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->background.texture, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadBackground) {
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/playground.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->background.texture, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load background");
 		}
 
-		bool32 loadKidAnim = LoadAnimatedSprite(thread,
-			"data/animations/kid/kid.kma",
-			gameState->spriteKid, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadKidAnim) {
+		gameState->rock.coords = { 90.0f, 0.0f };
+		gameState->rock.anchor = { 0.5f, 0.5f };
+		gameState->rock.angle = 0.0f;
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/rock.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->rockTexture, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load background");
+		}
+
+		if (!LoadAnimatedSprite(thread,
+		"data/animations/kid/kid.kma",
+		gameState->spriteKid, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load kid animation sprite");
 		}
 
-		bool32 loadBarrelAnim = LoadAnimatedSprite(thread,
-			"data/animations/barrel/barrel.kma",
-			gameState->spriteBarrel, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadBarrelAnim) {
+		if (!LoadAnimatedSprite(thread,
+		"data/animations/barrel/barrel.kma",
+		gameState->spriteBarrel, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load barrel animation sprite");
 		}
 
@@ -742,37 +786,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->barrel.activeFrameRepeat = 0;
 		gameState->barrel.activeFrameTime = 0.0f;
 
-		/*gameState->tractor1.pos = { 2.0f, -0.2f };
-		gameState->tractor1.anchor = { 0.5f, 0.0f };
-		gameState->tractor1.scale = 1.0f;
-		bool32 loadTractor1 = LoadPNGOpenGL(thread,
-			"data/sprites/tractor1.png",
-			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->tractor1.texture, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadTractor1) {
-			DEBUG_PANIC("Failed to load tractor 1");
-		}
-		gameState->tractor2.pos = { -5.0f, -0.45f };
-		gameState->tractor2.anchor = { 0.5f, 0.0f };
-		gameState->tractor2.scale = 1.0f;
-		bool32 loadTractor2 = LoadPNGOpenGL(thread,
-			"data/sprites/tractor2.png",
-			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->tractor2.texture, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadTractor2) {
-			DEBUG_PANIC("Failed to load tractor 2");
-		}*/
-
-		bool32 loadPaperAnim = LoadAnimatedSprite(thread,
-			"data/animations/paper/paper.kma",
-			gameState->spritePaper, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadPaperAnim) {
+		if (!LoadAnimatedSprite(thread,
+		"data/animations/paper/paper.kma",
+		gameState->spritePaper, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load paper animation sprite");
 		}
 
@@ -782,33 +800,30 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-		bool32 loadFrame = LoadPNGOpenGL(thread,
-			"data/sprites/frame.png",
-			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->frame.texture, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadFrame) {
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/frame.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->frame, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load frame");
 		}
 
-		bool32 loadLutBase = LoadPNGOpenGL(thread,
-			"data/luts/lutbase.png",
-			GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->lutBase, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadLutBase) {
+		if (!LoadPNGOpenGL(thread,
+		"data/luts/lutbase.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->lutBase, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load base LUT");
 		}
 
-		bool32 loadLut1 = LoadPNGOpenGL(thread,
-			"data/luts/kodak5205.png",
-			GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			gameState->lut1, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadLut1) {
+		if (!LoadPNGOpenGL(thread,
+		"data/luts/kodak5205.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->lut1, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load base LUT");
 		}
 
@@ -938,7 +953,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #if GAME_INTERNAL
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
 
-	if (WasKeyPressed(input, KM_KEY_G)) {
+	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
+		|| (input->controllers[0].isConnected
+		&& input->controllers[0].x.isDown && input->controllers[0].x.transitions == 1);
+	if (wasDebugKeyPressed) {
 		gameState->debugView = !gameState->debugView;
 	}
 	if (WasKeyPressed(input, KM_KEY_H)) {

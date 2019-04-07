@@ -30,7 +30,7 @@ enum PlayerState
 	PLAYER_STATE_FALLING
 };
 
-struct ObjectStatic
+struct TextureWithPosition
 {
 	Vec2 pos;
 	Vec2 anchor;
@@ -41,7 +41,8 @@ struct ObjectStatic
 struct Rock
 {
 	Vec2 coords;
-	float32 radius;
+	Vec2 anchor;
+	float32 angle;
 };
 
 struct GameState
@@ -94,11 +95,12 @@ struct GameState
 
     AnimatedSpriteInstance barrel;
 
-    ObjectStatic background;
-    ObjectStatic frame;
+    TextureWithPosition background;
 
-    ObjectStatic tractor1;
-    ObjectStatic tractor2;
+    Rock rock;
+    TextureGL rockTexture;
+
+    TextureGL frame;
 
     TextureGL lutBase;
     TextureGL lut1;
