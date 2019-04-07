@@ -144,7 +144,7 @@ struct PlatformFunctions
 struct MemoryBlock
 {
     uint64 size;
-    // Required to be cleared to zero at startup
+    // Required to be cleared to zero at startup    TODO... why??
     void* memory;
 };
 
@@ -152,15 +152,8 @@ struct GameMemory
 {
 	bool32 isInitialized;
 
-	//uint64 permanentStorageSize;
-	// Required to be cleared to zero at startup
-	//void* permanentStorage;
-
     MemoryBlock permanent;
     MemoryBlock transient;
-
-	//uint64 transientStorageSize;
-	//void* transientStorage;
 
 //#if GAME_INTERNAL
     bool32 DEBUGShouldInitGlobalFuncs;

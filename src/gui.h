@@ -43,6 +43,8 @@ struct InputField
     Vec4 textColor;
 };
 
+void InitClickableBox(ClickableBox* box, Vec4 color, Vec4 hoverColor, Vec4 pressColor);
+
 ClickableBox CreateClickableBox(Vec2Int origin, Vec2Int size, Vec2 anchor,
     Vec4 color, Vec4 hoverColor, Vec4 pressColor);
 Button CreateButton(Vec2Int origin, Vec2Int size, Vec2 anchor,

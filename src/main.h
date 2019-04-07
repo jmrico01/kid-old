@@ -75,6 +75,10 @@ struct GameState
 	bool32 debugView;
 	bool32 editor;
     float32 editorScaleExponent;
+
+    // Editor
+    ClickableBox floorVertexBoxes[FLOOR_COLLIDER_MAX_VERTICES];
+    bool32 floorChanged;
 #endif
 
     RenderState renderState;

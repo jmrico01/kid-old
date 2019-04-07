@@ -388,7 +388,7 @@ inline Vec2Int& operator/=(Vec2Int& v, int s)
 	return v;
 }
 
-inline Vec2Int operator*(float32 s, Vec2Int v)
+/*inline Vec2Int operator*(float32 s, Vec2Int v)
 {
 	Vec2Int result;
 	result.x = (int)(s * (float32)v.x);
@@ -403,7 +403,7 @@ inline Vec2Int& operator*=(Vec2Int& v, float32 s)
 {
 	v = s * v;
 	return v;
-}
+}*/
 
 inline bool operator==(const Vec2Int& v1, const Vec2Int& v2)
 {

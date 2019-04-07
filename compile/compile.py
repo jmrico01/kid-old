@@ -233,7 +233,11 @@ def WinCompile(compileMode):
     ]))
 
 def WinRun():
-    os.system(paths["build"] + os.sep + PROJECT_NAME + "_win32.exe")
+    os.system(" & ".join([
+        "pushd " + paths["build"],
+        PROJECT_NAME + "_win32.exe",
+        "popd"
+    ]))
 
 def LinuxCompile(compileMode):
     macros = " ".join([
