@@ -10,7 +10,12 @@ struct FixedArray
 	uint32 size;
 	T array[S];
 
+	//DynamicArray<T> Copy() const;
 	void Append(T element);
+	void RemoveLast();
+	// Slow, linear time
+	void Remove(uint32 index);
+	//void Clear();
 	
 	inline T& operator[](int index) const;
 };

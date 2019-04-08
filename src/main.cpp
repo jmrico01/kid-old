@@ -336,29 +336,37 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		float32 radius = size.y / 2.0f * 0.8f;
 		gameState->rock.coords.y = radius;
 
-		const float32 ROCK_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
-		const float32 ROCK_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
-		Vec2 toRockCoords = gameState->rock.coords - gameState->playerCoords;
-		float32 distToRock = Mag(toRockCoords);
-		if (pushPullKeyPressed
-		&& ROCK_INTERACT_DIST_MIN <= distToRock
-		&& distToRock <= ROCK_INTERACT_DIST_MAX) {
-			float32 deltaRockX = playerCoordsNew.x - gameState->playerCoords.x;
-			gameState->rock.coords.x += deltaRockX;
-			gameState->rock.angle += -deltaRockX / radius;
+		const float32 INTERACT_DIST_MIN = radius * 1.0f;
+		const float32 INTERACT_DIST_MAX = radius * 2.0f;
+		Vec2 toCoords = gameState->rock.coords - gameState->playerCoords;
+		float32 dist = Mag(toCoords);
+		if (pushPullKeyPressed && INTERACT_DIST_MIN <= dist && dist <= INTERACT_DIST_MAX) {
+			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
+			gameState->rock.coords.x += deltaX;
+			gameState->rock.angle += -deltaX / radius;
 		}
 
-		Vec2 rockFloorPos, rockFloorNormal;
-		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x,
-			&rockFloorPos, &rockFloorNormal);
-		Vec2 rockFloorTangent = { rockFloorNormal.y, -rockFloorNormal.x };
+		Vec2 floorPos, floorNormal;
+		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
+		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
 		LineCollider* rockPlatform = &gameState->lineColliders[gameState->numLineColliders - 1];
-		Vec2 rockPos = rockFloorPos + gameState->rock.coords.y * rockFloorNormal;
-		float32 rockPlatformWidth = radius * 0.5f;
-		rockPlatform->line.array[0] = rockPos + radius * rockFloorNormal
-			- rockFloorTangent * rockPlatformWidth;
-		rockPlatform->line.array[1] = rockPos + radius * rockFloorNormal
-			+ rockFloorTangent * rockPlatformWidth;
+		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
+		float32 platformWidth = radius * 0.5f;
+		rockPlatform->line.array[0] = pos + radius * floorNormal
+			- floorTangent * platformWidth;
+		rockPlatform->line.array[1] = pos + radius * floorNormal
+			+ floorTangent * platformWidth;
+	}
+
+	{ // rock launcher
+		const float32 INTERACT_DIST_MIN = PLAYER_RADIUS * 4.0f;
+		const float32 INTERACT_DIST_MAX = PLAYER_RADIUS * 4.5f;
+		Vec2 toCoords = gameState->rockLauncher.coords - gameState->playerCoords;
+		float32 dist = Mag(toCoords);
+		if (pushPullKeyPressed && INTERACT_DIST_MIN <= dist && dist <= INTERACT_DIST_MAX) {
+			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
+			gameState->rockLauncher.coords.x += deltaX;
+		}
 	}
 
 	gameState->playerCoords = playerCoordsNew;
@@ -414,6 +422,17 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
 		Mat4 transform = CalculateTransform(pos, size, gameState->rock.anchor, rot);
 		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockTexture.textureID);
+	}
+
+	{ // rock launcher
+		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rockLauncher.coords);
+		Vec2 size = ToVec2(gameState->rockLauncherTexture.size) / REF_PIXELS_PER_UNIT * 0.8f;
+		Vec2 floorPos, floorNormal;
+		gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
+			&floorPos, &floorNormal);
+		Quat rot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(floorNormal, 0.0f));
+		Mat4 transform = CalculateTransform(pos, size, gameState->rockLauncher.anchor, rot);
+		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockLauncherTexture.textureID);
 	}
 
 	{ // barrel
@@ -638,7 +657,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			InitClickableBox(&gameState->floorVertexBoxes[i],
 				colorIdle, colorHover, colorPress);
 		}
-		gameState->floorChanged = false;
 #endif
 
 		// Rendering stuff
@@ -772,7 +790,18 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->rockTexture, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load background");
+			DEBUG_PANIC("Failed to load rock");
+		}
+
+		gameState->rockLauncher.coords = { 85.0f, 0.0f };
+		gameState->rockLauncher.anchor = { 0.5f, 0.15f };
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/machine2.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->rockLauncherTexture, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load rock launcher");
 		}
 
 		if (!LoadAnimatedSprite(thread,
@@ -1150,14 +1179,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		for (uint32 i = 0; i < numBoxes; i++) {
 			if (gameState->floorVertexBoxes[i].pressed) {
 				anyBoxPressed = true;
-				gameState->floorChanged = true;
-				gameState->floor.line.array[i] += mouseWorldDelta;
+				if (WasKeyPressed(input, KM_KEY_R)) {
+					for (uint32 j = i + 1; j < numBoxes; j++) {
+						gameState->floor.line.array[j - 1] = gameState->floor.line.array[j];
+						gameState->floorVertexBoxes[j - 1] = gameState->floorVertexBoxes[j];
+					}
+					gameState->floor.line.size--;
+				}
+				else {
+					gameState->floor.line.array[i] += mouseWorldDelta;
+				}
+				gameState->floor.PrecomputeSampleVerticesFromLine();
+				break;
 			}
 		}
 
-		if (!anyBoxPressed && gameState->floorChanged) {
-			gameState->floor.PrecomputeSampleVerticesFromLine();
-		}
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			uint64 stringSize = 0;
 			uint64 stringCapacity = memory->transient.size;

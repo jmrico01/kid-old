@@ -45,6 +45,12 @@ struct Rock
 	float32 angle;
 };
 
+struct RockLauncher
+{
+	Vec2 coords;
+	Vec2 anchor;
+};
+
 struct GameState
 {
 	AudioState audioState;
@@ -78,7 +84,6 @@ struct GameState
 
     // Editor
     ClickableBox floorVertexBoxes[FLOOR_COLLIDER_MAX_VERTICES];
-    bool32 floorChanged;
 #endif
 
     RenderState renderState;
@@ -103,6 +108,9 @@ struct GameState
 
     Rock rock;
     TextureGL rockTexture;
+
+    RockLauncher rockLauncher;
+    TextureGL rockLauncherTexture;
 
     TextureGL frame;
 
