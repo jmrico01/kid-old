@@ -83,7 +83,9 @@ struct GameState
     float32 editorScaleExponent;
 
     // Editor
-    ClickableBox floorVertexBoxes[FLOOR_COLLIDER_MAX_VERTICES];
+    int floorVertexSelected;
+    //ClickableBox floorVertexBoxes[FLOOR_COLLIDER_MAX_VERTICES];
+    //ClickableBox* boxSelected;
 #endif
 
     RenderState renderState;

@@ -650,13 +650,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->editor = false;
 		gameState->editorScaleExponent = 0.5f;
 
-		for (uint32 i = 0; i < gameState->floor.line.size; i++) {
+		/*for (uint32 i = 0; i < gameState->floor.line.size; i++) {
 			Vec4 colorIdle = Vec4 { 0.0f, 0.0f, 1.0f, 1.0f };
 			Vec4 colorHover = Vec4 { 0.75f, 0.0f, 1.0f, 1.0f };
 			Vec4 colorPress = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
 			InitClickableBox(&gameState->floorVertexBoxes[i],
 				colorIdle, colorHover, colorPress);
 		}
+        gameState->boxSelected = nullptr;*/
+        gameState->floorVertexSelected = -1;
 #endif
 
 		// Rendering stuff
@@ -1148,14 +1150,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 	}
 	if (gameState->editor) {
-		Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
-			gameState->cameraPos, gameState->cameraRot,
-			ScaleExponentToWorldScale(gameState->editorScaleExponent));
-		Vec2 mouseWorldPosEnd = ScreenToWorld(input->mousePos + input->mouseDelta, screenInfo,
-			gameState->cameraPos, gameState->cameraRot,
-			ScaleExponentToWorldScale(gameState->editorScaleExponent));
-		Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
-
 		Vec2Int editorStrPos = {
 			pillarboxWidth + MARGIN.x,
 			MARGIN.y,
@@ -1164,59 +1158,105 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
 			"EDITOR", editorStrPos, Vec2 { 0.0f, 0.0f }, editorFontColor, memory->transient);
 
-		uint32 numBoxes = gameState->floor.line.size;
-		for (uint32 i = 0; i < numBoxes; i++) {
-			ClickableBox* box = &gameState->floorVertexBoxes[i];
-			box->origin = WorldToScreen(gameState->floor.line.array[i], screenInfo,
-				gameState->cameraPos, gameState->cameraRot,
-				ScaleExponentToWorldScale(gameState->editorScaleExponent));
-			box->size = Vec2Int { 20, 20 };
-			box->anchor = Vec2::one / 2.0f;
-		}
-		UpdateClickableBoxes(gameState->floorVertexBoxes, numBoxes, input);
+        bool32 newVertexPressed = false;
+        {
+            const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
+            const float32 IDLE_ALPHA = 0.5f;
+            const float32 HOVER_ALPHA = 0.8f;
+            const float32 SELECTED_ALPHA = 1.0f;
+            const Vec2Int BOX_SIZE = Vec2Int { 20, 20 };
+            const Vec2 BOX_ANCHOR = Vec2::one / 2.0f;
+            const Vec2Int ANCHOR_OFFSET = Vec2Int {
+                (int)(BOX_SIZE.x * BOX_ANCHOR.x),
+                (int)(BOX_SIZE.y * BOX_ANCHOR.y)
+            };
+            Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
+            for (uint32 i = 0; i < gameState->floor.line.size; i++) {
+                Vec2Int boxPos = WorldToScreen(gameState->floor.line.array[i], screenInfo,
+                    gameState->cameraPos, gameState->cameraRot,
+                    ScaleExponentToWorldScale(gameState->editorScaleExponent));
 
-		bool32 anyBoxPressed = false;
-		for (uint32 i = 0; i < numBoxes; i++) {
-			if (gameState->floorVertexBoxes[i].pressed) {
-				anyBoxPressed = true;
-				if (WasKeyPressed(input, KM_KEY_R)) {
-					for (uint32 j = i + 1; j < numBoxes; j++) {
-						gameState->floor.line.array[j - 1] = gameState->floor.line.array[j];
-						gameState->floorVertexBoxes[j - 1] = gameState->floorVertexBoxes[j];
-					}
-					gameState->floor.line.size--;
-				}
-				else {
-					gameState->floor.line.array[i] += mouseWorldDelta;
-				}
-				gameState->floor.PrecomputeSampleVerticesFromLine();
-				break;
-			}
-		}
+                Vec4 boxColor = BOX_COLOR_BASE;
+                boxColor.a = IDLE_ALPHA;
 
-		if (WasKeyPressed(input, KM_KEY_P)) {
-			uint64 stringSize = 0;
-			uint64 stringCapacity = memory->transient.size;
-			char* string = (char*)memory->transient.memory;
-			for (uint32 i = 0; i < numBoxes; i++) {
-				uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
-					"{ %.2ff, %.2ff },\r\n",
-					gameState->floor.line.array[i].x, gameState->floor.line.array[i].y);
-				stringSize += n;
-				DEBUG_ASSERT(stringSize < stringCapacity);
-			}
+                if ((mousePosPlusAnchor.x >= boxPos.x
+                && mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
+                (mousePosPlusAnchor.y >= boxPos.y
+                && mousePosPlusAnchor.y <= boxPos.y + BOX_SIZE.y)) {
+                    if (input->mouseButtons[0].isDown
+                    && input->mouseButtons[0].transitions == 1) {
+                        newVertexPressed = true;
+                        gameState->floorVertexSelected = (int)i;
+                        boxColor.a = SELECTED_ALPHA;
+                    }
+                    else {
+                        boxColor.a = HOVER_ALPHA;
+                    }
+                }
 
-			char fileName[32];
-			snprintf(fileName, 32, "floor_vertices%d.txt", RandInt(0, 1000));
-			platformFuncs->DEBUGPlatformWriteFile(thread, fileName, (uint32)stringSize, string);
-			DEBUG_PRINT("Floor vertices written to file\n");
-		}
+                if ((int)i == gameState->floorVertexSelected) {
+                    boxColor.a = SELECTED_ALPHA;
+                }
 
-		DrawClickableBoxes(gameState->floorVertexBoxes, numBoxes, gameState->rectGL, screenInfo);
+                DrawRect(gameState->rectGL, screenInfo,
+                    boxPos, BOX_ANCHOR, BOX_SIZE, boxColor);
+            }
+        }
 
-		if (!anyBoxPressed && input->mouseButtons[0].isDown) {
-			gameState->cameraPos -= mouseWorldDelta;
-		}
+        if (input->mouseButtons[0].isDown && input->mouseButtons[0].transitions == 1
+        && !newVertexPressed) {
+            gameState->floorVertexSelected = -1;
+        }
+
+        Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
+            gameState->cameraPos, gameState->cameraRot,
+            ScaleExponentToWorldScale(gameState->editorScaleExponent));
+        Vec2 mouseWorldPosEnd = ScreenToWorld(input->mousePos + input->mouseDelta, screenInfo,
+            gameState->cameraPos, gameState->cameraRot,
+            ScaleExponentToWorldScale(gameState->editorScaleExponent));
+        Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
+
+        if (input->mouseButtons[0].isDown) {
+            if (gameState->floorVertexSelected == -1) {
+                gameState->cameraPos -= mouseWorldDelta;
+            }
+            else {
+                gameState->floor.line.array[gameState->floorVertexSelected] += mouseWorldDelta;
+                gameState->floor.PrecomputeSampleVerticesFromLine();
+            }
+        }
+
+        if (gameState->floorVertexSelected != -1) {
+            if (WasKeyPressed(input, KM_KEY_R)) {
+                for (uint32 i = gameState->floorVertexSelected + 1;
+                i < gameState->floor.line.size; i++) {
+                    gameState->floor.line.array[i - 1] = gameState->floor.line.array[i];
+                }
+                gameState->floor.line.size--;
+                gameState->floor.PrecomputeSampleVerticesFromLine();
+                
+                gameState->floorVertexSelected = -1;
+            }
+        }
+
+        if (WasKeyPressed(input, KM_KEY_P)) {
+            uint64 stringSize = 0;
+            uint64 stringCapacity = memory->transient.size;
+            char* string = (char*)memory->transient.memory;
+            for (uint32 i = 0; i < gameState->floor.line.size; i++) {
+                uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
+                    "{ %.2ff, %.2ff },\r\n",
+                    gameState->floor.line.array[i].x, gameState->floor.line.array[i].y);
+                stringSize += n;
+                DEBUG_ASSERT(stringSize < stringCapacity);
+            }
+
+            char fileName[32];
+            snprintf(fileName, 32, "floor_vertices%d.txt", RandInt(0, 1000));
+            platformFuncs->DEBUGPlatformWriteFile(thread, fileName, (uint32)stringSize, string);
+            DEBUG_PRINT("Floor vertices written to file\n");
+        }
+
 		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
 		gameState->editorScaleExponent = ClampFloat32(
 			gameState->editorScaleExponent + editorScaleExponentDelta, 0.0f, 1.0f);
