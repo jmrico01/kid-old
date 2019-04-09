@@ -1178,7 +1178,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
                 Vec4 boxColor = BOX_COLOR_BASE;
                 boxColor.a = IDLE_ALPHA;
-
                 if ((mousePosPlusAnchor.x >= boxPos.x
                 && mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
                 (mousePosPlusAnchor.y >= boxPos.y
@@ -1187,13 +1186,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                     && input->mouseButtons[0].transitions == 1) {
                         newVertexPressed = true;
                         gameState->floorVertexSelected = (int)i;
-                        boxColor.a = SELECTED_ALPHA;
                     }
                     else {
                         boxColor.a = HOVER_ALPHA;
                     }
                 }
-
                 if ((int)i == gameState->floorVertexSelected) {
                     boxColor.a = SELECTED_ALPHA;
                 }
@@ -1234,9 +1231,24 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                 }
                 gameState->floor.line.size--;
                 gameState->floor.PrecomputeSampleVerticesFromLine();
-                
+
                 gameState->floorVertexSelected = -1;
             }
+        }
+
+        if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
+            uint32 newVertex = (uint32)gameState->floorVertexSelected + 1;
+            if (gameState->floorVertexSelected == -1) {
+                newVertex = gameState->floor.line.size;
+            }
+            for (uint32 i = gameState->floor.line.size; i > newVertex; i--) {
+                gameState->floor.line.array[i] = gameState->floor.line.array[i - 1];
+            }
+            gameState->floor.line.array[newVertex] = mouseWorldPosEnd;
+            gameState->floor.line.size++;
+            gameState->floor.PrecomputeSampleVerticesFromLine();
+
+            gameState->floorVertexSelected = newVertex;
         }
 
         if (WasKeyPressed(input, KM_KEY_P)) {
