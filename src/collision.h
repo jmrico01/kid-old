@@ -1,10 +1,11 @@
 #pragma once
 
+#include "km_lib.h"
 #include "km_math.h"
 
 #define FLOOR_PRECOMPUTED_POINTS_MAX 32768
 #define FLOOR_PRECOMPUTED_STEP_LENGTH 0.05f
-#define FLOOR_COLLIDER_MAX_VERTICES 128
+#define FLOOR_COLLIDER_MAX_VERTICES 1024
 #define LINE_COLLIDER_MAX_VERTICES 32
 
 struct FloorSampleVertex

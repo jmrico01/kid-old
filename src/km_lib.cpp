@@ -40,6 +40,7 @@ template <typename T, uint32 S>
 void FixedArray<T, S>::Append(T element)
 {
     DEBUG_ASSERT(size < S);
+
     array[size++] = element;
 }
 
@@ -47,24 +48,41 @@ template <typename T, uint32 S>
 void FixedArray<T, S>::RemoveLast()
 {
     DEBUG_ASSERT(size > 0);
+
     size--;
 }
 
 template <typename T, uint32 S>
 void FixedArray<T, S>::Remove(uint32 index)
 {
+    DEBUG_ASSERT(size > 0);
     DEBUG_ASSERT(index < size);
 
     for (uint32 i = index + 1; i < size; i++) {
-        data[i - 1] = data[i];
+        array[i - 1] = array[i];
     }
     size--;
+}
+
+template <typename T, uint32 S>
+void FixedArray<T, S>::AppendAfter(T element, uint32 index)
+{
+    DEBUG_ASSERT(index < size);
+    DEBUG_ASSERT(size < S);
+
+    uint32 targetIndex = index + 1;
+    for (uint32 i = size; i > targetIndex; i--) {
+        array[i] = array[i - 1];
+    }
+    array[targetIndex] = element;
+    size++;
 }
 
 template <typename T, uint32 S>
 inline T& FixedArray<T, S>::operator[](int index) const
 {
     DEBUG_ASSERT(index > 0 && index < size);
+    
     return array[index];
 }
 
@@ -117,6 +135,7 @@ template <typename T>
 void DynamicArray<T>::RemoveLast()
 {
     DEBUG_ASSERT(size > 0);
+
 	size--;
 }
 

@@ -109,6 +109,15 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
+internal void LoadFloorVertices(FloorCollider* floorCollider, int floorDataIndex)
+{
+    floorCollider->line.size = FIXED_ARRAY_SIZE(FLOOR_VERTEX_STORE[floorDataIndex]);
+    DEBUG_ASSERT(floorCollider->line.size <= FLOOR_COLLIDER_MAX_VERTICES);
+    MemCopy(floorCollider->line.array,
+        FLOOR_VERTEX_STORE[floorDataIndex], sizeof(FLOOR_VERTEX_STORE[floorDataIndex]));
+    floorCollider->PrecomputeSampleVerticesFromLine();
+}
+
 internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	HashKey ANIM_IDLE;
@@ -541,11 +550,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->barrelCoords = gameState->playerCoords - Vec2::unitX * 7.0f;
 
-		FloorCollider* floorCollider = &gameState->floor;
-		floorCollider->line.size = FIXED_ARRAY_SIZE(FLOOR_VERTICES);
-		DEBUG_ASSERT(floorCollider->line.size <= FLOOR_COLLIDER_MAX_VERTICES);
-		MemCopy(floorCollider->line.array, FLOOR_VERTICES, sizeof(FLOOR_VERTICES));
-		floorCollider->PrecomputeSampleVerticesFromLine();
+        LoadFloorVertices(&gameState->floor, 0);
 
 		gameState->numLineColliders = 0;
 		LineCollider* lineCollider;
@@ -914,6 +919,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
+    for (int i = 0; i < 10; i++) {
+        if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
+            LoadFloorVertices(&gameState->floor, i);
+            gameState->playerCoords = { 0.0f, 0.0f };
+        }
+    }
+
 	UpdateTown(gameState, deltaTime, input);
 
 	// ---------------------------- Begin Rendering ---------------------------
@@ -1225,30 +1237,23 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
         if (gameState->floorVertexSelected != -1) {
             if (WasKeyPressed(input, KM_KEY_R)) {
-                for (uint32 i = gameState->floorVertexSelected + 1;
-                i < gameState->floor.line.size; i++) {
-                    gameState->floor.line.array[i - 1] = gameState->floor.line.array[i];
-                }
-                gameState->floor.line.size--;
+                gameState->floor.line.Remove(gameState->floorVertexSelected);
                 gameState->floor.PrecomputeSampleVerticesFromLine();
-
                 gameState->floorVertexSelected = -1;
             }
         }
 
         if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
-            uint32 newVertex = (uint32)gameState->floorVertexSelected + 1;
             if (gameState->floorVertexSelected == -1) {
-                newVertex = gameState->floor.line.size;
+                gameState->floor.line.Append(mouseWorldPosEnd);
+                gameState->floorVertexSelected = (int)(gameState->floor.line.size - 1);
             }
-            for (uint32 i = gameState->floor.line.size; i > newVertex; i--) {
-                gameState->floor.line.array[i] = gameState->floor.line.array[i - 1];
+            else {
+                gameState->floor.line.AppendAfter(mouseWorldPosEnd,
+                    gameState->floorVertexSelected);
+                gameState->floorVertexSelected += 1;
             }
-            gameState->floor.line.array[newVertex] = mouseWorldPosEnd;
-            gameState->floor.line.size++;
             gameState->floor.PrecomputeSampleVerticesFromLine();
-
-            gameState->floorVertexSelected = newVertex;
         }
 
         if (WasKeyPressed(input, KM_KEY_P)) {
