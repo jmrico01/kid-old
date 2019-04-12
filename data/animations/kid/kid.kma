@@ -26,6 +26,7 @@ rootmotion {
     110 480
     110 480
     110 480
+    110 480
 }
 exit 2 Idle 0
 exit * Jump 0

@@ -22,21 +22,6 @@ const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
 const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
 const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
 
-static bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
-	int* elementLength, const char** next)
-{
-	for (int i = 0; i < stringLength; i++) {
-		if (string[i] == separator) {
-			*elementLength = i;
-			*next = &string[i + 1];
-			return true;
-		}
-	}
-
-	*elementLength = stringLength;
-	return true;
-}
-
 Vec2 AnimatedSpriteInstance::Update(float32 deltaTime,
 	int numNextAnimations, const HashKey* nextAnimations)
 {
@@ -312,24 +297,16 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 		}
 		else if (KeywordCompare(keyword, keywordI, KEYWORD_TIMING)) {
-			const char* element = value;
-			int length = valueI;
-			int frameTiming;
-			for (int j = 0; j < currentAnim->numFrames; j++) {
-				int elementLength;
-				const char* next;
-				if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
-					DEBUG_PRINT("Animation file missing timing information (%s)\n", filePath);
-					return false;
-				}
-				if (!StringToIntBase10(element, elementLength, &frameTiming)) {
-					DEBUG_PRINT("Animation file invalid timing value (%s)\n", filePath);
-					return false;
-				}
-				currentAnim->frameTiming[j] = frameTiming;
-				length -= (int)(next - element);
-				element = next;
-			}
+            int parsedElements;
+            if (!StringToElementArray(value, valueI, ' ', false,
+                StringToIntBase10,
+                ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
+                DEBUG_PRINT("Failed to parse timing information (%s)\n", filePath);
+                return false;
+            }
+            if (parsedElements != currentAnim->numFrames) {
+                DEBUG_PRINT("Not enough timing information (%s)\n", filePath);
+            }
 		}
 		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTFOLLOW)) {
 			currentAnim->rootFollow = true;
@@ -354,35 +331,23 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					return false;
 				}
 
-				// Parse root motion coordinate pair
-				Vec2Int rootPos;
-				const char* trimmed;
-				int trimmedLength;
-				TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
+                const char* trimmed;
+                int trimmedLength;
+                TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
 
-				int trimmedElementLength;
-				const char* trimmedNext;
-				if (!ReadElementInSplitString(trimmed, trimmedLength, ' ',
-				&trimmedElementLength, &trimmedNext)) {
-					DEBUG_PRINT("Animation file missing root motion 1st coordinate (%s)\n", filePath);
-					return false;
-				}
-				if (!StringToIntBase10(trimmed, trimmedElementLength, &rootPos.x)) {
-					DEBUG_PRINT("Animation file invalid root motion 1st coordinate (%s)\n", filePath);
-					return false;
-				}
-
-				trimmedLength -= (int)(trimmedNext - trimmed);
-				trimmed = trimmedNext;
-				if (!ReadElementInSplitString(trimmed, trimmedLength, ' ',
-				&trimmedElementLength, &trimmedNext)) {
-					DEBUG_PRINT("Animation file missing root motion 2nd coordinate (%s)\n", filePath);
-					return false;
-				}
-				if (!StringToIntBase10(trimmed, trimmedElementLength, &rootPos.y)) {
-					DEBUG_PRINT("Animation file invalid root motion 2nd coordinate (%s)\n", filePath);
-					return false;
-				}
+                // Parse root motion coordinate pair
+                Vec2Int rootPos;
+                int parsedElements;
+                if (!StringToElementArray(trimmed, trimmedLength, ' ', false,
+                    StringToIntBase10, 2, rootPos.e, &parsedElements)) {
+                    DEBUG_PRINT("Failed to parse root motion coordinates %.*s (%s)\n",
+                        trimmedLength, trimmed, filePath);
+                }
+                if (parsedElements != 2) {
+                    DEBUG_PRINT("Not enough coordinates in root motion %.*s (%s)\n",
+                        trimmedLength, trimmed, filePath);
+                    return false;
+                }
 
 				rootPos.y = textureSize.y - rootPos.y;
 				Vec2 rootPosWorld = {

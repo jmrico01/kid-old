@@ -109,13 +109,59 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal void LoadFloorVertices(FloorCollider* floorCollider, int floorDataIndex)
+internal bool32 LoadFloorVertices(const ThreadContext* thread,
+    FloorCollider* floorCollider, const char* filePath,
+    DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+    DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
 {
-    floorCollider->line.size = FIXED_ARRAY_SIZE(FLOOR_VERTEX_STORE[floorDataIndex]);
-    DEBUG_ASSERT(floorCollider->line.size <= FLOOR_COLLIDER_MAX_VERTICES);
-    MemCopy(floorCollider->line.array,
-        FLOOR_VERTEX_STORE[floorDataIndex], sizeof(FLOOR_VERTEX_STORE[floorDataIndex]));
+    DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
+    if (!levelFile.data) {
+        DEBUG_PRINT("Failed to load level file %s\n", filePath);
+        return false;
+    }
+
+    floorCollider->line.size = 0;
+    const char* element = (const char*)levelFile.data;
+    int length = (int)levelFile.size;
+    while (true) {
+        int elementLength;
+        const char* next;
+        if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+            break;
+        }
+
+        const char* trimmed;
+        int trimmedLength;
+        TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
+        if (trimmedLength == 0) {
+            break;
+        }
+
+        Vec2 pos;
+        int parsedElements;
+        if (!StringToElementArray(trimmed, trimmedLength, ',', true,
+            StringToFloat32, 2, pos.e, &parsedElements)) {
+            DEBUG_PRINT("Failed to parse floor position %.*s (%s)\n",
+                trimmedLength, trimmed, filePath);
+            return false;
+        }
+        if (parsedElements != 2) {
+            DEBUG_PRINT("Not enough coordinates in floor position %.*s (%s)\n",
+                trimmedLength, trimmed, filePath);
+            return false;
+        }
+
+        floorCollider->line.Append(pos);
+
+        length -= (int)(next - element);
+        element = next;
+    }
+
+    DEBUGPlatformFreeFileMemory(thread, &levelFile);
+
     floorCollider->PrecomputeSampleVerticesFromLine();
+
+    return true;
 }
 
 internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -550,7 +596,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->barrelCoords = gameState->playerCoords - Vec2::unitX * 7.0f;
 
-        LoadFloorVertices(&gameState->floor, 0);
+        if (!LoadFloorVertices(thread, &gameState->floor,
+            "data/levels/level0.kml",
+            platformFuncs->DEBUGPlatformReadFile,
+            platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load level 0");
+        }
 
 		gameState->numLineColliders = 0;
 		LineCollider* lineCollider;
@@ -780,7 +831,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->background.anchor = { 0.5f, 0.5f };
 		gameState->background.scale = 1.0f;
 		if (!LoadPNGOpenGL(thread,
-		"data/sprites/playground.png",
+		"data/sprites/pixel.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 		gameState->background.texture, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
@@ -921,7 +972,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
     for (int i = 0; i < 10; i++) {
         if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
-            LoadFloorVertices(&gameState->floor, i);
+            char levelFilePath[32];
+            snprintf(levelFilePath, 32, "data/levels/level%d.kml", i);
+            if (!LoadFloorVertices(thread, &gameState->floor, levelFilePath,
+                platformFuncs->DEBUGPlatformReadFile,
+                platformFuncs->DEBUGPlatformFreeFileMemory)) {
+                DEBUG_PANIC("Failed to load level %d", i);
+            }
             gameState->playerCoords = { 0.0f, 0.0f };
         }
     }
