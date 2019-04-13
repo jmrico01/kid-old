@@ -398,11 +398,29 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
 	}
 
+    { // rock launcher
+    }
+
 	{ // rock
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		float32 radius = size.y / 2.0f * 0.8f;
-		gameState->rock.coords.y = radius;
         gameState->rock.angle = -gameState->rock.coords.x / radius;
+        gameState->rock.coords.y = radius;
+
+        float32 rockLauncherDeltaY = 0.0f;
+        Vec2 toRockLauncher = gameState->rockLauncher.coords - gameState->rock.coords;
+        float32 distX = AbsFloat32(toRockLauncher.x);
+        const float32 PLATFORM_RADIUS = 0.75f;
+        const float32 PLATFORM_RAMP_RADIUS = 1.75f;
+        const float32 PLATFORM_HEIGHT = 0.7f;
+        if (distX < PLATFORM_RADIUS) {
+            rockLauncherDeltaY = PLATFORM_HEIGHT;
+        }
+        else if (distX < PLATFORM_RAMP_RADIUS) {
+            rockLauncherDeltaY = Lerp(PLATFORM_HEIGHT, 0.0f,
+                (distX - PLATFORM_RADIUS) / (PLATFORM_RAMP_RADIUS - PLATFORM_RADIUS));;
+        }
+        gameState->rock.coords.y += rockLauncherDeltaY;
 
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
@@ -414,9 +432,6 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 			- floorTangent * platformWidth;
 		rockPlatform->line.array[1] = pos + radius * floorNormal
 			+ floorTangent * platformWidth;
-	}
-
-	{ // rock launcher
 	}
 
     const float32 GRAB_RANGE = 0.2f;
@@ -438,7 +453,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
             Vec2 coords = *candidates.array[i].coordsPtr;
             float32 radius = candidates.array[i].radius;
             Vec2 toCoords = coords - gameState->playerCoords;
-            float32 dist = Mag(toCoords);
+            float32 dist = AbsFloat32(toCoords.x);
             if (radius - GRAB_RANGE <= dist && dist <= radius + GRAB_RANGE) {
                 gameState->grabbedObjectCoords = candidates.array[i].coordsPtr;
                 gameState->grabbedObjectRadius = radius;
@@ -449,7 +464,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 
     if (gameState->grabbedObjectCoords != nullptr) {
         Vec2 toCoords = *gameState->grabbedObjectCoords - gameState->playerCoords;
-        float32 dist = Mag(toCoords);
+        float32 dist = AbsFloat32(toCoords.x);
         if (pushPullKeyPressed
         && gameState->grabbedObjectRadius - GRAB_RANGE <= dist
         && dist <= gameState->grabbedObjectRadius + GRAB_RANGE) {
@@ -902,7 +917,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load rock");
 		}
 
-		gameState->rockLauncher.coords = { 1.0f, 0.0f };
+		gameState->rockLauncher.coords = { 10.0f, 0.0f };
 		if (!LoadPNGOpenGL(thread,
 		"data/sprites/machine2.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,

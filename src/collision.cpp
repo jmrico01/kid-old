@@ -47,7 +47,7 @@ internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
 
 void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const
 {
-	const int EDGE_NEIGHBORS = 3;
+	const int EDGE_NEIGHBORS = 2;
 	
 	*outFloorPos = Vec2::zero;
 	*outNormal = Vec2::unitY;
