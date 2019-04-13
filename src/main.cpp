@@ -388,20 +388,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
-	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
-		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
-
 	{ // barrel
-		const float32 BARREL_INTERACT_DIST_MIN = PLAYER_RADIUS * 2.5f;
-		const float32 BARREL_INTERACT_DIST_MAX = PLAYER_RADIUS * 3.0f;
-		Vec2 toBarrelCoords = gameState->barrelCoords - gameState->playerCoords;
-		float32 distToBarrel = Mag(toBarrelCoords);
-		if (pushPullKeyPressed
-		&& BARREL_INTERACT_DIST_MIN <= distToBarrel
-		&& distToBarrel <= BARREL_INTERACT_DIST_MAX) {
-			gameState->barrelCoords.x += playerCoordsNew.x - gameState->playerCoords.x;
-		}
-
 		int numBarrelNextAnims = 0;
 		HashKey barrelNextAnims[1];
 		if (WasKeyPressed(input, KM_KEY_X)) {
@@ -415,16 +402,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		float32 radius = size.y / 2.0f * 0.8f;
 		gameState->rock.coords.y = radius;
-
-		const float32 INTERACT_DIST_MIN = radius * 1.0f;
-		const float32 INTERACT_DIST_MAX = radius * 2.0f;
-		Vec2 toCoords = gameState->rock.coords - gameState->playerCoords;
-		float32 dist = Mag(toCoords);
-		if (pushPullKeyPressed && INTERACT_DIST_MIN <= dist && dist <= INTERACT_DIST_MAX) {
-			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-			gameState->rock.coords.x += deltaX;
-			gameState->rock.angle += -deltaX / radius;
-		}
+        gameState->rock.angle = -gameState->rock.coords.x / radius;
 
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
@@ -439,15 +417,49 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 	}
 
 	{ // rock launcher
-		const float32 INTERACT_DIST_MIN = PLAYER_RADIUS * 4.0f;
-		const float32 INTERACT_DIST_MAX = PLAYER_RADIUS * 4.5f;
-		Vec2 toCoords = gameState->rockLauncher.coords - gameState->playerCoords;
-		float32 dist = Mag(toCoords);
-		if (pushPullKeyPressed && INTERACT_DIST_MIN <= dist && dist <= INTERACT_DIST_MAX) {
-			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-			gameState->rockLauncher.coords.x += deltaX;
-		}
 	}
+
+    const float32 GRAB_RANGE = 0.2f;
+    bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
+        || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
+    if (pushPullKeyPressed && gameState->grabbedObjectCoords == nullptr) {
+        struct Grabbable {
+            Vec2* coordsPtr;
+            float32 radius;
+        };
+        FixedArray<Grabbable, 10> candidates;
+        candidates.size = 0;
+        Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+        float32 rockRadius = rockSize.y / 2.0f * 0.8f;
+        candidates.Append({ &gameState->rock.coords, rockRadius * 1.5f });
+        candidates.Append({ &gameState->rockLauncher.coords, PLAYER_RADIUS * 4.0f });
+        candidates.Append({ &gameState->barrelCoords, PLAYER_RADIUS * 2.7f });
+        for (uint32 i = 0; i < candidates.size; i++) {
+            Vec2 coords = *candidates.array[i].coordsPtr;
+            float32 radius = candidates.array[i].radius;
+            Vec2 toCoords = coords - gameState->playerCoords;
+            float32 dist = Mag(toCoords);
+            if (radius - GRAB_RANGE <= dist && dist <= radius + GRAB_RANGE) {
+                gameState->grabbedObjectCoords = candidates.array[i].coordsPtr;
+                gameState->grabbedObjectRadius = radius;
+                break;
+            }
+        }
+    }
+
+    if (gameState->grabbedObjectCoords != nullptr) {
+        Vec2 toCoords = *gameState->grabbedObjectCoords - gameState->playerCoords;
+        float32 dist = Mag(toCoords);
+        if (pushPullKeyPressed
+        && gameState->grabbedObjectRadius - GRAB_RANGE <= dist
+        && dist <= gameState->grabbedObjectRadius + GRAB_RANGE) {
+            float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
+            (*gameState->grabbedObjectCoords).x += deltaX;
+        }
+        else {
+            gameState->grabbedObjectCoords = nullptr;
+        }
+    }
 
 	gameState->playerCoords = playerCoordsNew;
 
@@ -504,7 +516,7 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rock.coords);
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
-		Mat4 transform = CalculateTransform(pos, size, gameState->rock.anchor, rot);
+		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot);
 		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockTexture.textureID);
 	}
 
@@ -514,8 +526,12 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
 			&floorPos, &floorNormal);
-		Quat rot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(floorNormal, 0.0f));
-		Mat4 transform = CalculateTransform(pos, size, gameState->rockLauncher.anchor, rot);
+        float32 angle = acosf(Dot(Vec2::unitY, floorNormal));
+        if (floorNormal.x > 0.0f) {
+            angle = -angle;
+        }
+		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+		Mat4 transform = CalculateTransform(pos, size, Vec2 { 0.5f, 0.15f }, rot);
 		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockLauncherTexture.textureID);
 	}
 
@@ -525,8 +541,12 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2 barrelFloorPos, barrelFloorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->barrelCoords.x,
 			&barrelFloorPos, &barrelFloorNormal);
-		Quat barrelRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(barrelFloorNormal, 0.0f));
-		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, barrelRot,
+        float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
+        if (barrelFloorNormal.x > 0.0f) {
+            angle = -angle;
+        }
+        Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, rot,
 			1.0f, false);
 	}
 
@@ -616,14 +636,16 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		// Game data
-		gameState->playerCoords = Vec2 { 72.0f, 0.0f };
+		gameState->playerCoords = Vec2 { 0.0f, 0.0f };
 		gameState->playerVel = Vec2::zero;
 		gameState->cameraCoords = gameState->playerCoords;
 		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 		gameState->currentPlatform = nullptr;
 
-		gameState->barrelCoords = gameState->playerCoords - Vec2::unitX * 7.0f;
+        gameState->grabbedObjectCoords = nullptr;
+
+		gameState->barrelCoords = { 1.0f, 0.0f };
 
         if (!LoadFloorVertices(thread, &gameState->floor,
             "data/levels/level0.kml",
@@ -869,8 +891,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load background");
 		}
 
-		gameState->rock.coords = { 90.0f, 0.0f };
-		gameState->rock.anchor = { 0.5f, 0.5f };
+		gameState->rock.coords = { 5.0f, 0.0f };
 		gameState->rock.angle = 0.0f;
 		if (!LoadPNGOpenGL(thread,
 		"data/sprites/rock.png",
@@ -881,8 +902,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load rock");
 		}
 
-		gameState->rockLauncher.coords = { 85.0f, 0.0f };
-		gameState->rockLauncher.anchor = { 0.5f, 0.15f };
+		gameState->rockLauncher.coords = { 1.0f, 0.0f };
 		if (!LoadPNGOpenGL(thread,
 		"data/sprites/machine2.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,

@@ -41,14 +41,12 @@ struct TextureWithPosition
 struct Rock
 {
 	Vec2 coords;
-	Vec2 anchor;
 	float32 angle;
 };
 
 struct RockLauncher
 {
 	Vec2 coords;
-	Vec2 anchor;
 };
 
 struct GameState
@@ -67,6 +65,9 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
+
+    Vec2* grabbedObjectCoords;
+    float32 grabbedObjectRadius;
 
 	Vec2 barrelCoords;
 
