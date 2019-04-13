@@ -164,6 +164,31 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
     return true;
 }
 
+internal bool32 SaveFloorVertices(const ThreadContext* thread,
+    const FloorCollider* floorCollider, const char* filePath,
+    MemoryBlock transient,
+    DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+{
+    uint64 stringSize = 0;
+    uint64 stringCapacity = transient.size;
+    char* string = (char*)transient.memory;
+    for (uint32 i = 0; i < floorCollider->line.size; i++) {
+        uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
+            "%.2f, %.2f\r\n",
+            floorCollider->line.array[i].x, floorCollider->line.array[i].y);
+        stringSize += n;
+        DEBUG_ASSERT(stringSize < stringCapacity);
+    }
+
+    if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string)) {
+        DEBUG_PRINT("Failed to write vertices to file\n");
+        return false;
+    }
+
+    DEBUG_PRINT("Floor vertices written to file\n");
+    return true;
+}
+
 internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	HashKey ANIM_IDLE;
@@ -455,7 +480,11 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 	gameState->cameraPos = gameState->floor.GetWorldPosFromCoords(gameState->cameraCoords);
 	Vec2 camFloorPos, camFloorNormal;
 	gameState->floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
-	gameState->cameraRot = QuatRotBetweenVectors(Vec3::unitY, ToVec3(camFloorNormal, 0.0f));
+    float32 angle = acosf(Dot(Vec2::unitY, camFloorNormal));
+    if (camFloorNormal.x > 0.0f) {
+        angle = -angle;
+    }
+    gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 }
 
 internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -602,6 +631,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             platformFuncs->DEBUGPlatformFreeFileMemory)) {
             DEBUG_PANIC("Failed to load level 0");
         }
+        gameState->levelLoaded = 0;
 
 		gameState->numLineColliders = 0;
 		LineCollider* lineCollider;
@@ -979,7 +1009,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                 platformFuncs->DEBUGPlatformFreeFileMemory)) {
                 DEBUG_PANIC("Failed to load level %d", i);
             }
+            gameState->levelLoaded = i;
             gameState->playerCoords = { 0.0f, 0.0f };
+
+            snprintf(levelFilePath, 32, "data/levels/level%d-bak.kml", i);
+            if (!SaveFloorVertices(thread, &gameState->floor, levelFilePath,
+                memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
+                DEBUG_PANIC("Failed to save backup level data for %d", i);
+            }
         }
     }
 
@@ -1060,6 +1097,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
+    Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
 
 	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
@@ -1075,6 +1113,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
 	const Vec2Int MARGIN = { 30, 45 };
+
+    { // solid floor
+        DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
+        LineGLData* lineData = (LineGLData*)memory->transient.memory;
+        lineData->count = 0;
+
+        Vec4 floorColor = Vec4 { 0.1f, 0.1f, 0.1f, 1.0f };
+        const float32 FLOOR_RENDER_STEP_LENGTH = 0.1f;
+        for (float32 floorX = 0.0f; floorX < gameState->floor.length;
+        floorX += FLOOR_RENDER_STEP_LENGTH) {
+            Vec2 fPos, fNormal;
+            gameState->floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
+            lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
+        }
+        DrawLine(gameState->lineGL, projection, view, lineData, floorColor);
+    }
 
 	if (gameState->debugView) {
 		FontFace& textFont = gameState->fontFaceSmall;
@@ -1165,8 +1219,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
-		Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
-
 		{ // line colliders
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			for (int i = 0; i < gameState->numLineColliders; i++) {
@@ -1204,6 +1256,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
 		}
+
+        { // rock launcher dir
+            Vec4 rockLauncherDirColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
+            Vec2 floorPos, floorNormal;
+            gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
+                &floorPos, &floorNormal);
+            lineData->count = 2;
+            lineData->pos[0] = ToVec3(floorPos, 0.0f);
+            lineData->pos[1] = ToVec3(floorPos + floorNormal * 1000.0f, 0.0f);
+            DrawLine(gameState->lineGL, projection, view, lineData, rockLauncherDirColor);
+        }
 
 		{ // player
 			const float32 CROSS_RADIUS = 0.2f;
@@ -1314,21 +1377,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         }
 
         if (WasKeyPressed(input, KM_KEY_P)) {
-            uint64 stringSize = 0;
-            uint64 stringCapacity = memory->transient.size;
-            char* string = (char*)memory->transient.memory;
-            for (uint32 i = 0; i < gameState->floor.line.size; i++) {
-                uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
-                    "{ %.2ff, %.2ff },\r\n",
-                    gameState->floor.line.array[i].x, gameState->floor.line.array[i].y);
-                stringSize += n;
-                DEBUG_ASSERT(stringSize < stringCapacity);
-            }
-
             char fileName[32];
-            snprintf(fileName, 32, "floor_vertices%d.txt", RandInt(0, 1000));
-            platformFuncs->DEBUGPlatformWriteFile(thread, fileName, (uint32)stringSize, string);
-            DEBUG_PRINT("Floor vertices written to file\n");
+            snprintf(fileName, 32, "data/levels/level%d.kml", gameState->levelLoaded);
+            if (!SaveFloorVertices(thread, &gameState->floor, fileName,
+                memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
+                DEBUG_PRINT("Level save failed!\n");
+            }
         }
 
 		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;

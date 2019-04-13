@@ -96,10 +96,12 @@ bool32 StringToFloat32(const char* string, int n, float32* f)
     }
 
     int whole = 0;
+    float32 wholeNegative = false;
     if (dotIndex > 0) {
         if (!StringToIntBase10(string, dotIndex, &whole)) {
             return false;
         }
+        wholeNegative = string[0] == '-';
     }
     int frac = 0;
     int fracLength = n - dotIndex - 1;
@@ -111,6 +113,7 @@ bool32 StringToFloat32(const char* string, int n, float32* f)
 
     *f = (float32)whole;
     if (fracLength > 0) {
+        frac = wholeNegative ? -frac : frac;
         float32 fractional = (float32)frac;
         for (int i = 0; i < fracLength; i++) {
             fractional /= 10.0f;

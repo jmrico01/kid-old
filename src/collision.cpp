@@ -5,8 +5,8 @@
 void FloorCollider::GetInfoFromCoordX(float32 coordX, Vec2* outPos, Vec2* outNormal) const
 {
 	float32 indFloat = coordX / FLOOR_PRECOMPUTED_STEP_LENGTH;
-	int ind1 = ClampInt((int)indFloat, 0, sampleVertices.size);
-	int ind2 = ClampInt(ind1 + 1,      0, sampleVertices.size);
+	int ind1 = ClampInt((int)indFloat, 0, sampleVertices.size - 1);
+	int ind2 = ClampInt(ind1 + 1,      0, sampleVertices.size - 1);
 	FloorSampleVertex sampleVertex1 = sampleVertices.array[ind1];
 	FloorSampleVertex sampleVertex2 = sampleVertices.array[ind2];
 	float32 lerpT = indFloat - (float32)ind1;
@@ -29,14 +29,13 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	}
 	length = lineLength;
 
-	int precomputedPoints = (int)(lineLength / FLOOR_PRECOMPUTED_STEP_LENGTH);
+	int precomputedPoints = (int)(lineLength / FLOOR_PRECOMPUTED_STEP_LENGTH) + 1;
 	DEBUG_ASSERT(precomputedPoints <= FLOOR_PRECOMPUTED_POINTS_MAX);
 	sampleVertices.size = precomputedPoints;
 	for (int i = 0; i < precomputedPoints; i++) {
 		float32 coordX = i * FLOOR_PRECOMPUTED_STEP_LENGTH;
-		FloorSampleVertex sampleVertex;
-		GetInfoFromCoordXSlow(coordX, &sampleVertex.pos, &sampleVertex.normal);
-		sampleVertices.array[i] = sampleVertex;
+		GetInfoFromCoordXSlow(coordX,
+            &sampleVertices.array[i].pos, &sampleVertices.array[i].normal);
 	}
 }
 
@@ -59,19 +58,21 @@ void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec
 		float32 edgeLength = Mag(edge);
 		if (t + edgeLength >= coordX) {
 			float32 tEdge = (coordX - t) / edgeLength;
-			Vec2 sumTangents = Vec2::zero;
 			Vec2 sumNormals = Vec2::zero;
 			for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
-				float32 edgeWeight = EDGE_NEIGHBORS - AbsFloat32(n - (tEdge - 0.5f));
+				float32 edgeWeight = (float32)EDGE_NEIGHBORS
+                    - AbsFloat32((float32)n - (tEdge - 0.5f)) + 0.5f;
 				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
-				int ind1 = ClampInt(i + n - 1, 0, line.size - 1);
-				int ind2 = ClampInt(i + n,     1, line.size);
-				Vec2 edgeTangent = Normalize(line.array[ind2] - line.array[ind1]);
-				sumTangents += edgeTangent * edgeWeight;
-				sumNormals += Vec2 { -edgeTangent.y, edgeTangent.x } * edgeWeight;
+				int edgeVertInd1 = ClampInt(i + n - 1, 0, line.size - 1);
+				int edgeVertInd2 = ClampInt(i + n,     0, line.size - 1);
+                if (edgeVertInd1 != edgeVertInd2) {
+                    Vec2 neighborEdge = line.array[edgeVertInd2] - line.array[edgeVertInd1];
+                    Vec2 neighborNormal = Normalize(Vec2 { -neighborEdge.y, neighborEdge.x });
+                    sumNormals += neighborNormal * edgeWeight;
+                }
 			}
-			int indPrev = ClampInt(i - 1, 1, line.size);
-			int indNext = ClampInt(i + 1, 1, line.size);
+			int indPrev = ClampInt(i - 1, 1, line.size - 1);
+			int indNext = ClampInt(i + 1, 1, line.size - 1);
 			Vec2 tangentPrev = Normalize(line.array[indPrev] - line.array[indPrev - 1]);
 			Vec2 tangentNext = Normalize(line.array[indNext] - line.array[indNext - 1]);
 			Vec2 bezierMid = (line.array[i - 1] + tangentPrev * edgeLength / 2.0f

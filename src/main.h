@@ -72,6 +72,8 @@ struct GameState
 
     FloorCollider floor;
 
+    int levelLoaded;
+
     int numLineColliders;
     LineCollider lineColliders[LINE_COLLIDERS_MAX];
 
@@ -84,8 +86,6 @@ struct GameState
 
     // Editor
     int floorVertexSelected;
-    //ClickableBox floorVertexBoxes[FLOOR_COLLIDER_MAX_VERTICES];
-    //ClickableBox* boxSelected;
 #endif
 
     RenderState renderState;
