@@ -175,7 +175,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
     for (uint32 i = 0; i < floorCollider->line.size; i++) {
         uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
             "%.2f, %.2f\r\n",
-            floorCollider->line.array[i].x, floorCollider->line.array[i].y);
+            floorCollider->line[i].x, floorCollider->line[i].y);
         stringSize += n;
         DEBUG_ASSERT(stringSize < stringCapacity);
     }
@@ -187,6 +187,15 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 
     DEBUG_PRINT("Floor vertices written to file\n");
     return true;
+}
+
+internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object)
+{
+    Vec2 toCoords = playerCoords - *object.coordsPtr;
+    float32 distX = AbsFloat32(toCoords.x);
+    float32 distY = AbsFloat32(toCoords.y);
+    return object.rangeX.x <= distX && distX <= object.rangeX.y
+        && object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
 
 internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
@@ -428,51 +437,51 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		LineCollider* rockPlatform = &gameState->lineColliders[gameState->numLineColliders - 1];
 		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
 		float32 platformWidth = radius * 0.5f;
-		rockPlatform->line.array[0] = pos + radius * floorNormal
+		rockPlatform->line[0] = pos + radius * floorNormal
 			- floorTangent * platformWidth;
-		rockPlatform->line.array[1] = pos + radius * floorNormal
+		rockPlatform->line[1] = pos + radius * floorNormal
 			+ floorTangent * platformWidth;
 	}
 
     const float32 GRAB_RANGE = 0.2f;
     bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
         || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
-    if (pushPullKeyPressed && gameState->grabbedObjectCoords == nullptr) {
-        struct Grabbable {
-            Vec2* coordsPtr;
-            float32 radius;
-        };
-        FixedArray<Grabbable, 10> candidates;
+    if (pushPullKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
+        FixedArray<GrabbedObjectInfo, 10> candidates;
         candidates.size = 0;
         Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
         float32 rockRadius = rockSize.y / 2.0f * 0.8f;
-        candidates.Append({ &gameState->rock.coords, rockRadius * 1.5f });
-        candidates.Append({ &gameState->rockLauncher.coords, PLAYER_RADIUS * 4.0f });
-        candidates.Append({ &gameState->barrelCoords, PLAYER_RADIUS * 2.7f });
+        candidates.Append({
+            &gameState->rock.coords,
+            Vec2 { rockRadius * 1.2f, rockRadius * 1.7f },
+            Vec2 { 0.0f, rockRadius }
+        });
+        candidates.Append({
+            &gameState->rockLauncher.coords,
+            Vec2 { PLAYER_RADIUS * 4.0f, PLAYER_RADIUS * 4.5f },
+            Vec2 { 0.0f, 1.0f }
+        });
+        candidates.Append({
+            &gameState->barrelCoords,
+            Vec2 { PLAYER_RADIUS * 2.7f, PLAYER_RADIUS * 3.2f },
+            Vec2 { 0.0f, 1.0f }
+        });
         for (uint32 i = 0; i < candidates.size; i++) {
-            Vec2 coords = *candidates.array[i].coordsPtr;
-            float32 radius = candidates.array[i].radius;
-            Vec2 toCoords = coords - gameState->playerCoords;
-            float32 dist = AbsFloat32(toCoords.x);
-            if (radius - GRAB_RANGE <= dist && dist <= radius + GRAB_RANGE) {
-                gameState->grabbedObjectCoords = candidates.array[i].coordsPtr;
-                gameState->grabbedObjectRadius = radius;
+            if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i])) {
+                gameState->grabbedObject = candidates[i];
                 break;
             }
         }
     }
 
-    if (gameState->grabbedObjectCoords != nullptr) {
-        Vec2 toCoords = *gameState->grabbedObjectCoords - gameState->playerCoords;
-        float32 dist = AbsFloat32(toCoords.x);
-        if (pushPullKeyPressed
-        && gameState->grabbedObjectRadius - GRAB_RANGE <= dist
-        && dist <= gameState->grabbedObjectRadius + GRAB_RANGE) {
+    if (gameState->grabbedObject.coordsPtr != nullptr) {
+        if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject)
+        && pushPullKeyPressed) {
             float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-            (*gameState->grabbedObjectCoords).x += deltaX;
+            (*gameState->grabbedObject.coordsPtr).x += deltaX;
         }
         else {
-            gameState->grabbedObjectCoords = nullptr;
+            gameState->grabbedObject.coordsPtr = nullptr;
         }
     }
 
@@ -658,7 +667,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->facingRight = true;
 		gameState->currentPlatform = nullptr;
 
-        gameState->grabbedObjectCoords = nullptr;
+        gameState->grabbedObject.coordsPtr = nullptr;
 
 		gameState->barrelCoords = { 1.0f, 0.0f };
 
@@ -773,14 +782,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->editor = false;
 		gameState->editorScaleExponent = 0.5f;
 
-		/*for (uint32 i = 0; i < gameState->floor.line.size; i++) {
-			Vec4 colorIdle = Vec4 { 0.0f, 0.0f, 1.0f, 1.0f };
-			Vec4 colorHover = Vec4 { 0.75f, 0.0f, 1.0f, 1.0f };
-			Vec4 colorPress = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
-			InitClickableBox(&gameState->floorVertexBoxes[i],
-				colorIdle, colorHover, colorPress);
-		}
-        gameState->boxSelected = nullptr;*/
         gameState->floorVertexSelected = -1;
 #endif
 
@@ -1258,9 +1259,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			for (int i = 0; i < gameState->numLineColliders; i++) {
 				const LineCollider& lineCollider = gameState->lineColliders[i];
-				lineData->count = lineCollider.line.size;
+				lineData->count = (int)lineCollider.line.size;
 				for (uint32 v = 0; v < lineCollider.line.size; v++) {
-					lineData->pos[v] = ToVec3(lineCollider.line.array[v], 0.0f);
+					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
 				}
 				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
 			}
@@ -1339,7 +1340,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
             };
             Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
             for (uint32 i = 0; i < gameState->floor.line.size; i++) {
-                Vec2Int boxPos = WorldToScreen(gameState->floor.line.array[i], screenInfo,
+                Vec2Int boxPos = WorldToScreen(gameState->floor.line[i], screenInfo,
                     gameState->cameraPos, gameState->cameraRot,
                     ScaleExponentToWorldScale(gameState->editorScaleExponent));
 
@@ -1385,7 +1386,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                 gameState->cameraPos -= mouseWorldDelta;
             }
             else {
-                gameState->floor.line.array[gameState->floorVertexSelected] += mouseWorldDelta;
+                gameState->floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
                 gameState->floor.PrecomputeSampleVerticesFromLine();
             }
         }

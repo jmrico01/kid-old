@@ -49,6 +49,12 @@ struct RockLauncher
 	Vec2 coords;
 };
 
+struct GrabbedObjectInfo
+{
+    Vec2* coordsPtr;
+    Vec2 rangeX, rangeY;
+};
+
 struct GameState
 {
 	AudioState audioState;
@@ -66,8 +72,7 @@ struct GameState
     bool playerJumpHolding;
     float32 playerJumpHold;
 
-    Vec2* grabbedObjectCoords;
-    float32 grabbedObjectRadius;
+    GrabbedObjectInfo grabbedObject;
 
 	Vec2 barrelCoords;
 

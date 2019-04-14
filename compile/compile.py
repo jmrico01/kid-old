@@ -141,7 +141,8 @@ def WinCompile(compileMode):
         compilerFlags = " ".join([
             compilerFlags,
             "/MT", # CRT static link
-            "/Ox"  # full optimization
+            "/Ox", # full optimization
+            "/Z7"  # minimal "old school" debug information
         ])
     compilerWarningFlags = " ".join([
         "/WX",      # treat warnings as errors

@@ -111,49 +111,29 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	outAnimatedSprite.animations.Init();
 
+    Array<char> fileString;
+    fileString.size = animFile.size;
+    fileString.data = (char*)animFile.data;
 	const char* fileData = (const char*)animFile.data;
-	bool32 done = false;
-	int i = 0;
 	HashKey currentAnimKey = {};
 	Animation* currentAnim = nullptr;
-	while (!done) {
-		char keyword[KEYWORD_MAX_LENGTH];
-		int keywordI = 0;
-		while (i < animFile.size && !IsWhitespace(fileData[i])) {
-			if (keywordI >= KEYWORD_MAX_LENGTH) {
-				DEBUG_PRINT("Animation file keyword too long (%s)\n", filePath);
-				return false;
-			}
-			keyword[keywordI++] = fileData[i++];
-		}
-
-		if (i < animFile.size && fileData[i] == ' ') {
-			i++; // Skip space
-		}
-
-		char valueBuffer[VALUE_MAX_LENGTH];
-		int valueLength = 0;
-		bool bracketValue = false;
-		while (i < animFile.size &&
-		((!bracketValue && fileData[i] != '\n' && fileData[i] != '\r')
-		|| (bracketValue && fileData[i] != '}'))) {
-			if (valueLength == 0 && fileData[i] == '{') {
-				bracketValue = true;
-				i++;
-				continue;
-			}
-			if (valueLength >= VALUE_MAX_LENGTH) {
-				DEBUG_PRINT("Animation file value too long (%s)\n", filePath);
-				return false;
-			}
-			valueBuffer[valueLength++] = fileData[i++];
-		}
-
-		const char* value;
-		int valueI;
-		TrimWhitespace(valueBuffer, valueLength, &value, &valueI);
-		/* DEBUG_PRINT("keyword: %.*s (%d)\nvalue: %.*s (%d)\n",
-			keywordI, keyword, keywordI, valueI, value, valueI); */
+	while (true) {
+        FixedArray<char, KEYWORD_MAX_LENGTH> keywordArray;
+        FixedArray<char, VALUE_MAX_LENGTH> valueArray;
+        int read = ReadNextKeywordValue(fileString, &keywordArray, &valueArray);
+        if (read < 0) {
+            DEBUG_PRINT("Animation file keyword/value error (%s)\n", filePath);
+            return false;
+        }
+        else if (read == 0) {
+            break;
+        }
+        fileString.size -= read;
+        fileString.data += read;
+        const char* keyword = keywordArray.data;
+        int keywordI = (int)keywordArray.size;
+        const char* value = valueArray.data;
+        int valueI = (int)valueArray.size;
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (KeywordCompare(keyword, keywordI, KEYWORD_ANIM)) {
@@ -179,8 +159,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 			char spritePath[PATH_MAX_LENGTH];
-			for (int j = 0; j < lastSlash; j++) {
-				spritePath[j] = filePath[j];
+			for (int i = 0; i < lastSlash; i++) {
+				spritePath[i] = filePath[i];
 			}
 			spritePath[lastSlash] = '/';
 			while (true) {
@@ -288,8 +268,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 
 			if (exitFromFrame == -1) {
-				for (int j = 0; j < currentAnim->numFrames; j++) {
-					currentAnim->frameExitTo[j].Add(exitToAnim, exitToFrame);
+				for (int i = 0; i < currentAnim->numFrames; i++) {
+					currentAnim->frameExitTo[i].Add(exitToAnim, exitToFrame);
 				}
 			}
 			else {
@@ -322,7 +302,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 			const char* element = value;
 			int length = valueI;
-			for (int j = 0; j < currentAnim->numFrames; j++) {
+			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
 				int elementLength;
 				const char* next;
@@ -354,7 +334,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					(float32)rootPos.x / REF_PIXELS_PER_UNIT,
 					(float32)rootPos.y / REF_PIXELS_PER_UNIT
 				};
-				currentAnim->frameRootAnchor[j] = {
+				currentAnim->frameRootAnchor[i] = {
 					(float32)rootPos.x / textureSize.x,
 					(float32)rootPos.y / textureSize.y
 				};
@@ -362,7 +342,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				if (i == 0) {
 					rootPosWorld0 = rootPosWorld;
 				}
-				currentAnim->frameRootMotion[j] = rootPosWorld - rootPosWorld0;
+				currentAnim->frameRootMotion[i] = rootPosWorld - rootPosWorld0;
 
 				length -= (int)(next - element);
 				element = next;
@@ -379,16 +359,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		else {
 			DEBUG_PRINT("Animation file with unknown keyword (%s)\n", filePath);
 			return false;
-		}
-
-		// Gobble newline and '}' characters
-		while (i < animFile.size &&
-		(fileData[i] == '}' || fileData[i] == '\n' || fileData[i] == '\r')) {
-			i++;
-		}
-
-		if (i >= animFile.size || *fileData == '\0') {
-			done = true;
 		}
 	}
 

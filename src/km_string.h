@@ -1,6 +1,9 @@
 #pragma once
 
+#include "km_lib.h"
 #include "km_math.h"
+
+// TODO strings should probably be KMArray or FixedArray objects
 
 int StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);
@@ -20,3 +23,7 @@ template <typename T>
 bool32 StringToElementArray(const char* string, int length, char sep, bool trimElements,
     bool32 (*conversionFunction)(const char*, int, T*),
     int maxElements, T* array, int* numElements);
+
+template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
+bool32 ReadNextKeywordValue(Array<char> string,
+    FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value);

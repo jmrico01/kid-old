@@ -4,42 +4,58 @@
 
 #define STRING_KEY_MAX_LENGTH 32
 
-template <typename T, uint32 S>
+template <typename T>
+struct Array
+{
+    uint64 size;
+    T* data;
+    
+    inline T operator[](int index) const;
+    inline T& operator[](int index);
+};
+
+template <typename T, uint64 S>
 struct FixedArray
 {
-	uint32 size;
-	T array[S];
+	uint64 size;
+	T data[S];
 
 	void Append(T element);
 	void RemoveLast();
 	void Clear();
 
     // Slow, linear time
-    void Remove(uint32 index);
-    void AppendAfter(T element, uint32 index);
+    void Remove(uint64 index);
+    void AppendAfter(T element, uint64 index);
 	
-	inline T& operator[](int index) const;
+    inline T operator[](int index) const;
+    inline T& operator[](int index);
+
+    Array<T> ToKMArray() const;
 };
 
 template <typename T>
 struct DynamicArray
 {
-	uint32 size;
-	uint32 capacity;
+	uint64 size;
 	T* data;
 
-	void Init();
-	void Init(uint32 capacity);
+    uint64 capacity;
 
-	DynamicArray<T> Copy() const;
+	void Init();
+	void Init(uint64 capacity);
+
 	void Append(T element);
 	void RemoveLast();
 	// Slow, linear time
-	void Remove(uint32 index);
+	void Remove(uint64 index);
 	void Clear();
 	void Free();
 
-	inline T& operator[](int index) const;
+    inline T operator[](int index) const;
+    inline T& operator[](int index);
+
+    Array<T> ToKMArray() const;
 };
 
 struct HashKey

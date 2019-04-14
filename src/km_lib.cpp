@@ -36,15 +36,29 @@ bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
     return true;
 }
 
-template <typename T, uint32 S>
+template <typename T>
+inline T Array<T>::operator[](int index) const
+{
+    DEBUG_ASSERT(0 <= index && index < (int)size);
+    return data[index];
+}
+
+template <typename T>
+inline T& Array<T>::operator[](int index)
+{
+    DEBUG_ASSERT(0 <= index && index < (int)size);
+    return data[index];
+}
+
+template <typename T, uint64 S>
 void FixedArray<T, S>::Append(T element)
 {
     DEBUG_ASSERT(size < S);
 
-    array[size++] = element;
+    data[size++] = element;
 }
 
-template <typename T, uint32 S>
+template <typename T, uint64 S>
 void FixedArray<T, S>::RemoveLast()
 {
     DEBUG_ASSERT(size > 0);
@@ -52,38 +66,53 @@ void FixedArray<T, S>::RemoveLast()
     size--;
 }
 
-template <typename T, uint32 S>
-void FixedArray<T, S>::Remove(uint32 index)
+template <typename T, uint64 S>
+void FixedArray<T, S>::Remove(uint64 index)
 {
     DEBUG_ASSERT(size > 0);
     DEBUG_ASSERT(index < size);
 
-    for (uint32 i = index + 1; i < size; i++) {
-        array[i - 1] = array[i];
+    for (uint64 i = index + 1; i < size; i++) {
+        data[i - 1] = data[i];
     }
     size--;
 }
 
-template <typename T, uint32 S>
-void FixedArray<T, S>::AppendAfter(T element, uint32 index)
+template <typename T, uint64 S>
+void FixedArray<T, S>::AppendAfter(T element, uint64 index)
 {
     DEBUG_ASSERT(index < size);
     DEBUG_ASSERT(size < S);
 
-    uint32 targetIndex = index + 1;
-    for (uint32 i = size; i > targetIndex; i--) {
-        array[i] = array[i - 1];
+    uint64 targetIndex = index + 1;
+    for (uint64 i = size; i > targetIndex; i--) {
+        data[i] = data[i - 1];
     }
-    array[targetIndex] = element;
+    data[targetIndex] = element;
     size++;
 }
 
-template <typename T, uint32 S>
-inline T& FixedArray<T, S>::operator[](int index) const
+template <typename T, uint64 S>
+inline T FixedArray<T, S>::operator[](int index) const
 {
-    DEBUG_ASSERT(index > 0 && index < size);
-    
-    return array[index];
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T, uint64 S>
+inline T& FixedArray<T, S>::operator[](int index)
+{
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T, uint64 S>
+Array<T> FixedArray<T, S>::ToKMArray() const
+{
+    Array<T> outArray;
+    outArray.size = size;
+    outArray.data = &data[0];
+    return outArray;
 }
 
 template <typename T>
@@ -93,7 +122,7 @@ void DynamicArray<T>::Init()
 }
 
 template <typename T>
-void DynamicArray<T>::Init(uint32 capacity)
+void DynamicArray<T>::Init(uint64 capacity)
 {
 	size = 0;
 	this->capacity = capacity;
@@ -101,19 +130,6 @@ void DynamicArray<T>::Init(uint32 capacity)
 	if (!data) {
 		DEBUG_PANIC("ERROR: not enough memory!\n");
 	}
-}
-
-template <typename T>
-DynamicArray<T> DynamicArray<T>::Copy() const
-{
-	DynamicArray<T> array(capacity);
-
-	array.size = size;
-	for (uint32 i = 0; i < array.size; i++) {
-		array.data[i] = data[i];
-	}
-
-	return array;
 }
 
 template <typename T>
@@ -135,16 +151,15 @@ template <typename T>
 void DynamicArray<T>::RemoveLast()
 {
     DEBUG_ASSERT(size > 0);
-
 	size--;
 }
 
 template <typename T>
-void DynamicArray<T>::Remove(uint32 index)
+void DynamicArray<T>::Remove(uint64 index)
 {
 	DEBUG_ASSERT(index < size);
 
-	for (uint32 i = index + 1; i < size; i++) {
+	for (uint64 i = index + 1; i < size; i++) {
 		data[i - 1] = data[i];
 	}
 	size--;
@@ -166,12 +181,26 @@ void DynamicArray<T>::Free()
 }
 
 template <typename T>
-inline T& DynamicArray<T>::operator[](int index) const
+inline T DynamicArray<T>::operator[](int index) const
 {
-#if GAME_SLOW
-	DEBUG_ASSERT(0 <= index && index < (int)size);
-#endif
-	return data[index];
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T>
+inline T& DynamicArray<T>::operator[](int index)
+{
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T>
+Array<T> DynamicArray<T>::ToKMArray() const
+{
+    Array<T> outArray;
+    outArray.size = size;
+    outArray.data = data;
+    return outArray;
 }
 
 void HashKey::WriteString(const char* str, int n)

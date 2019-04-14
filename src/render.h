@@ -10,7 +10,7 @@ struct SpriteStateGL
 	GLuint vertexArray;
 	GLuint vertexBuffer;
 	GLuint uvBuffer;
-	GLuint programID;
+    GLuint multiplyProgramID;
 };
 
 struct RenderState

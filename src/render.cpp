@@ -1,5 +1,6 @@
 #include "render.h"
 
+#include "opengl_base.h"
 #include "opengl_funcs.h"
 
 Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot)
@@ -59,8 +60,8 @@ bool InitSpriteState(SpriteStateGL& spriteStateGL,
 
 	glBindVertexArray(0);
 
-	spriteStateGL.programID = LoadShaders(thread,
-		"shaders/sprite.vert", "shaders/sprite.frag",
+	spriteStateGL.multiplyProgramID = LoadShaders(thread,
+		"shaders/sprite.vert", "shaders/spriteMultiply.frag",
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
 
 	return true;
@@ -152,7 +153,7 @@ void DrawSprites(const RenderState& renderState,
 {
 	DEBUG_ASSERT(spriteDataGL.numSprites <= SPRITE_BATCH_SIZE);
 
-	GLuint programID = renderState.spriteStateGL.programID;
+	GLuint programID = renderState.spriteStateGL.multiplyProgramID;
 	glUseProgram(programID);
 	GLint loc;
 

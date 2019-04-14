@@ -189,3 +189,58 @@ bool32 StringToElementArray(const char* string, int length, char sep, bool trimE
     *numElements = elementInd;
     return true;
 }
+
+template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
+int ReadNextKeywordValue(Array<char> string,
+    FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value)
+{
+    if (string.size == 0 || string[0] == '\0') {
+        return 0;
+    }
+
+    int i = 0;
+
+    keyword->size = 0;
+    while (i < string.size && !IsWhitespace(string[i])) {
+        if (keyword->size >= KEYWORD_SIZE) {
+            DEBUG_PRINT("Keyword too long %.*s\n", keyword->size, keyword->data);
+            return -1;
+        }
+        keyword->Append(string[i++]);
+    }
+
+    if (i < string.size && IsWhitespace(string[i])) {
+        i++;
+    }
+
+    value->size = 0;
+    bool bracketValue = false;
+    while (i < string.size &&
+    ((!bracketValue && string[i] != '\n' && string[i] != '\r')
+    || (bracketValue && string[i] != '}'))) {
+        if (value->size == 0 && string[i] == '{') {
+            bracketValue = true;
+            i++;
+            continue;
+        }
+        if (value->size >= VALUE_SIZE) {
+            DEBUG_PRINT("Value too long %.*s\n", value->size, value->data);
+            return -1;
+        }
+        if (value->size == 0 && IsWhitespace(string[i])) {
+            i++;
+            continue;
+        }
+        value->Append(string[i++]);
+    }
+
+    while (value->size > 0 && IsWhitespace(value->data[value->size - 1])) {
+        value->size--;
+    }
+
+    while (i < string.size && (IsWhitespace(string[i]) || string[i] == '}')) {
+        i++;
+    }
+
+    return i;
+}
