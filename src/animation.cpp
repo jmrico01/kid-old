@@ -93,6 +93,12 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 		activeAnim->frameTextures[activeFrame].textureID);
 }
 
+bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword)
+{
+    return StringCompare(keyword.data, refKeyword,
+        MaxInt((int)keyword.size, StringLength(refKeyword)));
+}
+
 bool32 KeywordCompare(const char* keyword, int keywordLength, const char* refKeyword)
 {
 	return StringCompare(keyword, refKeyword, MaxInt(keywordLength, StringLength(refKeyword)));
@@ -118,9 +124,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	HashKey currentAnimKey = {};
 	Animation* currentAnim = nullptr;
 	while (true) {
-        FixedArray<char, KEYWORD_MAX_LENGTH> keywordArray;
-        FixedArray<char, VALUE_MAX_LENGTH> valueArray;
-        int read = ReadNextKeywordValue(fileString, &keywordArray, &valueArray);
+        FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+        FixedArray<char, VALUE_MAX_LENGTH> value;
+        int read = ReadNextKeywordValue(fileString, &keyword, &value);
         if (read < 0) {
             DEBUG_PRINT("Animation file keyword/value error (%s)\n", filePath);
             return false;
@@ -130,14 +136,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
         }
         fileString.size -= read;
         fileString.data += read;
-        const char* keyword = keywordArray.data;
-        int keywordI = (int)keywordArray.size;
-        const char* value = valueArray.data;
-        int valueI = (int)valueArray.size;
+        //const char* value = valueArray.data;
+        //int valueI = (int)valueArray.size;
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
-		if (KeywordCompare(keyword, keywordI, KEYWORD_ANIM)) {
-			currentAnimKey.WriteString(value, valueI);
+		if (KeywordCompare(keyword, KEYWORD_ANIM)) {
+			currentAnimKey.WriteString(value.ToArray());
 			outAnimatedSprite.animations.Add(currentAnimKey, {});
 			currentAnim = outAnimatedSprite.animations.GetValue(currentAnimKey);
 
@@ -147,7 +151,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->rootFollow = false;
 			currentAnim->rootFollowEndLoop = false;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_DIR)) {
+		else if (KeywordCompare(keyword, KEYWORD_DIR)) {
 			int frame = 0;
 			int lastSlash = GetLastOccurrence(filePath, StringLength(filePath), '/');
 			if (lastSlash == -1) {
@@ -165,7 +169,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			spritePath[lastSlash] = '/';
 			while (true) {
 				int written = sprintf(&spritePath[lastSlash + 1], "%.*s/%d.png",
-					valueI, value, frame);
+					(int)value.size, value.data, frame);
 				if (written <= 0) {
 					DEBUG_PRINT("Failed to build animation sprite path for %s\n", filePath);
 					return false;
@@ -209,9 +213,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_FPS)) {
+		else if (KeywordCompare(keyword, KEYWORD_FPS)) {
 			int fps;
-			if (!StringToIntBase10(value, valueI, &fps)) {
+			if (!StringToIntBase10(value.ToArray(), &fps)) {
 				DEBUG_PRINT("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
@@ -221,12 +225,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			currentAnim->fps = fps;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_LOOP)) {
+		else if (KeywordCompare(keyword, KEYWORD_LOOP)) {
 			currentAnim->loop = true;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_EXIT)) {
-			const char* element = value;
-			int length = valueI;
+		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
+			const char* element = value.data;
+			int length = (int)value.size;
 			int elementLength;
 			const char* next;
 
@@ -276,9 +280,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_TIMING)) {
+		else if (KeywordCompare(keyword, KEYWORD_TIMING)) {
             int parsedElements;
-            if (!StringToElementArray(value, valueI, ' ', false,
+            if (!StringToElementArray(value.data, (int)value.size, ' ', false,
                 StringToIntBase10,
                 ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
                 DEBUG_PRINT("Failed to parse timing information (%s)\n", filePath);
@@ -288,20 +292,20 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
                 DEBUG_PRINT("Not enough timing information (%s)\n", filePath);
             }
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTFOLLOW)) {
+		else if (KeywordCompare(keyword, KEYWORD_ROOTFOLLOW)) {
 			currentAnim->rootFollow = true;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTFOLLOWENDLOOP)) {
+		else if (KeywordCompare(keyword, KEYWORD_ROOTFOLLOWENDLOOP)) {
 			currentAnim->rootFollowEndLoop = true;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_ROOTMOTION)) {
+		else if (KeywordCompare(keyword, KEYWORD_ROOTMOTION)) {
             currentAnim->rootMotion = true;
 
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
 
-			const char* element = value;
-			int length = valueI;
+			const char* element = value.data;
+			int length = (int)value.size;
 			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
 				int elementLength;
@@ -318,7 +322,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
                 // Parse root motion coordinate pair
                 Vec2Int rootPos;
                 int parsedElements;
-                if (!StringToElementArray(trimmed, trimmedLength, ' ', false,
+                Array<char> trimmedString;
+                trimmedString.data = (char*)trimmed;
+                trimmedString.size = trimmedLength;
+                if (!StringToElementArray(trimmedString, ' ', false,
                     StringToIntBase10, 2, rootPos.e, &parsedElements)) {
                     DEBUG_PRINT("Failed to parse root motion coordinates %.*s (%s)\n",
                         trimmedLength, trimmed, filePath);
@@ -348,16 +355,17 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				element = next;
 			}
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_START)) {
+		else if (KeywordCompare(keyword, KEYWORD_START)) {
 			HashKey startAnim;
-			startAnim.WriteString(value, valueI);
+			startAnim.WriteString(value.ToArray());
 			outAnimatedSprite.startAnimation = startAnim;
 		}
-		else if (KeywordCompare(keyword, keywordI, KEYWORD_COMMENT)) {
+		else if (KeywordCompare(keyword, KEYWORD_COMMENT)) {
 			// Comment, ignore
 		}
 		else {
-			DEBUG_PRINT("Animation file with unknown keyword (%s)\n", filePath);
+			DEBUG_PRINT("Animation file with unknown keyword: %.*s (%s)\n",
+                keyword.size, keyword, filePath);
 			return false;
 		}
 	}

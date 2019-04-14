@@ -11,13 +11,16 @@ struct Array
     T* data;
     
     inline T operator[](int index) const;
+    inline T operator[](uint64 index) const;
     inline T& operator[](int index);
+    inline T& operator[](uint64 index);
 };
 
 template <typename T, uint64 S>
 struct FixedArray
 {
 	uint64 size;
+    T* dataPtr = &data[0];
 	T data[S];
 
 	void Append(T element);
@@ -29,9 +32,11 @@ struct FixedArray
     void AppendAfter(T element, uint64 index);
 	
     inline T operator[](int index) const;
+    inline T operator[](uint64 index) const;
     inline T& operator[](int index);
+    inline T& operator[](uint64 index);
 
-    Array<T> ToKMArray() const;
+    Array<T> ToArray();
 };
 
 template <typename T>
@@ -53,9 +58,11 @@ struct DynamicArray
 	void Free();
 
     inline T operator[](int index) const;
+    inline T operator[](uint64 index) const;
     inline T& operator[](int index);
+    inline T& operator[](uint64 index);
 
-    Array<T> ToKMArray() const;
+    Array<T> ToArray();
 };
 
 struct HashKey
@@ -63,6 +70,7 @@ struct HashKey
     char string[STRING_KEY_MAX_LENGTH];
     int length;
 
+    void WriteString(const Array<char>& str);
     void WriteString(const char* str, int n);
     void WriteString(const char* str);
 };

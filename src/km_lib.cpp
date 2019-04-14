@@ -39,14 +39,28 @@ bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
 template <typename T>
 inline T Array<T>::operator[](int index) const
 {
-    DEBUG_ASSERT(0 <= index && index < (int)size);
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T>
+inline T Array<T>::operator[](uint64 index) const
+{
+    DEBUG_ASSERT(0 <= index && index < size);
     return data[index];
 }
 
 template <typename T>
 inline T& Array<T>::operator[](int index)
 {
-    DEBUG_ASSERT(0 <= index && index < (int)size);
+    DEBUG_ASSERT(0 <= index && (uint64)index < size);
+    return data[index];
+}
+
+template <typename T>
+inline T& Array<T>::operator[](uint64 index)
+{
+    DEBUG_ASSERT(0 <= index && index < size);
     return data[index];
 }
 
@@ -100,6 +114,13 @@ inline T FixedArray<T, S>::operator[](int index) const
 }
 
 template <typename T, uint64 S>
+inline T FixedArray<T, S>::operator[](uint64 index) const
+{
+    DEBUG_ASSERT(0 <= index && index < size);
+    return data[index];
+}
+
+template <typename T, uint64 S>
 inline T& FixedArray<T, S>::operator[](int index)
 {
     DEBUG_ASSERT(0 <= index && (uint64)index < size);
@@ -107,7 +128,14 @@ inline T& FixedArray<T, S>::operator[](int index)
 }
 
 template <typename T, uint64 S>
-Array<T> FixedArray<T, S>::ToKMArray() const
+inline T& FixedArray<T, S>::operator[](uint64 index)
+{
+    DEBUG_ASSERT(0 <= index && index < size);
+    return data[index];
+}
+
+template <typename T, uint64 S>
+Array<T> FixedArray<T, S>::ToArray()
 {
     Array<T> outArray;
     outArray.size = size;
@@ -188,6 +216,13 @@ inline T DynamicArray<T>::operator[](int index) const
 }
 
 template <typename T>
+inline T DynamicArray<T>::operator[](uint64 index) const
+{
+    DEBUG_ASSERT(0 <= index && index < size);
+    return data[index];
+}
+
+template <typename T>
 inline T& DynamicArray<T>::operator[](int index)
 {
     DEBUG_ASSERT(0 <= index && (uint64)index < size);
@@ -195,12 +230,25 @@ inline T& DynamicArray<T>::operator[](int index)
 }
 
 template <typename T>
-Array<T> DynamicArray<T>::ToKMArray() const
+inline T& DynamicArray<T>::operator[](uint64 index)
+{
+    DEBUG_ASSERT(0 <= index && index < size);
+    return data[index];
+}
+
+template <typename T>
+Array<T> DynamicArray<T>::ToArray()
 {
     Array<T> outArray;
     outArray.size = size;
     outArray.data = data;
     return outArray;
+}
+
+void HashKey::WriteString(const Array<char>& str)
+{
+    DEBUG_ASSERT(str.size <= STRING_KEY_MAX_LENGTH);
+    MemCopy(string, str.data, str.size * sizeof(char));
 }
 
 void HashKey::WriteString(const char* str, int n)

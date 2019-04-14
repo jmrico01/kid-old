@@ -59,69 +59,84 @@ inline bool32 IsWhitespace(char c)
 		|| c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-bool32 StringToIntBase10(const char* string, int n, int* intBase10)
+bool32 StringToIntBase10(const Array<char>& string, int* intBase10)
 {
-	if (n <= 0) {
-		return false;
-	}
+    if (string.size == 0) {
+        return false;
+    }
 
-	bool32 negative = false;
-	*intBase10 = 0;
-	for (int i = 0; i < n; i++) {
-		char c = string[i];
-		if (i == 0 && c == '-') {
-			negative = true;
-			continue;
-		}
-		if (c < '0' || c > '9') {
-			return false;
-		}
-		*intBase10 = (*intBase10) * 10 + (int)(c - '0');
-	}
+    bool32 negative = false;
+    *intBase10 = 0;
+    for (uint64 i = 0; i < string.size; i++) {
+        char c = string[i];
+        if (i == 0 && c == '-') {
+            negative = true;
+            continue;
+        }
+        if (c < '0' || c > '9') {
+            return false;
+        }
+        *intBase10 = (*intBase10) * 10 + (int)(c - '0');
+    }
 
-	if (negative) {
-		*intBase10 = -(*intBase10);
-	}
-	return true;
+    if (negative) {
+        *intBase10 = -(*intBase10);
+    }
+    return true;
 }
 
-bool32 StringToFloat32(const char* string, int n, float32* f)
+bool32 StringToFloat32(const Array<char>& string, float32* f)
 {
-    int dotIndex = n;
-    for (int i = 0; i < n; i++) {
-        if (string[i] == '.') {
-            dotIndex = i;
-            break;
-        }
+    uint64 dotIndex = 0;
+    while (dotIndex < string.size && string[dotIndex] != '.') {
+        dotIndex++;
     }
 
     int whole = 0;
     float32 wholeNegative = false;
     if (dotIndex > 0) {
-        if (!StringToIntBase10(string, dotIndex, &whole)) {
+        if (!StringToIntBase10(string, &whole)) {
             return false;
         }
         wholeNegative = string[0] == '-';
     }
     int frac = 0;
-    int fracLength = n - dotIndex - 1;
-    if (fracLength > 0) {
-        if (!StringToIntBase10(string + dotIndex + 1, fracLength, &frac)) {
+    Array<char> fracString;
+    fracString.size = string.size - dotIndex - 1;
+    if (fracString.size > 0) {
+        fracString.data = string.data + dotIndex + 1;
+        if (!StringToIntBase10(fracString, &frac)) {
             return false;
         }
     }
 
     *f = (float32)whole;
-    if (fracLength > 0) {
+    if (fracString.size > 0) {
         frac = wholeNegative ? -frac : frac;
         float32 fractional = (float32)frac;
-        for (int i = 0; i < fracLength; i++) {
+        for (uint64 i = 0; i < fracString.size; i++) {
             fractional /= 10.0f;
         }
         *f += fractional;
     }
     return true;
 }
+
+/*bool32 StringToIntBase10(const char* string, int n, int* intBase10)
+{
+    Array<char> stringArray;
+    stringArray.data = (char*)string;
+    stringArray.size = n;
+    return StringToIntBase10(stringArray, intBase10);
+}
+
+bool32 StringToFloat32(const char* string, int n, float32* f)
+{
+    Array<char> stringArray;
+    stringArray.data = (char*)string;
+    stringArray.size = n;
+    return StringToFloat32(stringArray, f);
+}*/
 
 int GetLastOccurrence(const char* string, int n, char c)
 {
@@ -151,13 +166,13 @@ bool32 ReadElementInSplitString(const char* string, int stringLength, char separ
 }
 
 template <typename T>
-bool32 StringToElementArray(const char* string, int length, char sep, bool trimElements,
+bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElements,
     bool32 (*conversionFunction)(const char*, int, T*),
     int maxElements, T* array, int* numElements)
 {
     int elementInd = 0;
-    const char* parsingString = string;
-    int parsingLength = length;
+    const char* parsingString = string.data;
+    int parsingLength = (int)string.size;
     while (parsingLength > 0) {
         int elementLength;
         const char* next;
@@ -166,7 +181,7 @@ bool32 StringToElementArray(const char* string, int length, char sep, bool trimE
         }
         if (elementInd >= maxElements) {
             DEBUG_PRINT("String to array failed in %.*s (too many elements, max %d)\n",
-                length, string, maxElements);
+                string.size, string.data, maxElements);
             return false;
         }
         const char* elementTrimmed = parsingString;
@@ -175,9 +190,12 @@ bool32 StringToElementArray(const char* string, int length, char sep, bool trimE
             TrimWhitespace(parsingString, elementLength,
                 &elementTrimmed, &elementTrimmedLength);
         }
-        if (!conversionFunction(elementTrimmed, elementTrimmedLength, array + elementInd)) {
+        Array<char> trimmed;
+        trimmed.data = elementTrimmed;
+        trimmed.size = elementTrimmedLength;
+        if (!conversionFunction(trimmed, array + elementInd)) {
             DEBUG_PRINT("String to array failed in %.*s for element %d\n",
-                length, string, elementInd);
+                string.size, string.data, elementInd);
             return false;
         }
 

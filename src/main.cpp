@@ -139,7 +139,10 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 
         Vec2 pos;
         int parsedElements;
-        if (!StringToElementArray(trimmed, trimmedLength, ',', true,
+        Array<char> trimmedString;
+        trimmedString.data = (char*)trimmed;
+        trimmedString.size = trimmedLength;
+        if (!StringToElementArray(trimmedString, ',', true,
             StringToFloat32, 2, pos.e, &parsedElements)) {
             DEBUG_PRINT("Failed to parse floor position %.*s (%s)\n",
                 trimmedLength, trimmed, filePath);
@@ -172,7 +175,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
     uint64 stringSize = 0;
     uint64 stringCapacity = transient.size;
     char* string = (char*)transient.memory;
-    for (uint32 i = 0; i < floorCollider->line.size; i++) {
+    for (uint64 i = 0; i < floorCollider->line.size; i++) {
         uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
             "%.2f, %.2f\r\n",
             floorCollider->line[i].x, floorCollider->line[i].y);
@@ -466,7 +469,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
             Vec2 { PLAYER_RADIUS * 2.7f, PLAYER_RADIUS * 3.2f },
             Vec2 { 0.0f, 1.0f }
         });
-        for (uint32 i = 0; i < candidates.size; i++) {
+        for (uint64 i = 0; i < candidates.size; i++) {
             if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i])) {
                 gameState->grabbedObject = candidates[i];
                 break;
@@ -1260,7 +1263,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			for (int i = 0; i < gameState->numLineColliders; i++) {
 				const LineCollider& lineCollider = gameState->lineColliders[i];
 				lineData->count = (int)lineCollider.line.size;
-				for (uint32 v = 0; v < lineCollider.line.size; v++) {
+				for (uint64 v = 0; v < lineCollider.line.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
 				}
 				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
@@ -1339,7 +1342,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                 (int)(BOX_SIZE.y * BOX_ANCHOR.y)
             };
             Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
-            for (uint32 i = 0; i < gameState->floor.line.size; i++) {
+            for (uint64 i = 0; i < gameState->floor.line.size; i++) {
                 Vec2Int boxPos = WorldToScreen(gameState->floor.line[i], screenInfo,
                     gameState->cameraPos, gameState->cameraRot,
                     ScaleExponentToWorldScale(gameState->editorScaleExponent));

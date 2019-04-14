@@ -24,7 +24,7 @@ Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
 void FloorCollider::PrecomputeSampleVerticesFromLine()
 {
 	float32 lineLength = 0.0f;
-	for (uint32 i = 1; i < line.size; i++) {
+	for (uint64 i = 1; i < line.size; i++) {
 		lineLength += Mag(line[i] - line[i - 1]);
 	}
 	length = lineLength;
@@ -53,7 +53,7 @@ void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec
 	*outNormal = Vec2::unitY;
 
 	float32 t = 0.0f;
-	for (uint32 i = 1; i < line.size; i++) {
+	for (uint64 i = 1; i < line.size; i++) {
 		Vec2 edge = line[i] - line[i - 1];
 		float32 edgeLength = Mag(edge);
 		if (t + edgeLength >= coordX) {
@@ -63,16 +63,16 @@ void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec
 				float32 edgeWeight = (float32)EDGE_NEIGHBORS
                     - AbsFloat32((float32)n - (tEdge - 0.5f)) + 0.5f;
 				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
-				int edgeVertInd1 = ClampInt(i + n - 1, 0, (int)line.size - 1);
-				int edgeVertInd2 = ClampInt(i + n,     0, (int)line.size - 1);
+				int edgeVertInd1 = ClampInt((int)i + n - 1, 0, (int)line.size - 1);
+				int edgeVertInd2 = ClampInt((int)i + n,     0, (int)line.size - 1);
                 if (edgeVertInd1 != edgeVertInd2) {
                     Vec2 neighborEdge = line[edgeVertInd2] - line[edgeVertInd1];
                     Vec2 neighborNormal = Normalize(Vec2 { -neighborEdge.y, neighborEdge.x });
                     sumNormals += neighborNormal * edgeWeight;
                 }
 			}
-			int indPrev = ClampInt(i - 1, 1, (int)line.size - 1);
-			int indNext = ClampInt(i + 1, 1, (int)line.size - 1);
+			int indPrev = ClampInt((int)i - 1, 1, (int)line.size - 1);
+			int indNext = ClampInt((int)i + 1, 1, (int)line.size - 1);
 			Vec2 tangentPrev = Normalize(line[indPrev] - line[indPrev - 1]);
 			Vec2 tangentNext = Normalize(line[indNext] - line[indNext - 1]);
 			Vec2 bezierMid = (line[i - 1] + tangentPrev * edgeLength / 2.0f
@@ -157,7 +157,7 @@ void GetLineColliderIntersections(const LineCollider lineColliders[], int numLin
 	for (int c = 0; c < numLineColliders; c++) {
 		DEBUG_ASSERT(lineColliders[c].line.size >= 2);
 		Vec2 vertPrev = lineColliders[c].line[0];
-		for (uint32 v = 1; v < lineColliders[c].line.size; v++) {
+		for (uint64 v = 1; v < lineColliders[c].line.size; v++) {
 			Vec2 vert = lineColliders[c].line[v];
 			Vec2 edge = vert - vertPrev;
 			Vec2 intersectPoint;
@@ -184,7 +184,7 @@ bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
 
     DEBUG_ASSERT(lineCollider.line.size >= 2);
     Vec2 vertPrev = lineCollider.line[0];
-    for (uint32 v = 1; v < lineCollider.line.size; v++) {
+    for (uint64 v = 1; v < lineCollider.line.size; v++) {
         Vec2 vert = lineCollider.line[v];
         float32 t1, t2;
         bool32 rayIntersect = RayIntersectionCoefficients(
