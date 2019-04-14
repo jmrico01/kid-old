@@ -258,6 +258,7 @@ DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrint)
     }
 
     if ((cx1 + cx2 + cx3) >= MSG_MAX_LENGTH) {
+        DEBUG_PRINT("ERROR print msg too long\n");
         // error message too long. warn? ignore for now
     }
 

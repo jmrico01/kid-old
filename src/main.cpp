@@ -454,7 +454,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
         candidates.Append({
             &gameState->rock.coords,
             Vec2 { rockRadius * 1.2f, rockRadius * 1.7f },
-            Vec2 { 0.0f, rockRadius }
+            Vec2 { 0.0f, rockRadius * 2.0f }
         });
         candidates.Append({
             &gameState->rockLauncher.coords,
@@ -988,14 +988,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load frame");
 		}
 
-		if (!LoadPNGOpenGL(thread,
+		/*if (!LoadPNGOpenGL(thread,
 		"data/luts/lutbase.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 		gameState->lutBase, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load base LUT");
-		}
+		}*/
 
 		if (!LoadPNGOpenGL(thread,
 		"data/luts/kodak5205.png",

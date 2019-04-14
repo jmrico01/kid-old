@@ -122,7 +122,7 @@ struct GameState
 
     TextureGL frame;
 
-    TextureGL lutBase;
+    //TextureGL lutBase;
     TextureGL lut1;
 
 	FT_Library ftLibrary;
