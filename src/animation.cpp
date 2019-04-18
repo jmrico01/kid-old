@@ -95,8 +95,8 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 
 bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword)
 {
-    return StringCompare(keyword.data, refKeyword,
-        MaxInt((int)keyword.size, StringLength(refKeyword)));
+    return StringCompare(keyword.array.data, refKeyword,
+        MaxInt((int)keyword.array.size, StringLength(refKeyword)));
 }
 
 bool32 KeywordCompare(const char* keyword, int keywordLength, const char* refKeyword)
@@ -141,7 +141,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (KeywordCompare(keyword, KEYWORD_ANIM)) {
-			currentAnimKey.WriteString(value.ToArray());
+			currentAnimKey.WriteString(value.array);
 			outAnimatedSprite.animations.Add(currentAnimKey, {});
 			currentAnim = outAnimatedSprite.animations.GetValue(currentAnimKey);
 
@@ -169,7 +169,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			spritePath[lastSlash] = '/';
 			while (true) {
 				int written = sprintf(&spritePath[lastSlash + 1], "%.*s/%d.png",
-					(int)value.size, value.data, frame);
+					(int)value.array.size, value.array.data, frame);
 				if (written <= 0) {
 					DEBUG_PRINT("Failed to build animation sprite path for %s\n", filePath);
 					return false;
@@ -215,7 +215,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_FPS)) {
 			int fps;
-			if (!StringToIntBase10(value.ToArray(), &fps)) {
+			if (!StringToIntBase10(value.array, &fps)) {
 				DEBUG_PRINT("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
@@ -229,46 +229,56 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->loop = true;
 		}
 		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
-			const char* element = value.data;
-			int length = (int)value.size;
+			Array<char> elementString = value.array;
+			//const char* element = value.array.data;
+			//int length = (int)value.array.size;
 			int elementLength;
 			const char* next;
 
-			if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
+			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
+			' ', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-from frame (%s)\n", filePath);
 				return false;
 			}
 			int exitFromFrame;
-			if (*element == '*') {
+			if (*elementString.data == '*') {
 				// wildcard
 				exitFromFrame = -1;
 			}
 			else {
-				if (!StringToIntBase10(element, elementLength, &exitFromFrame)) {
+				Array<char> element = elementString;
+				element.size = elementLength;
+				if (!StringToIntBase10(element, &exitFromFrame)) {
 					DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
 					return false;
 				}
 			}
 
-			length -= (int)(next - element);
-			element = next;
-			if (!ReadElementInSplitString(element, length, ' ', &elementLength, &next)) {
+			elementString.size -= next - elementString.data;
+			elementString.data = (char*)next;
+			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
+			' ', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-to animation (%s)\n", filePath);
 				return false;
 			}
 			HashKey exitToAnim;
-			exitToAnim.WriteString(element, elementLength);
+			exitToAnim.WriteString(elementString.data, elementLength);
 
-			length -= (int)(next - element);
-			element = next;
-			if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+			elementString.size -= next - elementString.data;
+			elementString.data = (char*)next;
+			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
+			'\n', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-to frame (%s)\n", filePath);
 				return false;
 			}
 			int exitToFrame;
-			if (!StringToIntBase10(element, elementLength, &exitToFrame)) {
-				DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
-				return false;
+			{
+				Array<char> element = elementString;
+				element.size = elementLength;
+				if (!StringToIntBase10(element, &exitToFrame)) {
+					DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
+					return false;
+				}
 			}
 
 			if (exitFromFrame == -1) {
@@ -282,7 +292,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_TIMING)) {
             int parsedElements;
-            if (!StringToElementArray(value.data, (int)value.size, ' ', false,
+            if (!StringToElementArray(value.array, ' ', false,
                 StringToIntBase10,
                 ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
                 DEBUG_PRINT("Failed to parse timing information (%s)\n", filePath);
@@ -304,8 +314,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
 
-			const char* element = value.data;
-			int length = (int)value.size;
+			const char* element = value.array.data;
+			int length = (int)value.array.size;
 			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
 				int elementLength;
@@ -357,7 +367,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_START)) {
 			HashKey startAnim;
-			startAnim.WriteString(value.ToArray());
+			startAnim.WriteString(value.array);
 			outAnimatedSprite.startAnimation = startAnim;
 		}
 		else if (KeywordCompare(keyword, KEYWORD_COMMENT)) {
@@ -365,7 +375,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else {
 			DEBUG_PRINT("Animation file with unknown keyword: %.*s (%s)\n",
-                keyword.size, keyword, filePath);
+                keyword.array.size, keyword, filePath);
 			return false;
 		}
 	}

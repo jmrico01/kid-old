@@ -120,7 +120,7 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
         return false;
     }
 
-    floorCollider->line.size = 0;
+    floorCollider->line.array.size = 0;
     const char* element = (const char*)levelFile.data;
     int length = (int)levelFile.size;
     while (true) {
@@ -175,7 +175,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
     uint64 stringSize = 0;
     uint64 stringCapacity = transient.size;
     char* string = (char*)transient.memory;
-    for (uint64 i = 0; i < floorCollider->line.size; i++) {
+    for (uint64 i = 0; i < floorCollider->line.array.size; i++) {
         uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
             "%.2f, %.2f\r\n",
             floorCollider->line[i].x, floorCollider->line[i].y);
@@ -451,7 +451,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
         || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
     if (pushPullKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
         FixedArray<GrabbedObjectInfo, 10> candidates;
-        candidates.size = 0;
+        candidates.array.size = 0;
         Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
         float32 rockRadius = rockSize.y / 2.0f * 0.8f;
         candidates.Append({
@@ -469,7 +469,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
             Vec2 { PLAYER_RADIUS * 2.7f, PLAYER_RADIUS * 3.2f },
             Vec2 { 0.0f, 1.0f }
         });
-        for (uint64 i = 0; i < candidates.size; i++) {
+        for (uint64 i = 0; i < candidates.array.size; i++) {
             if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i])) {
                 gameState->grabbedObject = candidates[i];
                 break;
@@ -775,7 +775,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
 		for (int i = 0; i < gameState->numLineColliders; i++) {
-			DEBUG_ASSERT(gameState->lineColliders[i].line.size <= LINE_COLLIDER_MAX_VERTICES);
+			DEBUG_ASSERT(gameState->lineColliders[i].line.array.size <= LINE_COLLIDER_MAX_VERTICES);
 		}
 
 		gameState->grainTime = 0.0f;
@@ -1262,8 +1262,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			for (int i = 0; i < gameState->numLineColliders; i++) {
 				const LineCollider& lineCollider = gameState->lineColliders[i];
-				lineData->count = (int)lineCollider.line.size;
-				for (uint64 v = 0; v < lineCollider.line.size; v++) {
+				lineData->count = (int)lineCollider.line.array.size;
+				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
 				}
 				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
@@ -1342,7 +1342,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
                 (int)(BOX_SIZE.y * BOX_ANCHOR.y)
             };
             Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
-            for (uint64 i = 0; i < gameState->floor.line.size; i++) {
+            for (uint64 i = 0; i < gameState->floor.line.array.size; i++) {
                 Vec2Int boxPos = WorldToScreen(gameState->floor.line[i], screenInfo,
                     gameState->cameraPos, gameState->cameraRot,
                     ScaleExponentToWorldScale(gameState->editorScaleExponent));
@@ -1405,7 +1405,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
             if (gameState->floorVertexSelected == -1) {
                 gameState->floor.line.Append(mouseWorldPosEnd);
-                gameState->floorVertexSelected = (int)(gameState->floor.line.size - 1);
+                gameState->floorVertexSelected = (int)(gameState->floor.line.array.size - 1);
             }
             else {
                 gameState->floor.line.AppendAfter(mouseWorldPosEnd,

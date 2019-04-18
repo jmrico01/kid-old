@@ -37,6 +37,44 @@ bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
 }
 
 template <typename T>
+void Array<T>::Append(const T& element)
+{
+    data[size++] = element;
+}
+
+template <typename T>
+void Array<T>::RemoveLast()
+{
+    DEBUG_ASSERT(size > 0);
+    size--;
+}
+
+template <typename T>
+void Array<T>::Remove(uint64 index)
+{
+    DEBUG_ASSERT(size > 0);
+    DEBUG_ASSERT(index < size);
+
+    for (uint64 i = index + 1; i < size; i++) {
+        data[i - 1] = data[i];
+    }
+    size--;
+}
+
+template <typename T>
+void Array<T>::AppendAfter(const T& element, uint64 index)
+{
+    DEBUG_ASSERT(index < size);
+
+    uint64 targetIndex = index + 1;
+    for (uint64 i = size; i > targetIndex; i--) {
+        data[i] = data[i - 1];
+    }
+    data[targetIndex] = element;
+    size++;
+}
+
+template <typename T>
 inline T Array<T>::operator[](int index) const
 {
     DEBUG_ASSERT(0 <= index && (uint64)index < size);
@@ -65,138 +103,69 @@ inline T& Array<T>::operator[](uint64 index)
 }
 
 template <typename T, uint64 S>
-void FixedArray<T, S>::Append(T element)
+void FixedArray<T, S>::Append(const T& element)
 {
-    DEBUG_ASSERT(size < S);
-
-    data[size++] = element;
+    DEBUG_ASSERT(array.size < S);
+    array.Append(element);
 }
 
 template <typename T, uint64 S>
 void FixedArray<T, S>::RemoveLast()
 {
-    DEBUG_ASSERT(size > 0);
-
-    size--;
+	array.RemoveLast()
 }
 
 template <typename T, uint64 S>
 void FixedArray<T, S>::Remove(uint64 index)
 {
-    DEBUG_ASSERT(size > 0);
-    DEBUG_ASSERT(index < size);
-
-    for (uint64 i = index + 1; i < size; i++) {
-        data[i - 1] = data[i];
-    }
-    size--;
+	array.Remove(index);
 }
 
 template <typename T, uint64 S>
-void FixedArray<T, S>::AppendAfter(T element, uint64 index)
+void FixedArray<T, S>::AppendAfter(const T& element, uint64 index)
 {
-    DEBUG_ASSERT(index < size);
-    DEBUG_ASSERT(size < S);
-
-    uint64 targetIndex = index + 1;
-    for (uint64 i = size; i > targetIndex; i--) {
-        data[i] = data[i - 1];
-    }
-    data[targetIndex] = element;
-    size++;
+    DEBUG_ASSERT(array.size < S);
+    array.AppendAfter(element, index);
 }
 
 template <typename T, uint64 S>
 inline T FixedArray<T, S>::operator[](int index) const
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T, uint64 S>
 inline T FixedArray<T, S>::operator[](uint64 index) const
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T, uint64 S>
 inline T& FixedArray<T, S>::operator[](int index)
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T, uint64 S>
 inline T& FixedArray<T, S>::operator[](uint64 index)
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
-}
-
-template <typename T, uint64 S>
-Array<T> FixedArray<T, S>::ToArray()
-{
-    Array<T> outArray;
-    outArray.size = size;
-    outArray.data = &data[0];
-    return outArray;
+	return array[index];
 }
 
 template <typename T>
-void DynamicArray<T>::Init()
+void DynamicArray<T>::Allocate()
 {
-	Init(DYNAMIC_ARRAY_START_CAPACITY);
+	Allocate(DYNAMIC_ARRAY_START_CAPACITY);
 }
 
 template <typename T>
-void DynamicArray<T>::Init(uint64 capacity)
+void DynamicArray<T>::Allocate(uint64 cap)
 {
-	size = 0;
 	this->capacity = capacity;
-	data = (T*)malloc(sizeof(T) * capacity);
-	if (!data) {
+	array.data = (T*)malloc(sizeof(T) * capacity);
+	if (!array.data) {
 		DEBUG_PANIC("ERROR: not enough memory!\n");
 	}
-}
-
-template <typename T>
-void DynamicArray<T>::Append(T element)
-{
-	DEBUG_ASSERT(capacity > 0);
-
-	if (size >= capacity) {
-		capacity *= 2;
-		data = (T*)realloc(data, sizeof(T) * capacity);
-		if (!data) {
-			DEBUG_PANIC("ERROR: not enough memory!\n");
-		}
-	}
-	data[size++] = element;
-}
-
-template <typename T>
-void DynamicArray<T>::RemoveLast()
-{
-    DEBUG_ASSERT(size > 0);
-	size--;
-}
-
-template <typename T>
-void DynamicArray<T>::Remove(uint64 index)
-{
-	DEBUG_ASSERT(index < size);
-
-	for (uint64 i = index + 1; i < size; i++) {
-		data[i - 1] = data[i];
-	}
-	size--;
-}
-
-template <typename T>
-void DynamicArray<T>::Clear()
-{
-	size = 0;
 }
 
 template <typename T>
@@ -209,40 +178,45 @@ void DynamicArray<T>::Free()
 }
 
 template <typename T>
+void DynamicArray<T>::Append(const T& element)
+{
+	array.Append(element);
+}
+
+template <typename T>
+void DynamicArray<T>::RemoveLast()
+{
+	array.RemoveLast();
+}
+
+template <typename T>
+void DynamicArray<T>::Remove(uint64 index)
+{
+	array.Remove(index);
+}
+
+template <typename T>
 inline T DynamicArray<T>::operator[](int index) const
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T>
 inline T DynamicArray<T>::operator[](uint64 index) const
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T>
 inline T& DynamicArray<T>::operator[](int index)
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	return array[index];
 }
 
 template <typename T>
 inline T& DynamicArray<T>::operator[](uint64 index)
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
-}
-
-template <typename T>
-Array<T> DynamicArray<T>::ToArray()
-{
-    Array<T> outArray;
-    outArray.size = size;
-    outArray.data = data;
-    return outArray;
+	return array[index];
 }
 
 void HashKey::WriteString(const Array<char>& str)
@@ -277,7 +251,7 @@ template <typename V>
 void HashTable<V>::Init(int cap)
 {
 	size = 0;
-	this->capacity = cap;
+	capacity = cap;
 	pairs = (KeyValuePair<V>*)malloc(sizeof(KeyValuePair<V>) * cap);
 	if (!pairs) {
 		DEBUG_PANIC("ERROR: not enough memory!\n");

@@ -95,7 +95,10 @@ bool32 StringToFloat32(const Array<char>& string, float32* f)
     int whole = 0;
     float32 wholeNegative = false;
     if (dotIndex > 0) {
-        if (!StringToIntBase10(string, &whole)) {
+    	Array<char> stringWhole;
+    	stringWhole.size = dotIndex;
+    	stringWhole.data = string.data;
+        if (!StringToIntBase10(stringWhole, &whole)) {
             return false;
         }
         wholeNegative = string[0] == '-';
@@ -121,22 +124,6 @@ bool32 StringToFloat32(const Array<char>& string, float32* f)
     }
     return true;
 }
-
-/*bool32 StringToIntBase10(const char* string, int n, int* intBase10)
-{
-    Array<char> stringArray;
-    stringArray.data = (char*)string;
-    stringArray.size = n;
-    return StringToIntBase10(stringArray, intBase10);
-}
-
-bool32 StringToFloat32(const char* string, int n, float32* f)
-{
-    Array<char> stringArray;
-    stringArray.data = (char*)string;
-    stringArray.size = n;
-    return StringToFloat32(stringArray, f);
-}*/
 
 int GetLastOccurrence(const char* string, int n, char c)
 {
@@ -167,7 +154,7 @@ bool32 ReadElementInSplitString(const char* string, int stringLength, char separ
 
 template <typename T>
 bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElements,
-    bool32 (*conversionFunction)(const char*, int, T*),
+    bool32 (*conversionFunction)(const Array<char>&, T*),
     int maxElements, T* array, int* numElements)
 {
     int elementInd = 0;
@@ -191,10 +178,10 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
                 &elementTrimmed, &elementTrimmedLength);
         }
         Array<char> trimmed;
-        trimmed.data = elementTrimmed;
-        trimmed.size = elementTrimmedLength;
+        trimmed.size = elementTrimmedLength,
+        trimmed.data = (char*)elementTrimmed;
         if (!conversionFunction(trimmed, array + elementInd)) {
-            DEBUG_PRINT("String to array failed in %.*s for element %d\n",
+            DEBUG_PRINT("String to array failed for %.*s in element %d conversion\n",
                 string.size, string.data, elementInd);
             return false;
         }
@@ -218,10 +205,10 @@ int ReadNextKeywordValue(Array<char> string,
 
     int i = 0;
 
-    keyword->size = 0;
+    keyword->array.size = 0;
     while (i < string.size && !IsWhitespace(string[i])) {
-        if (keyword->size >= KEYWORD_SIZE) {
-            DEBUG_PRINT("Keyword too long %.*s\n", keyword->size, keyword->data);
+        if (keyword->array.size >= KEYWORD_SIZE) {
+            DEBUG_PRINT("Keyword too long %.*s\n", keyword->array.size, keyword->array.data);
             return -1;
         }
         keyword->Append(string[i++]);
@@ -231,29 +218,29 @@ int ReadNextKeywordValue(Array<char> string,
         i++;
     }
 
-    value->size = 0;
+    value->array.size = 0;
     bool bracketValue = false;
     while (i < string.size &&
     ((!bracketValue && string[i] != '\n' && string[i] != '\r')
     || (bracketValue && string[i] != '}'))) {
-        if (value->size == 0 && string[i] == '{') {
+        if (value->array.size == 0 && string[i] == '{') {
             bracketValue = true;
             i++;
             continue;
         }
-        if (value->size >= VALUE_SIZE) {
-            DEBUG_PRINT("Value too long %.*s\n", value->size, value->data);
+        if (value->array.size >= VALUE_SIZE) {
+            DEBUG_PRINT("Value too long %.*s\n", value->array.size, value->array.data);
             return -1;
         }
-        if (value->size == 0 && IsWhitespace(string[i])) {
+        if (value->array.size == 0 && IsWhitespace(string[i])) {
             i++;
             continue;
         }
         value->Append(string[i++]);
     }
 
-    while (value->size > 0 && IsWhitespace(value->data[value->size - 1])) {
-        value->size--;
+    while (value->array.size > 0 && IsWhitespace(value->array.data[value->array.size - 1])) {
+        value->array.size--;
     }
 
     while (i < string.size && (IsWhitespace(string[i]) || string[i] == '}')) {
