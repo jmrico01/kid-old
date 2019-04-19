@@ -420,7 +420,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
         gameState->rock.angle = -gameState->rock.coords.x / radius;
         gameState->rock.coords.y = radius;
 
-        float32 rockLauncherDeltaY = 0.0f;
+        /*float32 rockLauncherDeltaY = 0.0f;
         Vec2 toRockLauncher = gameState->rockLauncher.coords - gameState->rock.coords;
         float32 distX = AbsFloat32(toRockLauncher.x);
         const float32 PLATFORM_RADIUS = 0.75f;
@@ -433,7 +433,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
             rockLauncherDeltaY = Lerp(PLATFORM_HEIGHT, 0.0f,
                 (distX - PLATFORM_RADIUS) / (PLATFORM_RAMP_RADIUS - PLATFORM_RADIUS));;
         }
-        gameState->rock.coords.y += rockLauncherDeltaY;
+        gameState->rock.coords.y += rockLauncherDeltaY;*/
 
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
@@ -463,7 +463,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
         });
         candidates.Append({
             &gameState->rockLauncher.coords,
-            Vec2 { PLAYER_RADIUS * 4.0f, PLAYER_RADIUS * 4.5f },
+            Vec2 { PLAYER_RADIUS * 3.0f, PLAYER_RADIUS * 4.0f },
             Vec2 { 0.0f, 1.0f }
         });
         candidates.Append({
@@ -551,7 +551,7 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	{ // rock launcher
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rockLauncher.coords);
-		Vec2 size = ToVec2(gameState->rockLauncherTexture.size) / REF_PIXELS_PER_UNIT * 0.8f;
+		Vec2 size = ToVec2(gameState->rockLauncherTexture.size) / REF_PIXELS_PER_UNIT;
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
 			&floorPos, &floorNormal);
@@ -943,7 +943,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->rockLauncher.coords = { 10.0f, 0.0f };
 		if (!LoadPNGOpenGL(thread,
-		"data/sprites/machine2.png",
+		"data/sprites/rocklauncher.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 		gameState->rockLauncherTexture, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
