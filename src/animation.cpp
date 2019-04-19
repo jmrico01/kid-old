@@ -232,47 +232,43 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->loop = true;
 		}
 		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
-			Array<char> elementString = value.array;
-			int elementLength;
-			const char* next;
-
-			if (!ReadElementInSplitString(elementString, ' ', &elementLength, &next)) {
-				DEBUG_PRINT("Animation file missing exit-from frame (%s)\n", filePath);
+			if (value.array.size == 0) {
+				DEBUG_PRINT("Animation file missing exit information (%s)\n", filePath);
 				return false;
 			}
+
+			Array<char> element = value.array;
+			Array<char> next;
+			ReadElementInSplitString(&element, &next, ' ');
 			int exitFromFrame;
-			if (*elementString.data == '*') {
+			if (*(element.data) == '*') {
 				// wildcard
 				exitFromFrame = -1;
 			}
 			else {
-				Array<char> element = elementString;
-				element.size = elementLength;
 				if (!StringToIntBase10(element, &exitFromFrame)) {
 					DEBUG_PRINT("Animation file invalid exit-from frame (%s)\n", filePath);
 					return false;
 				}
 			}
 
-			elementString.size -= next - elementString.data;
-			elementString.data = (char*)next;
-			if (!ReadElementInSplitString(elementString, ' ', &elementLength, &next)) {
+			if (next.size == 0) {
 				DEBUG_PRINT("Animation file missing exit-to animation (%s)\n", filePath);
 				return false;
 			}
+			element = next;
+			ReadElementInSplitString(&element, &next, ' ');
 			HashKey exitToAnim;
-			exitToAnim.WriteString(elementString.data, elementLength);
+			exitToAnim.WriteString(element);
 
-			elementString.size -= next - elementString.data;
-			elementString.data = (char*)next;
-			if (!ReadElementInSplitString(elementString, '\n', &elementLength, &next)) {
+			if (next.size == 0) {
 				DEBUG_PRINT("Animation file missing exit-to frame (%s)\n", filePath);
 				return false;
 			}
+			element = next;
+			ReadElementInSplitString(&element, &next, '\n');
 			int exitToFrame;
 			{
-				Array<char> element = elementString;
-				element.size = elementLength;
 				if (!StringToIntBase10(element, &exitToFrame)) {
 					DEBUG_PRINT("Animation file invalid exit-to frame (%s)\n", filePath);
 					return false;
@@ -315,31 +311,23 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			Array<char> element = value.array;
 			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
-				int elementLength;
-				const char* next;
-				if (!ReadElementInSplitString(element, '\n', &elementLength, &next)) {
-					DEBUG_PRINT("Animation file missing root motion entry (%s)\n", filePath);
-					return false;
-				}
+				Array<char> next;
+				ReadElementInSplitString(&element, &next, '\n');
 
-                const char* trimmed;
-                int trimmedLength;
-                TrimWhitespace(element.data, elementLength, &trimmed, &trimmedLength);
+				Array<char> trimmed;
+				TrimWhitespace(element, &trimmed);
 
                 // Parse root motion coordinate pair
                 Vec2Int rootPos;
                 int parsedElements;
-                Array<char> trimmedString;
-                trimmedString.data = (char*)trimmed;
-                trimmedString.size = trimmedLength;
-                if (!StringToElementArray(trimmedString, ' ', false,
+                if (!StringToElementArray(trimmed, ' ', false,
                     StringToIntBase10, 2, rootPos.e, &parsedElements)) {
                     DEBUG_PRINT("Failed to parse root motion coordinates %.*s (%s)\n",
-                        trimmedLength, trimmed, filePath);
+                        trimmed.size, trimmed.data, filePath);
                 }
                 if (parsedElements != 2) {
                     DEBUG_PRINT("Not enough coordinates in root motion %.*s (%s)\n",
-                        trimmedLength, trimmed, filePath);
+                        trimmed.size, trimmed.data, filePath);
                     return false;
                 }
 
@@ -358,8 +346,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				}
 				currentAnim->frameRootMotion[i] = rootPosWorld - rootPosWorld0;
 
-				element.size -= next - element.data;
-				element.data = (char*)next;
+				if (next.size == 0) {
+					break;
+				}
+				element = next;
 			}
 		}
 		else if (KeywordCompare(keyword, KEYWORD_START)) {

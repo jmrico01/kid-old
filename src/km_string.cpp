@@ -151,22 +151,6 @@ uint64 GetLastOccurrence(const Array<char>& string, char c)
 	return string.size;
 }
 
-bool32 ReadElementInSplitString(const Array<char>& string, char separator,
-	int* elementLength, const char** next)
-{
-	for (uint64 i = 0; i < string.size; i++) {
-		if (string[i] == separator) {
-			*elementLength = (int)i;
-			*next = string.data + i + 1;
-			return true;
-		}
-	}
-
-	*elementLength = (int)string.size;
-	*next = string.data + string.size;
-	return true;
-}
-
 void ReadElementInSplitString(Array<char>* element, Array<char>* next, char separator)
 {
 	for (uint64 i = 0; i < element->size; i++) {

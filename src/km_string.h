@@ -3,7 +3,7 @@
 #include "km_lib.h"
 #include "km_math.h"
 
-// TODO strings should probably be Array or FixedArray objects
+// TODO strings should be Array or FixedArray objects
 
 int StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);
@@ -12,14 +12,12 @@ void CatStrings(
 	size_t sourceACount, const char* sourceA,
 	size_t sourceBCount, const char* sourceB,
 	size_t destCount, char* dest);
+
 inline bool32 IsWhitespace(char c);
 void TrimWhitespace(const Array<char>& string, Array<char>* trimmed);
 bool32 StringToIntBase10(const Array<char>& string, int* intBase10);
 bool32 StringToFloat32(const Array<char>& string, float32* f);
 uint64 GetLastOccurrence(const Array<char>& string, char c);
-
-bool32 ReadElementInSplitString(const Array<char>& string, char separator,
-    int* elementLength, const char** next);
 void ReadElementInSplitString(Array<char>* element, Array<char>* next, char separator);
 
 template <typename T>
