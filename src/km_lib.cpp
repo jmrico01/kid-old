@@ -346,8 +346,8 @@ KeyValuePair<V>* HashTable<V>::GetFreeSlot(const HashKey& key)
 
 void MemCopy(void* dst, const void* src, uint64 numBytes)
 {
-	DEBUG_ASSERT(((const char*)dst + numBytes <= (const char*)src)
-		|| (dst >= (const char*)src + numBytes));
+	DEBUG_ASSERT(((const char*)dst + numBytes <= src)
+		&& (dst >= (const char*)src + numBytes));
 	// TODO maybe see about reimplementing this? would be informative
 	memcpy(dst, src, numBytes);
 }

@@ -99,11 +99,6 @@ bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* 
         MaxInt((int)keyword.array.size, StringLength(refKeyword)));
 }
 
-bool32 KeywordCompare(const char* keyword, int keywordLength, const char* refKeyword)
-{
-	return StringCompare(keyword, refKeyword, MaxInt(keywordLength, StringLength(refKeyword)));
-}
-
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
@@ -120,7 +115,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
     Array<char> fileString;
     fileString.size = animFile.size;
     fileString.data = (char*)animFile.data;
-	const char* fileData = (const char*)animFile.data;
 	HashKey currentAnimKey = {};
 	Animation* currentAnim = nullptr;
 	while (true) {
