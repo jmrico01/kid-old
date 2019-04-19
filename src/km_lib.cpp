@@ -232,20 +232,12 @@ void HashKey::WriteString(const Array<char>& str)
     MemCopy(string, str.data, str.size * sizeof(char));
 }
 
-void HashKey::WriteString(const char* str, int n)
-{
-    DEBUG_ASSERT(n <= STRING_KEY_MAX_LENGTH);
-
-    for (int i = 0; i < n; i++) {
-        string[i] = str[i];
-    }
-
-    length = n;
-}
-
 void HashKey::WriteString(const char* str)
 {
-    WriteString(str, StringLength(str));
+	Array<char> stringArray;
+	stringArray.data = (char*)str;
+	stringArray.size = StringLength(str);
+    WriteString(stringArray);
 }
 
 template <typename V>

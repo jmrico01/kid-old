@@ -73,7 +73,6 @@ struct HashKey
 	int length;
 
 	void WriteString(const Array<char>& str);
-	void WriteString(const char* str, int n);
 	void WriteString(const char* str);
 };
 

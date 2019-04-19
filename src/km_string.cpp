@@ -23,20 +23,6 @@ bool StringCompare(const char* str1, const char* str2, int n)
 	return true;
 }
 
-void TrimWhitespace(const char* str, int n, const char** trimmedStr, int* trimmedN)
-{
-	int i = 0;
-	while (i < n && IsWhitespace(str[i])) {
-		i++;
-	}
-	while (i < n && IsWhitespace(str[n - 1])) {
-		n--;
-	}
-
-	*trimmedStr = str + i;
-	*trimmedN = n - i;
-}
-
 void CatStrings(
 	size_t sourceACount, const char* sourceA,
 	size_t sourceBCount, const char* sourceB,
@@ -205,7 +191,7 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 }
 
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
-int ReadNextKeywordValue(Array<char> string,
+int ReadNextKeywordValue(const Array<char>& string,
 	FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value)
 {
 	if (string.size == 0 || string[0] == '\0') {

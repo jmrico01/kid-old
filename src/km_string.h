@@ -3,11 +3,8 @@
 #include "km_lib.h"
 #include "km_math.h"
 
-// TODO strings should be Array or FixedArray objects
-
 int StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);
-void TrimWhitespace(const char* str, int n, const char** trimmedStr, int* trimmedN);
 void CatStrings(
 	size_t sourceACount, const char* sourceA,
 	size_t sourceBCount, const char* sourceB,
@@ -27,5 +24,5 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 
 // TODO this fits more into a km-file-format module. not really a general string lib function
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
-bool32 ReadNextKeywordValue(Array<char> string,
+bool32 ReadNextKeywordValue(const Array<char>& string,
     FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value);
