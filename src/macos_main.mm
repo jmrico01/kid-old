@@ -16,6 +16,7 @@
 #include "macos_audio.h"
 #include "km_defines.h"
 #include "km_debug.h"
+#include "km_string.h"
 
 // Let the command line override
 //#ifndef HANDMADE_USE_VSYNC
@@ -26,31 +27,6 @@ global_var bool32 running_;
 global_var NSOpenGLContext* glContext_;
 global_var char pathToApp_[MACOS_STATE_FILE_NAME_COUNT];
 global_var mach_timebase_info_data_t machTimebaseInfo_;
-
-internal int StringLength(const char* string)
-{
-	int length = 0;
-	while (*string++) {
-		length++;
-	}
-
-	return length;
-}
-internal void CatStrings(
-	size_t sourceACount, const char* sourceA,
-	size_t sourceBCount, const char* sourceB,
-	size_t destCount, char* dest)
-{
-	for (size_t i = 0; i < sourceACount; i++) {
-		*dest++ = *sourceA++;
-	}
-
-	for (size_t i = 0; i < sourceBCount; i++) {
-		*dest++ = *sourceB++;
-	}
-
-	*dest++ = '\0';
-}
 
 internal inline uint32 SafeTruncateUInt64(uint64 value)
 {

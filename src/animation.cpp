@@ -138,8 +138,6 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
         }
         fileString.size -= read;
         fileString.data += read;
-        //const char* value = valueArray.data;
-        //int valueI = (int)valueArray.size;
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (KeywordCompare(keyword, KEYWORD_ANIM)) {
@@ -155,8 +153,11 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_DIR)) {
 			int frame = 0;
-			int lastSlash = GetLastOccurrence(filePath, StringLength(filePath), '/');
-			if (lastSlash == -1) {
+			Array<char> filePathArray;
+			filePathArray.size = StringLength(filePath);
+			filePathArray.data = (char*)filePath;
+			uint64 lastSlash = GetLastOccurrence(filePathArray, '/');
+			if (lastSlash == filePathArray.size) {
 				DEBUG_PRINT("Couldn't find slash in animation file path %s\n", filePath);
 				return false;
 			}
@@ -165,7 +166,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 			char spritePath[PATH_MAX_LENGTH];
-			for (int i = 0; i < lastSlash; i++) {
+			for (uint64 i = 0; i < lastSlash; i++) {
 				spritePath[i] = filePath[i];
 			}
 			spritePath[lastSlash] = '/';
@@ -232,13 +233,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
 			Array<char> elementString = value.array;
-			//const char* element = value.array.data;
-			//int length = (int)value.array.size;
 			int elementLength;
 			const char* next;
 
-			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
-			' ', &elementLength, &next)) {
+			if (!ReadElementInSplitString(elementString, ' ', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-from frame (%s)\n", filePath);
 				return false;
 			}
@@ -258,8 +256,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 			elementString.size -= next - elementString.data;
 			elementString.data = (char*)next;
-			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
-			' ', &elementLength, &next)) {
+			if (!ReadElementInSplitString(elementString, ' ', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-to animation (%s)\n", filePath);
 				return false;
 			}
@@ -268,8 +265,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 			elementString.size -= next - elementString.data;
 			elementString.data = (char*)next;
-			if (!ReadElementInSplitString(elementString.data, (int)elementString.size,
-			'\n', &elementLength, &next)) {
+			if (!ReadElementInSplitString(elementString, '\n', &elementLength, &next)) {
 				DEBUG_PRINT("Animation file missing exit-to frame (%s)\n", filePath);
 				return false;
 			}
@@ -316,20 +312,19 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
 
-			const char* element = value.array.data;
-			int length = (int)value.array.size;
+			Array<char> element = value.array;
 			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
 				int elementLength;
 				const char* next;
-				if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+				if (!ReadElementInSplitString(element, '\n', &elementLength, &next)) {
 					DEBUG_PRINT("Animation file missing root motion entry (%s)\n", filePath);
 					return false;
 				}
 
                 const char* trimmed;
                 int trimmedLength;
-                TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
+                TrimWhitespace(element.data, elementLength, &trimmed, &trimmedLength);
 
                 // Parse root motion coordinate pair
                 Vec2Int rootPos;
@@ -363,8 +358,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				}
 				currentAnim->frameRootMotion[i] = rootPosWorld - rootPosWorld0;
 
-				length -= (int)(next - element);
-				element = next;
+				element.size -= next - element.data;
+				element.data = (char*)next;
 			}
 		}
 		else if (KeywordCompare(keyword, KEYWORD_START)) {

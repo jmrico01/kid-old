@@ -29,6 +29,7 @@
 #include "km_debug.h"
 #include "km_math.h"
 #include "km_input.h"
+#include "km_string.h"
 
 global_var char pathToApp_[LINUX_STATE_FILE_NAME_COUNT];
 global_var bool32 running_;
@@ -96,53 +97,6 @@ internal void LinuxUnloadLibrary(void* handle)
         handle = NULL;
     }
 }
-
-internal int StringLength(const char* string)
-{
-	int length = 0;
-	while (*string++) {
-		length++;
-    }
-
-	return length;
-}
-internal void CatStrings(
-	size_t sourceACount, const char* sourceA,
-	size_t sourceBCount, const char* sourceB,
-	size_t destCount, char* dest)
-{
-	for (size_t i = 0; i < sourceACount; i++) {
-		*dest++ = *sourceA++;
-    }
-
-	for (size_t i = 0; i < sourceBCount; i++) {
-		*dest++ = *sourceB++;
-    }
-
-	*dest++ = '\0';
-}
-internal inline bool32 IsWhitespace(char c)
-{
-    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
-}
-/*internal bool32 StringsAreEqual(
-    const char* str1, size_t strLen1,
-    const char* str2, size_t strLen2)
-{
-    if (strLen1 != strLen2) {
-        return false;
-    }
-
-    size_t i = 0;
-    while (i < strLen1) {
-        if (str1[i] != str2[i]) {
-            return false;
-        }
-        i++;
-    }
-
-    return true;
-}*/
 
 internal inline uint32 SafeTruncateUInt64(uint64 value)
 {

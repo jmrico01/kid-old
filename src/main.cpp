@@ -122,18 +122,19 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 
     floorCollider->line.array.size = 0;
     floorCollider->line.Init();
-    const char* element = (const char*)levelFile.data;
-    int length = (int)levelFile.size;
+    Array<char> element;
+    element.size = levelFile.size;
+    element.data = (char*)levelFile.data;
     while (true) {
         int elementLength;
         const char* next;
-        if (!ReadElementInSplitString(element, length, '\n', &elementLength, &next)) {
+        if (!ReadElementInSplitString(element, '\n', &elementLength, &next)) {
             break;
         }
 
         const char* trimmed;
         int trimmedLength;
-        TrimWhitespace(element, elementLength, &trimmed, &trimmedLength);
+        TrimWhitespace(element.data, elementLength, &trimmed, &trimmedLength);
         if (trimmedLength == 0) {
             break;
         }
@@ -157,8 +158,8 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 
         floorCollider->line.Append(pos);
 
-        length -= (int)(next - element);
-        element = next;
+        element.size -= next - element.data;
+        element.data = (char*)next;
     }
 
     DEBUGPlatformFreeFileMemory(thread, &levelFile);

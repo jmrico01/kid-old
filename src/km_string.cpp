@@ -25,16 +25,16 @@ bool StringCompare(const char* str1, const char* str2, int n)
 
 void TrimWhitespace(const char* str, int n, const char** trimmedStr, int* trimmedN)
 {
-    int i = 0;
-    while (i < n && IsWhitespace(str[i])) {
-        i++;
-    }
-    while (i < n && IsWhitespace(str[n - 1])) {
-        n--;
-    }
+	int i = 0;
+	while (i < n && IsWhitespace(str[i])) {
+		i++;
+	}
+	while (i < n && IsWhitespace(str[n - 1])) {
+		n--;
+	}
 
-    *trimmedStr = str + i;
-    *trimmedN = n - i;
+	*trimmedStr = str + i;
+	*trimmedN = n - i;
 }
 
 void CatStrings(
@@ -59,193 +59,218 @@ inline bool32 IsWhitespace(char c)
 		|| c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
+void TrimWhitespace(const Array<char>& string, Array<char>* trimmed)
+{
+	uint64 start = 0;
+	while (start < string.size && IsWhitespace(string[start])) {
+		start++;
+	}
+	uint64 end = string.size;
+	while (end > 0 && IsWhitespace(string[end - 1])) {
+		end--;
+	}
+
+	trimmed->data = string.data + start;
+	trimmed->size = end - start;
+}
+
 bool32 StringToIntBase10(const Array<char>& string, int* intBase10)
 {
-    if (string.size == 0) {
-        return false;
-    }
+	if (string.size == 0) {
+		return false;
+	}
 
-    bool32 negative = false;
-    *intBase10 = 0;
-    for (uint64 i = 0; i < string.size; i++) {
-        char c = string[i];
-        if (i == 0 && c == '-') {
-            negative = true;
-            continue;
-        }
-        if (c < '0' || c > '9') {
-            return false;
-        }
-        *intBase10 = (*intBase10) * 10 + (int)(c - '0');
-    }
+	bool32 negative = false;
+	*intBase10 = 0;
+	for (uint64 i = 0; i < string.size; i++) {
+		char c = string[i];
+		if (i == 0 && c == '-') {
+			negative = true;
+			continue;
+		}
+		if (c < '0' || c > '9') {
+			return false;
+		}
+		*intBase10 = (*intBase10) * 10 + (int)(c - '0');
+	}
 
-    if (negative) {
-        *intBase10 = -(*intBase10);
-    }
-    return true;
+	if (negative) {
+		*intBase10 = -(*intBase10);
+	}
+	return true;
 }
 
 bool32 StringToFloat32(const Array<char>& string, float32* f)
 {
-    uint64 dotIndex = 0;
-    while (dotIndex < string.size && string[dotIndex] != '.') {
-        dotIndex++;
-    }
+	uint64 dotIndex = 0;
+	while (dotIndex < string.size && string[dotIndex] != '.') {
+		dotIndex++;
+	}
 
-    int whole = 0;
-    float32 wholeNegative = false;
-    if (dotIndex > 0) {
-    	Array<char> stringWhole;
-    	stringWhole.size = dotIndex;
-    	stringWhole.data = string.data;
-        if (!StringToIntBase10(stringWhole, &whole)) {
-            return false;
-        }
-        wholeNegative = string[0] == '-';
-    }
-    int frac = 0;
-    Array<char> fracString;
-    fracString.size = string.size - dotIndex - 1;
-    if (fracString.size > 0) {
-        fracString.data = string.data + dotIndex + 1;
-        if (!StringToIntBase10(fracString, &frac)) {
-            return false;
-        }
-    }
+	int whole = 0;
+	float32 wholeNegative = false;
+	if (dotIndex > 0) {
+		Array<char> stringWhole;
+		stringWhole.size = dotIndex;
+		stringWhole.data = string.data;
+		if (!StringToIntBase10(stringWhole, &whole)) {
+			return false;
+		}
+		wholeNegative = string[0] == '-';
+	}
+	int frac = 0;
+	Array<char> fracString;
+	fracString.size = string.size - dotIndex - 1;
+	if (fracString.size > 0) {
+		fracString.data = string.data + dotIndex + 1;
+		if (!StringToIntBase10(fracString, &frac)) {
+			return false;
+		}
+	}
 
-    *f = (float32)whole;
-    if (fracString.size > 0) {
-        frac = wholeNegative ? -frac : frac;
-        float32 fractional = (float32)frac;
-        for (uint64 i = 0; i < fracString.size; i++) {
-            fractional /= 10.0f;
-        }
-        *f += fractional;
-    }
-    return true;
+	*f = (float32)whole;
+	if (fracString.size > 0) {
+		frac = wholeNegative ? -frac : frac;
+		float32 fractional = (float32)frac;
+		for (uint64 i = 0; i < fracString.size; i++) {
+			fractional /= 10.0f;
+		}
+		*f += fractional;
+	}
+	return true;
 }
 
-int GetLastOccurrence(const char* string, int n, char c)
+uint64 GetLastOccurrence(const Array<char>& string, char c)
 {
-	for (int i = n - 1; i >= 0; i--) {
+	for (uint64 i = string.size - 1; i >= 0; i--) {
 		if (string[i] == c) {
 			return i;
 		}
 	}
 
-	return -1;
+	return string.size;
 }
 
-bool32 ReadElementInSplitString(const char* string, int stringLength, char separator,
-    int* elementLength, const char** next)
+bool32 ReadElementInSplitString(const Array<char>& string, char separator,
+	int* elementLength, const char** next)
 {
-    for (int i = 0; i < stringLength; i++) {
-        if (string[i] == separator) {
-            *elementLength = i;
-            *next = string + i + 1;
-            return true;
-        }
-    }
+	for (uint64 i = 0; i < string.size; i++) {
+		if (string[i] == separator) {
+			*elementLength = (int)i;
+			*next = string.data + i + 1;
+			return true;
+		}
+	}
 
-    *elementLength = stringLength;
-    *next = string + stringLength;
-    return true;
+	*elementLength = (int)string.size;
+	*next = string.data + string.size;
+	return true;
+}
+
+void ReadElementInSplitString(Array<char>* element, Array<char>* next, char separator)
+{
+	for (uint64 i = 0; i < element->size; i++) {
+		if ((*element)[i] == separator) {
+			next->data = element->data + i + 1;
+			next->size = element->size - i - 1;
+			element->size = i;
+			return;
+		}
+	}
+
+	next->size = 0;
 }
 
 template <typename T>
 bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElements,
-    bool32 (*conversionFunction)(const Array<char>&, T*),
-    int maxElements, T* array, int* numElements)
+	bool32 (*conversionFunction)(const Array<char>&, T*),
+	int maxElements, T* array, int* numElements)
 {
-    int elementInd = 0;
-    const char* parsingString = string.data;
-    int parsingLength = (int)string.size;
-    while (parsingLength > 0) {
-        int elementLength;
-        const char* next;
-        if (!ReadElementInSplitString(parsingString, parsingLength, sep, &elementLength, &next)) {
-            break;
-        }
-        if (elementInd >= maxElements) {
-            DEBUG_PRINT("String to array failed in %.*s (too many elements, max %d)\n",
-                string.size, string.data, maxElements);
-            return false;
-        }
-        const char* elementTrimmed = parsingString;
-        int elementTrimmedLength = elementLength;
-        if (trimElements) {
-            TrimWhitespace(parsingString, elementLength,
-                &elementTrimmed, &elementTrimmedLength);
-        }
-        Array<char> trimmed;
-        trimmed.size = elementTrimmedLength,
-        trimmed.data = (char*)elementTrimmed;
-        if (!conversionFunction(trimmed, array + elementInd)) {
-            DEBUG_PRINT("String to array failed for %.*s in element %d conversion\n",
-                string.size, string.data, elementInd);
-            return false;
-        }
+	int elementInd = 0;
+	Array<char> element = string;
+	while (true) {
+		Array<char> next;
+		ReadElementInSplitString(&element, &next, sep);
+		Array<char> trimmed;
+		if (trimElements) {
+			TrimWhitespace(element, &trimmed);
+		}
+		else {
+			trimmed = element;
+		}
+		if (!conversionFunction(trimmed, array + elementInd)) {
+			DEBUG_PRINT("String to array failed for %.*s in element %d conversion\n",
+				string.size, string.data, elementInd);
+			return false;
+		}
 
-        elementInd++;
-        parsingLength -= (int)(next - parsingString);
-        parsingString = next;
-    }
+		if (next.size == 0) {
+			break;
+		}
+		element = next;
+		elementInd++;
+		if (elementInd >= maxElements) {
+			DEBUG_PRINT("String to array failed in %.*s (too many elements, max %d)\n",
+				string.size, string.data, maxElements);
+			return false;
+		}
+	}
 
-    *numElements = elementInd;
-    return true;
+	*numElements = elementInd + 1;
+	return true;
 }
 
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
 int ReadNextKeywordValue(Array<char> string,
-    FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value)
+	FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value)
 {
-    if (string.size == 0 || string[0] == '\0') {
-        return 0;
-    }
+	if (string.size == 0 || string[0] == '\0') {
+		return 0;
+	}
 
-    int i = 0;
+	int i = 0;
 
-    keyword->array.size = 0;
-    while (i < string.size && !IsWhitespace(string[i])) {
-        if (keyword->array.size >= KEYWORD_SIZE) {
-            DEBUG_PRINT("Keyword too long %.*s\n", keyword->array.size, keyword->array.data);
-            return -1;
-        }
-        keyword->Append(string[i++]);
-    }
+	keyword->array.size = 0;
+	while (i < string.size && !IsWhitespace(string[i])) {
+		if (keyword->array.size >= KEYWORD_SIZE) {
+			DEBUG_PRINT("Keyword too long %.*s\n", keyword->array.size, keyword->array.data);
+			return -1;
+		}
+		keyword->Append(string[i++]);
+	}
 
-    if (i < string.size && IsWhitespace(string[i])) {
-        i++;
-    }
+	if (i < string.size && IsWhitespace(string[i])) {
+		i++;
+	}
 
-    value->array.size = 0;
-    bool bracketValue = false;
-    while (i < string.size &&
-    ((!bracketValue && string[i] != '\n' && string[i] != '\r')
-    || (bracketValue && string[i] != '}'))) {
-        if (value->array.size == 0 && string[i] == '{') {
-            bracketValue = true;
-            i++;
-            continue;
-        }
-        if (value->array.size >= VALUE_SIZE) {
-            DEBUG_PRINT("Value too long %.*s\n", value->array.size, value->array.data);
-            return -1;
-        }
-        if (value->array.size == 0 && IsWhitespace(string[i])) {
-            i++;
-            continue;
-        }
-        value->Append(string[i++]);
-    }
+	value->array.size = 0;
+	bool bracketValue = false;
+	while (i < string.size &&
+	((!bracketValue && string[i] != '\n' && string[i] != '\r')
+	|| (bracketValue && string[i] != '}'))) {
+		if (value->array.size == 0 && string[i] == '{') {
+			bracketValue = true;
+			i++;
+			continue;
+		}
+		if (value->array.size >= VALUE_SIZE) {
+			DEBUG_PRINT("Value too long %.*s\n", value->array.size, value->array.data);
+			return -1;
+		}
+		if (value->array.size == 0 && IsWhitespace(string[i])) {
+			i++;
+			continue;
+		}
+		value->Append(string[i++]);
+	}
 
-    while (value->array.size > 0 && IsWhitespace(value->array.data[value->array.size - 1])) {
-        value->array.size--;
-    }
+	while (value->array.size > 0 && IsWhitespace(value->array.data[value->array.size - 1])) {
+		value->array.size--;
+	}
 
-    while (i < string.size && (IsWhitespace(string[i]) || string[i] == '}')) {
-        i++;
-    }
+	while (i < string.size && (IsWhitespace(string[i]) || string[i] == '}')) {
+		i++;
+	}
 
-    return i;
+	return i;
 }
