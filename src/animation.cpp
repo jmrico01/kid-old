@@ -367,7 +367,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	const HashTable<Animation>* animTable = &outAnimatedSprite.animations;
 	for (uint32 k = 0; k < animTable->capacity; k++) {
 		const HashKey* animKey = &animTable->pairs[k].key;
-		if (animKey->length == 0) {
+		if (animKey->string.array.size == 0) {
 			continue;
 		}
 
@@ -376,7 +376,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
 			for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
 				const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
-				if (toAnimKey->length == 0) {
+				if (toAnimKey->string.array.size == 0) {
 					continue;
 				}
 
@@ -389,7 +389,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					const Animation* toAnim = animTable->GetValue(*toAnimKey);
 					if (toAnim == nullptr) {
 						DEBUG_PRINT("Animation file non-existent exit-to animation %.*s (%s)\n",
-							toAnimKey->length, toAnimKey->string, filePath);
+							toAnimKey->string.array.size, toAnimKey->string.array.data, filePath);
 						return false;
 					}
 					if (*exitToFrame >= toAnim->numFrames) {

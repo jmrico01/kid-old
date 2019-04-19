@@ -1245,7 +1245,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		textPosRight.y -= textFont.height;
 		HashKey& kidActiveAnim = gameState->kid.activeAnimation;
-		sprintf(textStr, "%.*s -- ANIM", kidActiveAnim.length, kidActiveAnim.string);
+		sprintf(textStr, "%.*s -- ANIM",
+			(int)kidActiveAnim.string.array.size, kidActiveAnim.string.array.data);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 

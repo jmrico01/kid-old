@@ -13,106 +13,106 @@
 // Very simple string hash ( djb2 hash, source http://www.cse.yorku.ca/~oz/hash.html )
 uint32 KeyHash(const HashKey& key)
 {
-    uint32 hash = 5381;
+	uint32 hash = 5381;
 
-    for (int i = 0; i < key.length; i++) {
-        hash = ((hash << 5) + hash) + key.string[i];
-    }
+	for (uint64 i = 0; i < key.string.array.size; i++) {
+		hash = ((hash << 5) + hash) + key.string[i];
+	}
 
-    return hash;
+	return hash;
 }
 bool32 KeyCompare(const HashKey& key1, const HashKey& key2)
 {
-    if (key1.length != key2.length) {
-        return false;
-    }
+	if (key1.string.array.size != key2.string.array.size) {
+		return false;
+	}
 
-    for (int i = 0; i < key1.length; i++) {
-        if (key1.string[i] != key2.string[i]) {
-            return false;
-        }
-    }
+	for (uint64 i = 0; i < key1.string.array.size; i++) {
+		if (key1.string[i] != key2.string[i]) {
+			return false;
+		}
+	}
 
-    return true;
+	return true;
 }
 
 template <typename T>
 void Array<T>::Append(const T& element)
 {
-    data[size++] = element;
+	data[size++] = element;
 }
 
 template <typename T>
 void Array<T>::RemoveLast()
 {
-    DEBUG_ASSERT(size > 0);
-    size--;
+	DEBUG_ASSERT(size > 0);
+	size--;
 }
 
 template <typename T>
 void Array<T>::Remove(uint64 index)
 {
-    DEBUG_ASSERT(size > 0);
-    DEBUG_ASSERT(index < size);
+	DEBUG_ASSERT(size > 0);
+	DEBUG_ASSERT(index < size);
 
-    for (uint64 i = index + 1; i < size; i++) {
-        data[i - 1] = data[i];
-    }
-    size--;
+	for (uint64 i = index + 1; i < size; i++) {
+		data[i - 1] = data[i];
+	}
+	size--;
 }
 
 template <typename T>
 void Array<T>::AppendAfter(const T& element, uint64 index)
 {
-    DEBUG_ASSERT(index < size);
+	DEBUG_ASSERT(index < size);
 
-    uint64 targetIndex = index + 1;
-    for (uint64 i = size; i > targetIndex; i--) {
-        data[i] = data[i - 1];
-    }
-    data[targetIndex] = element;
-    size++;
+	uint64 targetIndex = index + 1;
+	for (uint64 i = size; i > targetIndex; i--) {
+		data[i] = data[i - 1];
+	}
+	data[targetIndex] = element;
+	size++;
 }
 
 template <typename T>
 inline T Array<T>::operator[](int index) const
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	DEBUG_ASSERT(0 <= index && (uint64)index < size);
+	return data[index];
 }
 
 template <typename T>
 inline T Array<T>::operator[](uint64 index) const
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
+	DEBUG_ASSERT(0 <= index && index < size);
+	return data[index];
 }
 
 template <typename T>
 inline T& Array<T>::operator[](int index)
 {
-    DEBUG_ASSERT(0 <= index && (uint64)index < size);
-    return data[index];
+	DEBUG_ASSERT(0 <= index && (uint64)index < size);
+	return data[index];
 }
 
 template <typename T>
 inline T& Array<T>::operator[](uint64 index)
 {
-    DEBUG_ASSERT(0 <= index && index < size);
-    return data[index];
+	DEBUG_ASSERT(0 <= index && index < size);
+	return data[index];
 }
 
 template <typename T, uint64 S>
 void FixedArray<T, S>::Init()
 {
-	array.data = &fixedArray[0];
+	array.data = fixedArray;
 }
 
 template <typename T, uint64 S>
 void FixedArray<T, S>::Append(const T& element)
 {
-    DEBUG_ASSERT(array.size < S);
-    array.Append(element);
+	DEBUG_ASSERT(array.size < S);
+	array.Append(element);
 }
 
 template <typename T, uint64 S>
@@ -130,8 +130,8 @@ void FixedArray<T, S>::Remove(uint64 index)
 template <typename T, uint64 S>
 void FixedArray<T, S>::AppendAfter(const T& element, uint64 index)
 {
-    DEBUG_ASSERT(array.size < S);
-    array.AppendAfter(element, index);
+	DEBUG_ASSERT(array.size < S);
+	array.AppendAfter(element, index);
 }
 
 template <typename T, uint64 S>
@@ -158,6 +158,16 @@ inline T& FixedArray<T, S>::operator[](uint64 index)
 	return array[index];
 }
 
+template <typename T, uint64 S>
+inline void FixedArray<T, S>::operator=(const FixedArray<T, S>& other)
+{
+	array.size = other.array.size;
+	array.data = fixedArray;
+	for (uint64 i = 0; i < other.array.size; i++) {
+		fixedArray[i] = other.fixedArray[i];
+	}
+}
+
 template <typename T>
 void DynamicArray<T>::Allocate()
 {
@@ -179,8 +189,8 @@ void DynamicArray<T>::Free()
 {
 	free(data);
 
-    capacity = 0;
-    size = 0;
+	capacity = 0;
+	size = 0;
 }
 
 template <typename T>
@@ -227,9 +237,10 @@ inline T& DynamicArray<T>::operator[](uint64 index)
 
 void HashKey::WriteString(const Array<char>& str)
 {
-    DEBUG_ASSERT(str.size <= STRING_KEY_MAX_LENGTH);
-    length = (int)str.size;
-    MemCopy(string, str.data, str.size * sizeof(char));
+	DEBUG_ASSERT(str.size <= STRING_KEY_MAX_LENGTH);
+	MemCopy(string.fixedArray, str.data, str.size * sizeof(char));
+	string.Init();
+	string.array.size = str.size;
 }
 
 void HashKey::WriteString(const char* str)
@@ -237,7 +248,7 @@ void HashKey::WriteString(const char* str)
 	Array<char> stringArray;
 	stringArray.data = (char*)str;
 	stringArray.size = StringLength(str);
-    WriteString(stringArray);
+	WriteString(stringArray);
 }
 
 template <typename V>
@@ -247,7 +258,7 @@ void HashTable<V>::Init()
 }
 
 template <typename V>
-void HashTable<V>::Init(int cap)
+void HashTable<V>::Init(uint64 cap)
 {
 	size = 0;
 	capacity = cap;
@@ -256,98 +267,99 @@ void HashTable<V>::Init(int cap)
 		DEBUG_PANIC("ERROR: not enough memory!\n");
 	}
 
-    for (int i = 0; i < cap; i++) {
-        pairs[i].key.length = 0;
-    }
+	for (uint64 i = 0; i < cap; i++) {
+		pairs[i].key.string.Init();
+		pairs[i].key.string.array.size = 0;
+	}
 }
 
 template <typename V>
 void HashTable<V>::Add(const HashKey& key, V value)
 {
-    DEBUG_ASSERT(GetPair(key) == nullptr);
+	DEBUG_ASSERT(GetPair(key) == nullptr);
 
-    if (size >= (uint32)((float32)capacity * HASH_TABLE_MAX_SIZE_TO_CAPACITY)) {
-        uint32 newCapacity = NextPrime(capacity * 2);
-        pairs = (KeyValuePair<V>*)realloc(pairs, sizeof(KeyValuePair<V>) * newCapacity);
-        if (!pairs) {
-            DEBUG_PANIC("ERROR: not enough memory!\n");
-        }
+	if (size >= (uint64)((float32)capacity * HASH_TABLE_MAX_SIZE_TO_CAPACITY)) {
+		uint64 newCapacity = NextPrime(capacity * 2);
+		pairs = (KeyValuePair<V>*)realloc(pairs, sizeof(KeyValuePair<V>) * newCapacity);
+		if (!pairs) {
+			DEBUG_PANIC("ERROR: not enough memory!\n");
+		}
 
-        // TODO rehash etc
-        capacity = newCapacity;
-    }
+		// TODO rehash etc
+		capacity = newCapacity;
+	}
 
-    KeyValuePair<V>* pair = GetFreeSlot(key);
-    DEBUG_ASSERT(pair != nullptr);
+	KeyValuePair<V>* pair = GetFreeSlot(key);
+	DEBUG_ASSERT(pair != nullptr);
 
-    pair->key = key;
-    pair->value = value;
-    size++;
+	pair->key = key;
+	pair->value = value;
+	size++;
 }
 
 template <typename V>
 V* HashTable<V>::GetValue(const HashKey& key) const
 {
-    KeyValuePair<V>* pair = GetPair(key);
-    if (pair == nullptr) {
-        return nullptr;
-    }
+	KeyValuePair<V>* pair = GetPair(key);
+	if (pair == nullptr) {
+		return nullptr;
+	}
 
-    return &pair->value;
+	return &pair->value;
 }
 
 template <typename V>
 void HashTable<V>::Clear()
 {
-    for (int i = 0; i < capacity; i++) {
-        pairs[i].key.length = 0;
-    }
+	for (int i = 0; i < capacity; i++) {
+		pairs[i].key.length = 0;
+	}
 }
 
 template <typename V>
 void HashTable<V>::Free()
 {
-    free(pairs);
+	free(pairs);
 
-    capacity = 0;
-    size = 0;
+	capacity = 0;
+	size = 0;
 }
 
 template <typename V>
 KeyValuePair<V>* HashTable<V>::GetPair(const HashKey& key) const
 {
-    uint32 hashInd = KeyHash(key) % capacity;
-    for (uint32 i = 0; i < capacity; i++) {
-        KeyValuePair<V>* pair = pairs + hashInd + i;
-        if (KeyCompare(pair->key, key)) {
-            return pair;
-        }
-        if (pair->key.length == 0) {
-            return nullptr;
-        }
-    }
+	uint32 hashInd = KeyHash(key) % capacity;
+	for (uint32 i = 0; i < capacity; i++) {
+		KeyValuePair<V>* pair = pairs + hashInd + i;
+		if (KeyCompare(pair->key, key)) {
+			return pair;
+		}
+		if (pair->key.string.array.size == 0) {
+			return nullptr;
+		}
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 template <typename V>
 KeyValuePair<V>* HashTable<V>::GetFreeSlot(const HashKey& key)
 {
-    uint32 hashInd = KeyHash(key) % capacity;
-    for (uint32 i = 0; i < capacity; i++) {
-        KeyValuePair<V>* pair = pairs + hashInd + i;
-        if (pair->key.length == 0) {
-            return pair;
-        }
-    }
+	uint32 hashInd = KeyHash(key) % capacity;
+	for (uint32 i = 0; i < capacity; i++) {
+		KeyValuePair<V>* pair = pairs + hashInd + i;
+		if (pair->key.string.array.size == 0) {
+			return pair;
+		}
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 void MemCopy(void* dst, const void* src, uint64 numBytes)
 {
 	DEBUG_ASSERT(((const char*)dst + numBytes <= src)
-		&& (dst >= (const char*)src + numBytes));
+		|| (dst >= (const char*)src + numBytes));
 	// TODO maybe see about reimplementing this? would be informative
 	memcpy(dst, src, numBytes);
 }

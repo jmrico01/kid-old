@@ -50,9 +50,9 @@ inline int RoundFloat32Fast(float32 a) {
 	}
 }
 
-int IsPrime(int n)
+bool IsPrime(uint64 n)
 {
-    for (int i = 0; i < n / 2; i++) {
+    for (uint64 i = 0; i < n / 2; i++) {
         if (n % i == 0) {
             return false;
         }
@@ -61,7 +61,7 @@ int IsPrime(int n)
     return true;
 }
 
-int NextPrime(int n)
+uint64 NextPrime(uint64 n)
 {
     while (!IsPrime(n)) {
         n++;

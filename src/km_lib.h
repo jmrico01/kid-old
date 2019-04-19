@@ -42,6 +42,8 @@ struct FixedArray
 	inline T operator[](uint64 index) const;
 	inline T& operator[](int index);
 	inline T& operator[](uint64 index);
+
+	inline void operator=(const FixedArray<T, S>& other);
 };
 
 template <typename T>
@@ -69,8 +71,7 @@ struct DynamicArray
 
 struct HashKey
 {
-	char string[STRING_KEY_MAX_LENGTH];
-	int length;
+	FixedArray<char, STRING_KEY_MAX_LENGTH> string;
 
 	void WriteString(const Array<char>& str);
 	void WriteString(const char* str);
@@ -86,13 +87,13 @@ struct KeyValuePair
 template <typename V>
 struct HashTable
 {
-	uint32 size;
-	uint32 capacity;
+	uint64 size;
+	uint64 capacity;
 
 	KeyValuePair<V>* pairs;
 
 	void Init();
-	void Init(int capacity);
+	void Init(uint64 capacity);
 
 	void Add(const HashKey& key, V value);
 	V* GetValue(const HashKey& key) const; // const... sure, if it helps you sleep at night
