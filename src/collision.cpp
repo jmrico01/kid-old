@@ -32,6 +32,7 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	int precomputedPoints = (int)(lineLength / FLOOR_PRECOMPUTED_STEP_LENGTH) + 1;
 	DEBUG_ASSERT(precomputedPoints <= FLOOR_PRECOMPUTED_POINTS_MAX);
 	sampleVertices.array.size = precomputedPoints;
+	sampleVertices.Init();
 	for (int i = 0; i < precomputedPoints; i++) {
 		float32 coordX = i * FLOOR_PRECOMPUTED_STEP_LENGTH;
 		GetInfoFromCoordXSlow(coordX,

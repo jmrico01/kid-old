@@ -103,6 +103,12 @@ inline T& Array<T>::operator[](uint64 index)
 }
 
 template <typename T, uint64 S>
+void FixedArray<T, S>::Init()
+{
+	array.data = &fixedArray[0];
+}
+
+template <typename T, uint64 S>
 void FixedArray<T, S>::Append(const T& element)
 {
     DEBUG_ASSERT(array.size < S);
@@ -222,6 +228,7 @@ inline T& DynamicArray<T>::operator[](uint64 index)
 void HashKey::WriteString(const Array<char>& str)
 {
     DEBUG_ASSERT(str.size <= STRING_KEY_MAX_LENGTH);
+    length = (int)str.size;
     MemCopy(string, str.data, str.size * sizeof(char));
 }
 

@@ -121,6 +121,7 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
     }
 
     floorCollider->line.array.size = 0;
+    floorCollider->line.Init();
     const char* element = (const char*)levelFile.data;
     int length = (int)levelFile.size;
     while (true) {
@@ -451,6 +452,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
         || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
     if (pushPullKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
         FixedArray<GrabbedObjectInfo, 10> candidates;
+        candidates.Init();
         candidates.array.size = 0;
         Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
         float32 rockRadius = rockSize.y / 2.0f * 0.8f;
@@ -686,18 +688,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		LineCollider* lineCollider;
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
 		lineCollider->line.Append(Vec2 { 11.24f, 46.73f });
 		lineCollider->line.Append(Vec2 { 11.25f, 48.03f });
 		lineCollider->line.Append(Vec2 { 12.68f, 48.07f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 8.54f, 47.79f });
 		lineCollider->line.Append(Vec2 { 8.98f, 48.09f });
 		lineCollider->line.Append(Vec2 { 9.58f, 48.09f });
 		lineCollider->line.Append(Vec2 { 9.73f, 47.70f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 6.33f, 50.50f });
 		lineCollider->line.Append(Vec2 { 6.79f, 50.51f });
 		lineCollider->line.Append(Vec2 { 6.93f, 50.73f });
@@ -706,6 +711,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 8.33f, 49.69f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { -1.89f, 52.59f });
 		lineCollider->line.Append(Vec2 { -1.39f, 52.64f });
 		lineCollider->line.Append(Vec2 { -0.56f, 52.86f });
@@ -717,59 +723,73 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 27.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 27.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 30.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 30.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 33.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 33.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 36.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 36.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 39.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 39.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 42.44f, 28.73f });
 		lineCollider->line.Append(Vec2 { 42.44f, 32.64f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 17.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 17.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 20.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 20.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 23.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 23.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 26.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 26.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 29.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 29.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 32.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 32.41f });
 
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 38.40f, 35.41f });
 		lineCollider->line.Append(Vec2 { 41.55f, 35.41f });
 
 		// reserved for rock
 		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
 

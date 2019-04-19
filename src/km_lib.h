@@ -27,7 +27,9 @@ template <typename T, uint64 S>
 struct FixedArray
 {
 	T fixedArray[S];
-	Array<T> array = { 0, &fixedArray[0] };
+	Array<T> array;
+
+	void Init(); // TODO ew, shouldn't need this
 
 	void Append(const T& element);
 	void RemoveLast();
@@ -46,7 +48,7 @@ template <typename T>
 struct DynamicArray
 {
 	uint64 capacity;
-	Array<T> array = { 0, nullptr };
+	Array<T> array;
 
 	void Allocate();
 	void Allocate(uint64 capacity);

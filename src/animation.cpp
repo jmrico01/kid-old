@@ -125,7 +125,9 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	Animation* currentAnim = nullptr;
 	while (true) {
         FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+        keyword.Init();
         FixedArray<char, VALUE_MAX_LENGTH> value;
+        value.Init();
         int read = ReadNextKeywordValue(fileString, &keyword, &value);
         if (read < 0) {
             DEBUG_PRINT("Animation file keyword/value error (%s)\n", filePath);
