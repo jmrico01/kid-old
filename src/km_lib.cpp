@@ -11,9 +11,9 @@
 #define HASH_TABLE_MAX_SIZE_TO_CAPACITY 0.7
 
 // Very simple string hash ( djb2 hash, source http://www.cse.yorku.ca/~oz/hash.html )
-uint32 KeyHash(const HashKey& key)
+uint64 KeyHash(const HashKey& key)
 {
-	uint32 hash = 5381;
+	uint64 hash = 5381;
 
 	for (uint64 i = 0; i < key.string.array.size; i++) {
 		hash = ((hash << 5) + hash) + key.string[i];
@@ -285,8 +285,14 @@ void HashTable<V>::Add(const HashKey& key, V value)
 			DEBUG_PANIC("ERROR: not enough memory!\n");
 		}
 
-		// TODO rehash etc
+		// TODO revisit this / just take in custom allocators already
+		KeyValuePair<V>* oldPairs = (KeyValuePair<V>*)malloc(sizeof(KeyValuePair<V>) * capacity);
+		MemCopy(oldPairs, pairs, sizeof(KeyValuePair<V>) * capacity);
+		for (uint64 i = 0; i < capacity; i++) {
+			// TODO bleh
+		}
 		capacity = newCapacity;
+		free(oldPairs);
 	}
 
 	KeyValuePair<V>* pair = GetFreeSlot(key);
@@ -328,8 +334,8 @@ void HashTable<V>::Free()
 template <typename V>
 KeyValuePair<V>* HashTable<V>::GetPair(const HashKey& key) const
 {
-	uint32 hashInd = KeyHash(key) % capacity;
-	for (uint32 i = 0; i < capacity; i++) {
+	uint64 hashInd = KeyHash(key) % capacity;
+	for (uint64 i = 0; i < capacity; i++) {
 		KeyValuePair<V>* pair = pairs + hashInd + i;
 		if (KeyCompare(pair->key, key)) {
 			return pair;
@@ -345,8 +351,8 @@ KeyValuePair<V>* HashTable<V>::GetPair(const HashKey& key) const
 template <typename V>
 KeyValuePair<V>* HashTable<V>::GetFreeSlot(const HashKey& key)
 {
-	uint32 hashInd = KeyHash(key) % capacity;
-	for (uint32 i = 0; i < capacity; i++) {
+	uint64 hashInd = KeyHash(key) % capacity;
+	for (uint64 i = 0; i < capacity; i++) {
 		KeyValuePair<V>* pair = pairs + hashInd + i;
 		if (pair->key.string.array.size == 0) {
 			return pair;
