@@ -22,8 +22,7 @@ const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
 const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
 const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
 
-Vec2 AnimatedSpriteInstance::Update(float32 deltaTime,
-	int numNextAnimations, const HashKey* nextAnimations)
+Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nextAnimations)
 {
 	const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
 	Vec2 rootMotion = Vec2::zero;
@@ -36,7 +35,7 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime,
 			activeFrameRepeat = 0;
 
 			bool32 animTransition = false;
-			for (int i = 0; i < numNextAnimations; i++) {
+			for (uint64 i = 0; i < nextAnimations.size; i++) {
 				if (KeyCompare(activeAnimation, nextAnimations[i])) {
 					break;
 				}

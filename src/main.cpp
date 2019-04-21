@@ -285,32 +285,28 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		}
 	}
 
-	HashKey nextAnims[4];
-	int numNextAnims = 0;
+	FixedArray<HashKey, 4> nextAnimations;
+	nextAnimations.Init();
+	nextAnimations.array.size = 0;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		if (!KeyCompare(gameState->kid.activeAnimation, ANIM_JUMP)) {
-			numNextAnims = 1;
-			nextAnims[0] = ANIM_JUMP;
+			nextAnimations.Append(ANIM_JUMP);
 		}
 		else {
-			numNextAnims = 1;
-			nextAnims[0] = ANIM_FALL;
+			nextAnimations.Append(ANIM_FALL);
 		}
 	}
 	else if (gameState->playerState == PLAYER_STATE_FALLING) {
-		numNextAnims = 1;
-		nextAnims[0] = ANIM_FALL;
+		nextAnimations.Append(ANIM_FALL);
 	}
 	else if (gameState->playerState == PLAYER_STATE_GROUNDED) {
 		if (gameState->playerVel.x != 0) {
-			numNextAnims = 2;
-			nextAnims[0] = ANIM_WALK;
-			nextAnims[1] = ANIM_LAND;
+			nextAnimations.Append(ANIM_WALK);
+			nextAnimations.Append(ANIM_LAND);
 		}
 		else {
-			numNextAnims = 2;
-			nextAnims[0] = ANIM_IDLE;
-			nextAnims[1] = ANIM_LAND;
+			nextAnimations.Append(ANIM_IDLE);
+			nextAnimations.Append(ANIM_LAND);
 		}
 	}
 
@@ -318,8 +314,7 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
 	}
-	const HashKey* nextAnimations = nextAnims;
-	Vec2 rootMotion = gameState->kid.Update(animDeltaTime, numNextAnims, nextAnimations);
+	Vec2 rootMotion = gameState->kid.Update(animDeltaTime, nextAnimations.array);
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		rootMotion *= gameState->playerJumpMag;
 	}
@@ -395,13 +390,14 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 	}
 
 	{ // barrel
-		int numBarrelNextAnims = 0;
-		HashKey barrelNextAnims[1];
+		FixedArray<HashKey, 1> barrelNextAnimations;
+		barrelNextAnimations.Init();
+		barrelNextAnimations.array.size = 0;
 		if (WasKeyPressed(input, KM_KEY_X)) {
-			numBarrelNextAnims = 1;
-			barrelNextAnims[0].WriteString("Explode");
+			barrelNextAnimations.array.size = 1;
+			barrelNextAnimations[0].WriteString("Explode");
 		}
-		gameState->barrel.Update(deltaTime, numBarrelNextAnims, barrelNextAnims);
+		gameState->barrel.Update(deltaTime, barrelNextAnimations.array);
 	}
 
 	{ // rock launcher
@@ -485,7 +481,9 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 
 	gameState->playerCoords = playerCoordsNew;
 
-	gameState->paper.Update(deltaTime, 0, nullptr);
+	Array<HashKey> paperNextAnims;
+	paperNextAnims.size = 0;
+	gameState->paper.Update(deltaTime, paperNextAnims);
 
 #if GAME_INTERNAL
 	if (gameState->editor) {

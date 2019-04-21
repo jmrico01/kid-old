@@ -41,6 +41,10 @@ struct LineColliderIntersect
 	const LineCollider* collider;
 };
 
+void GetLineColliderIntersections(const Array<LineCollider>& lineColliders,
+	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
+	Array<LineColliderIntersect>* intersects);
+
 void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
 	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
 	LineColliderIntersect outIntersects[], int* outNumIntersects);

@@ -41,7 +41,7 @@ struct AnimatedSpriteInstance
     int activeFrameRepeat;
     float32 activeFrameTime;
 
-    Vec2 Update(float32 deltaTime, int numNextAnimations, const HashKey* nextAnimations);
+    Vec2 Update(float32 deltaTime, const Array<HashKey>& nextAnimations);
 
     void Draw(SpriteDataGL* spriteDataGL, Vec2 pos, Vec2 size, Vec2 anchor, Quat rot,
         float32 alpha, bool32 flipHorizontal) const;
