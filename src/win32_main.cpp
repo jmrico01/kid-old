@@ -232,63 +232,6 @@ internal inline uint32 SafeTruncateUInt64(uint64 value)
 
 //#if GAME_INTERNAL
 
-DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrint)
-{
-	const int MSG_MAX_LENGTH = 1024;
-	const char* MSG_PREFIX = "";
-	const char* MSG_SUFFIX = "";
-	char msg[MSG_MAX_LENGTH];
-
-	int cx1 = snprintf(msg, MSG_MAX_LENGTH, "%s", MSG_PREFIX);
-	if (cx1 < 0) {
-		return;
-	}
-
-	va_list args;
-	va_start(args, format);
-	int cx2 = vsnprintf(msg + cx1, MSG_MAX_LENGTH - cx1, format, args);
-	va_end(args);
-	if (cx2 < 0) {
-		return;
-	}
-
-	int cx3 = snprintf(msg + cx1 + cx2, MSG_MAX_LENGTH - cx1 - cx2,
-		"%s", MSG_SUFFIX);
-	if (cx3 < 0) {
-		return;
-	}
-
-	if ((cx1 + cx2 + cx3) >= MSG_MAX_LENGTH) {
-		DEBUG_PRINT("ERROR print msg too long\n");
-		// error message too long. warn? ignore for now
-	}
-
-	OutputDebugString(msg);
-}
-
-void FlushLog(LogState* logState)
-{
-	uint64 toRead1, toRead2;
-	if (logState->readIndex <= logState->writeIndex) {
-		toRead1 = logState->writeIndex - logState->readIndex;
-		toRead2 = 0;
-	}
-	else {
-		toRead1 = LOG_BUFFER_SIZE - logState->readIndex;
-		toRead2 = logState->writeIndex;
-	}
-	if (toRead1 != 0) {
-		DEBUG_PRINT("%.*s", toRead1, logState->buffer + logState->readIndex);
-	}
-	if (toRead2 != 0) {
-		DEBUG_PRINT("%.*s", toRead2, logState->buffer);
-	}
-	logState->readIndex += toRead1 + toRead2;
-	if (logState->readIndex >= LOG_BUFFER_SIZE) {
-		logState->readIndex -= LOG_BUFFER_SIZE;
-	}
-}
-
 DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(DEBUGPlatformFreeFileMemory)
 {
 	if (file->data) {
@@ -341,14 +284,16 @@ DEBUG_PLATFORM_READ_FILE_FUNC(DEBUGPlatformReadFile)
 DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 {
 	HANDLE hFile = CreateFile(fileName, GENERIC_WRITE, NULL,
-		NULL, CREATE_ALWAYS, NULL, NULL);
+		NULL, OPEN_ALWAYS, NULL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
 		// TODO log
 		return false;
 	}
 
+	DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
+
 	DWORD bytesWritten;
-	if (!WriteFile(hFile, memory, memorySize, &bytesWritten, NULL)) {
+	if (!WriteFile(hFile, memory, (DWORD)memorySize, &bytesWritten, NULL)) {
 		// TODO log
 		return false;
 	}
@@ -358,6 +303,52 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 }
 
 //#endif
+
+void LogString(const char* string, uint64 n)
+{
+#if GAME_SLOW
+	const int LOG_STRING_BUFFER_SIZE = 1024;
+	char buffer[LOG_STRING_BUFFER_SIZE];
+	uint64 remaining = n;
+	while (remaining > 0) {
+		uint64 copySize = remaining;
+		if (copySize > LOG_STRING_BUFFER_SIZE - 1) {
+			copySize = LOG_STRING_BUFFER_SIZE - 1;
+		}
+		MemCopy(buffer, string, copySize);
+		buffer[copySize] = '\0';
+		OutputDebugString(buffer);
+		remaining -= copySize;
+	}
+#endif
+
+	if (!DEBUGPlatformWriteFile(nullptr, "logs/logs.txt", n, string)) {
+		DEBUG_PANIC("failed to write to log file");
+	}
+}
+
+PLATFORM_FLUSH_LOGS_FUNC(FlushLogs)
+{
+	uint64 toRead1, toRead2;
+	if (logState->readIndex <= logState->writeIndex) {
+		toRead1 = logState->writeIndex - logState->readIndex;
+		toRead2 = 0;
+	}
+	else {
+		toRead1 = LOG_BUFFER_SIZE - logState->readIndex;
+		toRead2 = logState->writeIndex;
+	}
+	if (toRead1 != 0) {
+		LogString(logState->buffer + logState->readIndex, toRead1);
+	}
+	if (toRead2 != 0) {
+		LogString(logState->buffer, toRead2);
+	}
+	logState->readIndex += toRead1 + toRead2;
+	if (logState->readIndex >= LOG_BUFFER_SIZE) {
+		logState->readIndex -= LOG_BUFFER_SIZE;
+	}
+}
 
 internal void Win32LoadXInput()
 {
@@ -895,10 +886,6 @@ int CALLBACK WinMain(
 	HINSTANCE hInstance, HINSTANCE hPrevInst,
 	LPSTR cmdline, int cmd_show)
 {
-	#if GAME_SLOW
-	debugPrint_ = DEBUGPlatformPrint;
-	#endif
-
 	LogState logState;
 	logState.readIndex = 0;
 	logState.writeIndex = 0;
@@ -941,7 +928,7 @@ int CALLBACK WinMain(
 	LOG_INFO("Created Win32 OpenGL rendering context\n");
 
 	PlatformFunctions platformFuncs = {};
-	platformFuncs.DEBUGPlatformPrint = DEBUGPlatformPrint;
+	platformFuncs.flushLogs = FlushLogs;
 	platformFuncs.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
 	platformFuncs.DEBUGPlatformReadFile = DEBUGPlatformReadFile;
 	platformFuncs.DEBUGPlatformWriteFile = DEBUGPlatformWriteFile;
@@ -1069,7 +1056,7 @@ int CALLBACK WinMain(
 	Win32GameCode gameCode =
 		Win32LoadGameCode(gameCodeDLLPath, tempCodeDLLPath);
 
-	FlushLog(&logState);
+	FlushLogs(&logState);
 	running_ = true;
 	while (running_) {
 		// TODO this gets called twice very quickly in succession
@@ -1275,7 +1262,7 @@ int CALLBACK WinMain(
 			}
 		}
 
-		FlushLog(&logState);
+		FlushLogs(&logState);
 
 		// NOTE
 		// SwapBuffers seems to effectively stall for vsync target time
@@ -1294,7 +1281,7 @@ int CALLBACK WinMain(
 
 	Win32StopAudio(&winAudio);
 
-	FlushLog(&logState);
+	FlushLogs(&logState);
 
 	return 0;
 }

@@ -14,6 +14,10 @@ struct LogState
 	void PrintFormat(const char* format, ...);
 };
 
+#define PLATFORM_FLUSH_LOGS_FUNC(name) void name(LogState* logState)
+typedef PLATFORM_FLUSH_LOGS_FUNC(PlatformFlushLogsFunc);
+
 global_var LogState* logState_;
+global_var PlatformFlushLogsFunc* flushLogs_;
 
 #define LOG_INFO(format, ...) logState_->PrintFormat(format, ##__VA_ARGS__)

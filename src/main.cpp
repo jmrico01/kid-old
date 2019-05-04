@@ -622,16 +622,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	GameState *gameState = (GameState*)memory->permanent.memory;
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
-#if GAME_SLOW
-		debugPrint_ = platformFuncs->DEBUGPlatformPrint;
-#endif
+		logState_ = logState;
+		flushLogs_ = platformFuncs->flushLogs;
+		
 		#define FUNC(returntype, name, ...) name = \
 		platformFuncs->glFunctions.name;
 			GL_FUNCTIONS_BASE
 			GL_FUNCTIONS_ALL
 		#undef FUNC
-
-		logState_ = logState;
 
 		memory->shouldInitGlobalVariables = false;
 	}
