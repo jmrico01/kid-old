@@ -8,6 +8,7 @@
 #include "km_debug.h"
 #include "km_defines.h"
 #include "km_input.h"
+#include "km_log.h"
 #include "km_math.h"
 #include "km_string.h"
 #include "opengl.h"
@@ -116,7 +117,7 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 {
 	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!levelFile.data) {
-		DEBUG_PRINT("Failed to load level file %s\n", filePath);
+		LOG_INFO("Failed to load level file %s\n", filePath);
 		return false;
 	}
 
@@ -139,12 +140,12 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 		int parsedElements;
 		if (!StringToElementArray(trimmed, ',', true,
 		StringToFloat32, 2, pos.e, &parsedElements)) {
-			DEBUG_PRINT("Failed to parse floor position %.*s (%s)\n",
+			LOG_INFO("Failed to parse floor position %.*s (%s)\n",
 				trimmed.size, trimmed.data, filePath);
 			return false;
 		}
 		if (parsedElements != 2) {
-			DEBUG_PRINT("Not enough coordinates in floor position %.*s (%s)\n",
+			LOG_INFO("Not enough coordinates in floor position %.*s (%s)\n",
 				trimmed.size, trimmed.data, filePath);
 			return false;
 		}
@@ -178,11 +179,11 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	}
 
 	if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string)) {
-		DEBUG_PRINT("Failed to write vertices to file\n");
+		LOG_INFO("Failed to write vertices to file\n");
 		return false;
 	}
 
-	DEBUG_PRINT("Floor vertices written to file\n");
+	LOG_INFO("Floor vertices written to file\n");
 	return true;
 }
 
@@ -349,8 +350,8 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
-		DEBUG_PRINT("dot %.3f\n", dotCollisionFloorNormal);
-		DEBUG_PRINT("normals: floor %.3f, %.3f ; collision %.3f, %.3f\n",
+		LOG_INFO("dot %.3f\n", dotCollisionFloorNormal);
+		LOG_INFO("normals: floor %.3f, %.3f ; collision %.3f, %.3f\n",
 			newFloorNormal.x, newFloorNormal.y,
 			intersects[i].normal.x, intersects[i].normal.y);
 		if (AbsFloat32(dotCollisionFloorNormal) >= COS_WALK_ANGLE) {
@@ -619,7 +620,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	DEBUG_ASSERT(sizeof(GameState) <= memory->permanent.size);
 
 	GameState *gameState = (GameState*)memory->permanent.memory;
-	if (memory->DEBUGShouldInitGlobalFuncs) {
+	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
 #if GAME_SLOW
 		debugPrint_ = platformFuncs->DEBUGPlatformPrint;
@@ -630,7 +631,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			GL_FUNCTIONS_ALL
 		#undef FUNC
 
-		memory->DEBUGShouldInitGlobalFuncs = false;
+		logState_ = logState;
+
+		memory->shouldInitGlobalVariables = false;
 	}
 	if (!memory->isInitialized) {
 		// Very explicit depth testing setup (DEFAULT VALUES)
@@ -819,7 +822,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
 		if (error) {
-			DEBUG_PRINT("FreeType init error: %d\n", error);
+			LOG_INFO("FreeType init error: %d\n", error);
 		}
 		gameState->fontFaceSmall = LoadFontFace(thread, gameState->ftLibrary,
 			"data/fonts/ocr-a/regular.ttf", 18,
@@ -1040,7 +1043,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			GL_DEPTH24_STENCIL8, screenInfo.size.x, screenInfo.size.y,
 			GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
 
-		DEBUG_PRINT("Updated screen-size-dependent info\n");
+		LOG_INFO("Updated screen-size-dependent info\n");
 	}
 
 	// gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
@@ -1264,7 +1267,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
-			DEBUG_PRINT("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
+			LOG_INFO("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
 		}
 
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
@@ -1432,7 +1435,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			snprintf(fileName, 32, "data/levels/level%d.kml", gameState->levelLoaded);
 			if (!SaveFloorVertices(thread, &gameState->floor, fileName,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
-				DEBUG_PRINT("Level save failed!\n");
+				LOG_INFO("Level save failed!\n");
 			}
 		}
 
@@ -1448,7 +1451,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	// Catch-all site for OpenGL errors
 	GLenum err;
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		DEBUG_PRINT("OpenGL error: 0x%x\n", err);
+		LOG_INFO("OpenGL error: 0x%x\n", err);
 	}
 #endif
 }
@@ -1460,6 +1463,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "gui.cpp"
 #include "km_input.cpp"
 #include "km_lib.cpp"
+#include "km_log.cpp"
 #include "km_string.cpp"
 #include "load_png.cpp"
 #include "load_wav.cpp"

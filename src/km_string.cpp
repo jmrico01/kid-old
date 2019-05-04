@@ -169,7 +169,7 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 			trimmed = element;
 		}
 		if (!conversionFunction(trimmed, array + elementInd)) {
-			DEBUG_PRINT("String to array failed for %.*s in element %d conversion\n",
+			LOG_INFO("String to array failed for %.*s in element %d conversion\n",
 				string.size, string.data, elementInd);
 			return false;
 		}
@@ -180,7 +180,7 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 		element = next;
 		elementInd++;
 		if (elementInd >= maxElements) {
-			DEBUG_PRINT("String to array failed in %.*s (too many elements, max %d)\n",
+			LOG_INFO("String to array failed in %.*s (too many elements, max %d)\n",
 				string.size, string.data, maxElements);
 			return false;
 		}
@@ -203,7 +203,7 @@ int ReadNextKeywordValue(const Array<char>& string,
 	keyword->array.size = 0;
 	while (i < string.size && !IsWhitespace(string[i])) {
 		if (keyword->array.size >= KEYWORD_SIZE) {
-			DEBUG_PRINT("Keyword too long %.*s\n", keyword->array.size, keyword->array.data);
+			LOG_INFO("Keyword too long %.*s\n", keyword->array.size, keyword->array.data);
 			return -1;
 		}
 		keyword->Append(string[i++]);
@@ -224,7 +224,7 @@ int ReadNextKeywordValue(const Array<char>& string,
 			continue;
 		}
 		if (value->array.size >= VALUE_SIZE) {
-			DEBUG_PRINT("Value too long %.*s\n", value->array.size, value->array.data);
+			LOG_INFO("Value too long %.*s\n", value->array.size, value->array.data);
 			return -1;
 		}
 		if (value->array.size == 0 && IsWhitespace(string[i])) {

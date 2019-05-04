@@ -143,17 +143,17 @@ FontFace LoadFontFace(const ThreadContext* thread,
     openArgs.memory_size = (FT_Long)fontFile.size;
     FT_Error error = FT_Open_Face(library, &openArgs, 0, &ftFace);
     if (error == FT_Err_Unknown_File_Format) {
-        DEBUG_PRINT("Unsupported file format for %s\n", path);
+        LOG_INFO("Unsupported file format for %s\n", path);
         return face;
     }
     else if (error) {
-        DEBUG_PRINT("Font file couldn't be read: %s\n", path);
+        LOG_INFO("Font file couldn't be read: %s\n", path);
         return face;
     }
 
     error = FT_Set_Pixel_Sizes(ftFace, 0, height);
     if (error) {
-        DEBUG_PRINT("Failed to set font pixel size\n");
+        LOG_INFO("Failed to set font pixel size\n");
         return face;
     }
 

@@ -62,10 +62,10 @@ internal void* LinuxAudioRunner(void* data)
             buffer, linuxAudio->periodSize);
         if (ret == -EPIPE) {
             snd_pcm_prepare(linuxAudio->pcmHandle);
-            //DEBUG_PRINT("Buffer underrun\n");
+            //LOG_INFO("Buffer underrun\n");
         }
         else if (ret < 0) {
-            DEBUG_PRINT("snd_pcm_writei error\n");
+            LOG_INFO("snd_pcm_writei error\n");
         }
     }
 
@@ -81,7 +81,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     const char* pcmName = "plughw:0,0";
     err = snd_pcm_open(&audio->pcmHandle, pcmName, stream, 0);
     if (err < 0) {
-        DEBUG_PRINT("Error opening PCM device %s\n", pcmName);
+        LOG_INFO("Error opening PCM device %s\n", pcmName);
         return false;
     }
 
@@ -89,7 +89,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     snd_pcm_hw_params_alloca(&hwParams);
     err = snd_pcm_hw_params_any(audio->pcmHandle, hwParams);
     if (err < 0) {
-        DEBUG_PRINT("Failed to initialize hw params\n");
+        LOG_INFO("Failed to initialize hw params\n");
         return false;
     }
 
@@ -97,7 +97,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     err = snd_pcm_hw_params_set_access(audio->pcmHandle, hwParams,
         SND_PCM_ACCESS_RW_INTERLEAVED);
     if (err < 0) {
-        DEBUG_PRINT("Error setting audio access\n");
+        LOG_INFO("Error setting audio access\n");
         return false;
     }
 
@@ -105,7 +105,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     err = snd_pcm_hw_params_set_format(audio->pcmHandle, hwParams,
         SND_PCM_FORMAT_S16_LE);
     if (err < 0) {
-        DEBUG_PRINT("Error setting audio format\n");
+        LOG_INFO("Error setting audio format\n");
         return false;
     }
 
@@ -115,11 +115,11 @@ bool LinuxInitAudio(LinuxAudio* audio,
     err = snd_pcm_hw_params_set_rate_near(audio->pcmHandle, hwParams,
         &rate, 0);
     if (err < 0) {
-        DEBUG_PRINT("Error setting sample rate\n");
+        LOG_INFO("Error setting sample rate\n");
         return false;
     }
     if (rate != sampleRate) {
-        DEBUG_PRINT("Sample rate %d Hz not supported by your hardware\n"
+        LOG_INFO("Sample rate %d Hz not supported by your hardware\n"
             "    ==> Using %d Hz instead.\n", sampleRate, rate);
     }
     audio->sampleRate = rate;
@@ -128,7 +128,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     err = snd_pcm_hw_params_set_channels(audio->pcmHandle, hwParams,
         channels);
     if (err < 0) {
-        DEBUG_PRINT("Error setting number of channels\n");
+        LOG_INFO("Error setting number of channels\n");
         return false;
     }
     audio->channels = channels;
@@ -138,7 +138,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
     err = snd_pcm_hw_params_set_periods_near(
         audio->pcmHandle, hwParams, &p, 0);
     if (err < 0) {
-        DEBUG_PRINT("Error setting number of periods\n");
+        LOG_INFO("Error setting number of periods\n");
         return false;
     }
 
@@ -148,7 +148,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
         audio->pcmHandle, hwParams,
         &ps, 0);
     if (err < 0) {
-        DEBUG_PRINT("Error setting period size\n");
+        LOG_INFO("Error setting period size\n");
         return false;
     }
     audio->periodSize = ps;
@@ -160,22 +160,22 @@ bool LinuxInitAudio(LinuxAudio* audio,
         audio->pcmHandle, hwParams,
         &bufferSize);
     if (err < 0) {
-        DEBUG_PRINT("Error setting buffer size\n");
+        LOG_INFO("Error setting buffer size\n");
         return false;
     }
     audio->bufferSize = (uint32)bufferSize;
 
-    DEBUG_PRINT("Sample rate: %d\n", audio->sampleRate);
-    DEBUG_PRINT("Period size (frames): %d\n", (int)audio->periodSize);
-    DEBUG_PRINT("Periods: %d\n", p);
-    DEBUG_PRINT("Buffer size (frames): %d\n", audio->bufferSize);
-    DEBUG_PRINT("Buffer size (secs): %f\n",
+    LOG_INFO("Sample rate: %d\n", audio->sampleRate);
+    LOG_INFO("Period size (frames): %d\n", (int)audio->periodSize);
+    LOG_INFO("Periods: %d\n", p);
+    LOG_INFO("Buffer size (frames): %d\n", audio->bufferSize);
+    LOG_INFO("Buffer size (secs): %f\n",
         (float)audio->bufferSize / audio->sampleRate);
 
     // Apply HW parameter settings to PCM device and prepare device
     err = snd_pcm_hw_params(audio->pcmHandle, hwParams);
     if (err < 0) {
-        DEBUG_PRINT("Error setting HW params\n");
+        LOG_INFO("Error setting HW params\n");
         return false;
     }
 
@@ -192,7 +192,7 @@ bool LinuxInitAudio(LinuxAudio* audio,
         LinuxAudioRunner, audio);
     pthread_attr_destroy(&attr);
     if (result != 0) {
-        DEBUG_PRINT("Failed to create audio thread\n");
+        LOG_INFO("Failed to create audio thread\n");
         return false;
     }
 

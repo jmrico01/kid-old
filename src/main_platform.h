@@ -1,8 +1,9 @@
 #pragma once
 
 #include "km_defines.h"
-#include "km_math.h"
 #include "km_input.h"
+#include "km_log.h"
+#include "km_math.h"
 #include "opengl.h"
 
 #define MIDI_IN_QUEUE_SIZE 256
@@ -155,9 +156,7 @@ struct GameMemory
     MemoryBlock permanent;
     MemoryBlock transient;
 
-//#if GAME_INTERNAL
-    bool32 DEBUGShouldInitGlobalFuncs;
-//#endif
+    bool32 shouldInitGlobalVariables;
 };
 
 // ------------------------------ Game functions ------------------------------
@@ -165,5 +164,5 @@ struct GameMemory
     const ThreadContext* thread, \
     const PlatformFunctions* platformFuncs, \
     const GameInput* input, ScreenInfo screenInfo, float32 deltaTime, \
-	GameMemory* memory, GameAudio* audio)
+	GameMemory* memory, GameAudio* audio, LogState* logState)
 typedef GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRenderFunc);

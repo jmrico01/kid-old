@@ -18,7 +18,7 @@ struct PNGDataReadStream {
 
 void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 {
-	DEBUG_PRINT("Load PNG error: %s\n", msg);
+	LOG_INFO("Load PNG error: %s\n", msg);
 
 	png_voidp errorPtr = png_get_error_ptr(pngPtr);
 	if (errorPtr) {
@@ -27,7 +27,7 @@ void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 			errorData->pngFile);
 	}
 	else {
-		DEBUG_PRINT("Load PNG double-error: NO ERROR POINTER!\n");
+		LOG_INFO("Load PNG double-error: NO ERROR POINTER!\n");
 	}
 
 	DEBUG_PANIC("IDK what happens now\n");
@@ -35,20 +35,20 @@ void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 void LoadPNGWarning(png_structp pngPtr, png_const_charp msg)
 {
 	// TODO better logging & levels, ignoring spam for now
-	// DEBUG_PRINT("Load PNG warning: %s\n", msg);
+	// LOG_INFO("Load PNG warning: %s\n", msg);
 }
 
 void LoadPNGReadData(png_structp pngPtr,
 	png_bytep outBuffer, png_size_t bytesToRead)
 {
-	//DEBUG_PRINT("read request: %d\n", (int)bytesToRead);
+	//LOG_INFO("read request: %d\n", (int)bytesToRead);
 	png_voidp ioPtr = png_get_io_ptr(pngPtr);
 	if (!ioPtr) {
 		png_error(pngPtr, "Invalid PNG I/O pointer\n");
 	}
 
 	PNGDataReadStream* inputStream = (PNGDataReadStream*)ioPtr;
-	// DEBUG_PRINT("input stream: length: %d, readInd: %d\n",
+	// LOG_INFO("input stream: length: %d, readInd: %d\n",
 	//     inputStream->length, inputStream->readInd);
 	int readInd = inputStream->readInd;
 	if (readInd == inputStream->length) {
@@ -76,13 +76,13 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 
 	DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!pngFile.data) {
-		DEBUG_PRINT("Failed to open PNG file at: %s\n", filePath);
+		LOG_INFO("Failed to open PNG file at: %s\n", filePath);
 		return false;
 	}
 
 	const int headerSize = 8;
 	if (png_sig_cmp((png_const_bytep)pngFile.data, 0, headerSize)) {
-		DEBUG_PRINT("Invalid PNG file: %s\n", filePath);
+		LOG_INFO("Invalid PNG file: %s\n", filePath);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
 	}
@@ -94,13 +94,13 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	png_structp pngPtr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
 		&errorData, &LoadPNGError, &LoadPNGWarning);
 	if (!pngPtr) {
-		DEBUG_PRINT("png_create_read_struct failed\n");
+		LOG_INFO("png_create_read_struct failed\n");
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
 	}
 	png_infop infoPtr = png_create_info_struct(pngPtr);
 	if (!infoPtr) {
-		DEBUG_PRINT("png_create_info_struct failed\n");
+		LOG_INFO("png_create_info_struct failed\n");
 		png_destroy_read_struct(&pngPtr, NULL, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -121,7 +121,7 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	int width = (int)pngWidth;
 	int height = (int)pngHeight;
 	if (bitDepth != 8) {
-		DEBUG_PRINT("Unsupported bit depth: %d\n", bitDepth);
+		LOG_INFO("Unsupported bit depth: %d\n", bitDepth);
 		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -139,14 +139,14 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 		} break;
 
 		default: {
-			DEBUG_PRINT("Unsupported color type: %d\n", colorType);
+			LOG_INFO("Unsupported color type: %d\n", colorType);
 			png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 			DEBUGPlatformFreeFileMemory(thread, &pngFile);
 			return false;
 		}
 	}
 	if (interlaceMethod != PNG_INTERLACE_NONE) {
-		DEBUG_PRINT("Unsupported interlace method\n");
+		LOG_INFO("Unsupported interlace method\n");
 		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -159,7 +159,7 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	int dataSize = rowBytes * height * sizeof(png_byte) + 15; // TODO what are these 15 bytes?
 	int rowPtrsSize = height * sizeof(png_byte*);
 	if (transient.size < dataSize + rowPtrsSize) {
-		DEBUG_PRINT("Not enough memory to load PNG %s\n", filePath);
+		LOG_INFO("Not enough memory to load PNG %s\n", filePath);
 		return false;
 	}
 	png_byte* data = (png_byte*)transient.memory;

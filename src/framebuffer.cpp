@@ -34,7 +34,7 @@ void UpdateFramebufferColorAttachments(int n, Framebuffer framebuffers[],
 
         GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
-            DEBUG_PRINT("Incomplete framebuffer (%d), status %x\n",
+            LOG_INFO("Incomplete framebuffer (%d), status %x\n",
                 i, fbStatus);
         }
     }
@@ -66,7 +66,7 @@ void UpdateFramebufferDepthAttachments(int n, Framebuffer framebuffers[],
 
         GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
-            DEBUG_PRINT("Incomplete framebuffer (%d), status %x\n",
+            LOG_INFO("Incomplete framebuffer (%d), status %x\n",
                 i, fbStatus);
         }
     }

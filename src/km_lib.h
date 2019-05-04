@@ -1,6 +1,6 @@
 #pragma once
 
-#include "km_debug.h"
+#include "km_defines.h"
 
 #define STRING_KEY_MAX_LENGTH 32
 

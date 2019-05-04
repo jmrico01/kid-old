@@ -23,13 +23,13 @@ void CALLBACK MidiInputCallback(
     winAudio->midiInBusy = true;
     switch (wMsg) {
         case MIM_OPEN: {
-            DEBUG_PRINT("MIDI input opened\n");
+            LOG_INFO("MIDI input opened\n");
         } break;
         case MIM_CLOSE: {
-            DEBUG_PRINT("MIDI input closed\n");
+            LOG_INFO("MIDI input closed\n");
         } break;
         case MIM_DATA: {
-            //DEBUG_PRINT("MIDI input data message\n");
+            //LOG_INFO("MIDI input data message\n");
             MidiMessage msg;
             msg.status = (uint8)(dwParam1 & 0xff);
             msg.dataByte1 = (uint8)((dwParam1 >> 8) & 0xff);
@@ -52,14 +52,14 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
         (void**)&deviceEnumerator);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to create device enumerator\n");
+        LOG_INFO("Failed to create device enumerator\n");
         return false;
     }
 
     IMMDevice* device;
     hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get default audio endpoint\n");
+        LOG_INFO("Failed to get default audio endpoint\n");
         return false;
     }
 
@@ -67,66 +67,66 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL,
         (void**)&audioClient);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to activate audio device\n");
+        LOG_INFO("Failed to activate audio device\n");
         return false;
     }
 
     WAVEFORMATEX* format;
     hr = audioClient->GetMixFormat(&format);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get audio device format\n");
+        LOG_INFO("Failed to get audio device format\n");
         return false;
     }
 
     // TODO do this differently: query for several formats with some priority
     //  e.g. 1st PCM float, 2nd PCM int16 ext, 3rd PCM int16
-    DEBUG_PRINT("---------- Audio device format ----------\n");
-    DEBUG_PRINT("Sample rate: %d\n", format->nSamplesPerSec);
-    DEBUG_PRINT("Channels: %d\n", format->nChannels);
-    DEBUG_PRINT("Bits per sample: %d\n", format->wBitsPerSample);
-    DEBUG_PRINT("Block align: %d\n", format->nBlockAlign);
+    LOG_INFO("---------- Audio device format ----------\n");
+    LOG_INFO("Sample rate: %d\n", format->nSamplesPerSec);
+    LOG_INFO("Channels: %d\n", format->nChannels);
+    LOG_INFO("Bits per sample: %d\n", format->wBitsPerSample);
+    LOG_INFO("Block align: %d\n", format->nBlockAlign);
     switch (format->wFormatTag) {
         case WAVE_FORMAT_PCM: {
-            DEBUG_PRINT("Format: PCM\n");
+            LOG_INFO("Format: PCM\n");
             winAudio->format = AUDIO_FORMAT_PCM_INT16;
             winAudio->bitsPerSample = (int)format->wBitsPerSample;
         } break;
         case WAVE_FORMAT_EXTENSIBLE: {
             if (sizeof(WAVEFORMATEX) + format->cbSize
             < sizeof(WAVEFORMATEXTENSIBLE)) {
-                DEBUG_PRINT("Extended format, invalid structure size\n");
+                LOG_INFO("Extended format, invalid structure size\n");
                 return false;
             }
 
             WAVEFORMATEXTENSIBLE* formatExt = (WAVEFORMATEXTENSIBLE*)format;
-            DEBUG_PRINT("Valid bits per sample: %d\n",
+            LOG_INFO("Valid bits per sample: %d\n",
                 formatExt->Samples.wValidBitsPerSample);
-            DEBUG_PRINT("Channel mask: %d\n", formatExt->dwChannelMask);
+            LOG_INFO("Channel mask: %d\n", formatExt->dwChannelMask);
             if (formatExt->SubFormat == KSDATAFORMAT_SUBTYPE_PCM) {
-                DEBUG_PRINT("Format: PCM ext\n");
+                LOG_INFO("Format: PCM ext\n");
                 winAudio->format = AUDIO_FORMAT_PCM_INT16;
                 winAudio->bitsPerSample =
                     (int)formatExt->Samples.wValidBitsPerSample; // TODO wrong
             }
             else if (formatExt->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) {
-                DEBUG_PRINT("Format: IEEE float\n");
+                LOG_INFO("Format: IEEE float\n");
                 winAudio->format = AUDIO_FORMAT_PCM_FLOAT32;
                 winAudio->bitsPerSample =
                     (int)formatExt->Samples.wValidBitsPerSample; // TODO wrong
             }
             else {
-                DEBUG_PRINT("Unrecognized audio device ext format: %d\n",
+                LOG_INFO("Unrecognized audio device ext format: %d\n",
                     formatExt->SubFormat);
                 return false;
             }
         } break;
         default: {
-            DEBUG_PRINT("Unrecognized audio device format: %d\n",
+            LOG_INFO("Unrecognized audio device format: %d\n",
                 format->wFormatTag);
             return false;
         } break;
     }
-    DEBUG_PRINT("-----------------------------------------\n");
+    LOG_INFO("-----------------------------------------\n");
 
     REFERENCE_TIME bufferSizeRefTimes = REFERENCE_TIMES_PER_MILLISECOND
         * bufferSizeMilliseconds;
@@ -139,14 +139,14 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         NULL
     );
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to initialize audio client\n");
+        LOG_INFO("Failed to initialize audio client\n");
         return false;
     }
 
     UINT32 bufferSizeFrames;
     hr = audioClient->GetBufferSize(&bufferSizeFrames);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get audio buffer size\n");
+        LOG_INFO("Failed to get audio buffer size\n");
         return false;
     }
 
@@ -154,7 +154,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = audioClient->GetService(__uuidof(IAudioRenderClient),
         (void**)&renderClient);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get audio render client\n");
+        LOG_INFO("Failed to get audio render client\n");
         return false;
     }
 
@@ -162,7 +162,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = audioClient->GetService(__uuidof(IAudioClock),
         (void**)&audioClock);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get audio clock\n");
+        LOG_INFO("Failed to get audio clock\n");
         return false;
     }
 
@@ -170,12 +170,12 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     BYTE* buffer;
     hr = renderClient->GetBuffer(0, &buffer);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to get audio render client buffer\n");
+        LOG_INFO("Failed to get audio render client buffer\n");
         return false;
     }
     hr = renderClient->ReleaseBuffer(0, 0);
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to release audio render client buffer\n");
+        LOG_INFO("Failed to release audio render client buffer\n");
         return false;
     }
 
@@ -189,7 +189,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
 
     hr = audioClient->Start();
     if (FAILED(hr)) {
-        DEBUG_PRINT("Failed to start audio client\n");
+        LOG_INFO("Failed to start audio client\n");
         return false;
     }
 
@@ -203,17 +203,17 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         res = midiInGetDevCaps(midiInDeviceID,
             &midiInCaps, sizeof(MIDIINCAPS));
         if (res != MMSYSERR_NOERROR) {
-            DEBUG_PRINT("Couldn't get MIDI input device caps\n");
+            LOG_INFO("Couldn't get MIDI input device caps\n");
             return true;
         }
 
-        DEBUG_PRINT("MIDI input device: %s\n", midiInCaps.szPname);
+        LOG_INFO("MIDI input device: %s\n", midiInCaps.szPname);
         HMIDIIN midiInHandle;
         res = midiInOpen(&midiInHandle, midiInDeviceID,
             (DWORD_PTR)MidiInputCallback, (DWORD_PTR)winAudio,
             CALLBACK_FUNCTION);
         if (res != MMSYSERR_NOERROR) {
-            DEBUG_PRINT("Couldn't open MIDI input\n");
+            LOG_INFO("Couldn't open MIDI input\n");
             return true;
         }
 
@@ -225,18 +225,18 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         midiHeader.dwFlags = 0;
         res = midiInPrepareHeader(midiInHandle, &midiHeader, sizeof(MIDIHDR));
         if (res != MMSYSERR_NOERROR) {
-            DEBUG_PRINT("Couldn't prepare MIDI input header\n");
+            LOG_INFO("Couldn't prepare MIDI input header\n");
             return true;
         }
 
         res = midiInStart(midiInHandle);
         if (res != MMSYSERR_NOERROR) {
-            DEBUG_PRINT("Couldn't start MIDI input\n");
+            LOG_INFO("Couldn't start MIDI input\n");
             return true;
         }
     }
     else {
-        DEBUG_PRINT("No MIDI input devices detected\n");
+        LOG_INFO("No MIDI input devices detected\n");
     }
 
     return true;
