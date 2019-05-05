@@ -7,7 +7,7 @@ void LogState::PrintFormat(LogCategory logCategory,
 	const char* format, ...)
 {
 #if GAME_INTERNAL
-	const char* PREFIX_FORMAT = "";
+	const char* PREFIX_FORMAT = "%s - ";
 #else
 	const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
 #endif

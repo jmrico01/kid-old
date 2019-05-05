@@ -117,7 +117,7 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 {
 	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!levelFile.data) {
-		LOG_INFO("Failed to load level file %s\n", filePath);
+		LOG_ERROR("Failed to load level file %s\n", filePath);
 		return false;
 	}
 
@@ -140,12 +140,12 @@ internal bool32 LoadFloorVertices(const ThreadContext* thread,
 		int parsedElements;
 		if (!StringToElementArray(trimmed, ',', true,
 		StringToFloat32, 2, pos.e, &parsedElements)) {
-			LOG_INFO("Failed to parse floor position %.*s (%s)\n",
+			LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
 				trimmed.size, trimmed.data, filePath);
 			return false;
 		}
 		if (parsedElements != 2) {
-			LOG_INFO("Not enough coordinates in floor position %.*s (%s)\n",
+			LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
 				trimmed.size, trimmed.data, filePath);
 			return false;
 		}
@@ -179,7 +179,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	}
 
 	if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string)) {
-		LOG_INFO("Failed to write vertices to file\n");
+		LOG_ERROR("Failed to write vertices to file\n");
 		return false;
 	}
 
@@ -820,7 +820,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
 		if (error) {
-			LOG_INFO("FreeType init error: %d\n", error);
+			LOG_ERROR("FreeType init error: %d\n", error);
 		}
 		gameState->fontFaceSmall = LoadFontFace(thread, gameState->ftLibrary,
 			"data/fonts/ocr-a/regular.ttf", 18,
@@ -1433,7 +1433,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			snprintf(fileName, 32, "data/levels/level%d.kml", gameState->levelLoaded);
 			if (!SaveFloorVertices(thread, &gameState->floor, fileName,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
-				LOG_INFO("Level save failed!\n");
+				LOG_ERROR("Level save failed!\n");
 			}
 		}
 
@@ -1449,7 +1449,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	// Catch-all site for OpenGL errors
 	GLenum err;
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		LOG_INFO("OpenGL error: 0x%x\n", err);
+		LOG_ERROR("OpenGL error: 0x%x\n", err);
 	}
 #endif
 }

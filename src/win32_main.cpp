@@ -693,7 +693,7 @@ internal void Win32PlayInput(Win32State* state, GameInput* input)
 	if (!glFuncs->name) { \
 		glFuncs->name = (name##Func*)GetProcAddress(oglLib, #name); \
 		if (!glFuncs->name) { \
-			LOG_INFO("OpenGL function load failed: %s", #name); \
+			LOG_ERROR("OpenGL function load failed: %s", #name); \
 		} \
 	}
 
@@ -724,7 +724,7 @@ internal bool Win32InitOpenGL(OpenGLFunctions* glFuncs,
 {
 	HMODULE oglLib = LoadLibrary("opengl32.dll");
 	if (!oglLib) {
-		LOG_INFO("Failed to load opengl32.dll\n");
+		LOG_ERROR("Failed to load opengl32.dll\n");
 		return false;
 	}
 

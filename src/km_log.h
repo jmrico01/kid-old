@@ -8,11 +8,13 @@
 enum LogCategory
 {
 	LOG_CATEGORY_ERROR = 0,
+	LOG_CATEGORY_WARNING,
 	LOG_CATEGORY_INFO
 };
 
 const char* LOG_CATEGORY_NAMES[] = {
 	"ERROR",
+	"WARN ",
 	"INFO "
 };
 
@@ -35,5 +37,7 @@ global_var PlatformFlushLogsFunc* flushLogs_;
 
 #define LOG_ERROR(format, ...) logState_->PrintFormat(LOG_CATEGORY_ERROR, \
 	__FILE__, __LINE__, __func__, format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) logState_->PrintFormat(LOG_CATEGORY_WARNING, \
+	__FILE__, __LINE__, __func__, format, ##__VA_ARGS__);
 #define LOG_INFO(format, ...) logState_->PrintFormat(LOG_CATEGORY_INFO, \
 	__FILE__, __LINE__, __func__, format, ##__VA_ARGS__)

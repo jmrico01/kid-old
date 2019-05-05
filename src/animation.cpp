@@ -105,7 +105,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 {
 	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!animFile.data) {
-		LOG_INFO("Failed to open animation file at: %s\n", filePath);
+		LOG_ERROR("Failed to open animation file at: %s\n", filePath);
 		return false;
 	}
 
@@ -123,7 +123,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
         value.Init();
         int read = ReadNextKeywordValue(fileString, &keyword, &value);
         if (read < 0) {
-            LOG_INFO("Animation file keyword/value error (%s)\n", filePath);
+            LOG_ERROR("Animation file keyword/value error (%s)\n", filePath);
             return false;
         }
         else if (read == 0) {
@@ -151,11 +151,11 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			filePathArray.data = (char*)filePath;
 			uint64 lastSlash = GetLastOccurrence(filePathArray, '/');
 			if (lastSlash == filePathArray.size) {
-				LOG_INFO("Couldn't find slash in animation file path %s\n", filePath);
+				LOG_ERROR("Couldn't find slash in animation file path %s\n", filePath);
 				return false;
 			}
 			if (lastSlash >= PATH_MAX_LENGTH) {
-				LOG_INFO("Animation file path too long %s\n", filePath);
+				LOG_ERROR("Animation file path too long %s\n", filePath);
 				return false;
 			}
 			char spritePath[PATH_MAX_LENGTH];
@@ -167,11 +167,11 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				int written = sprintf(&spritePath[lastSlash + 1], "%.*s/%d.png",
 					(int)value.array.size, value.array.data, frame);
 				if (written <= 0) {
-					LOG_INFO("Failed to build animation sprite path for %s\n", filePath);
+					LOG_ERROR("Failed to build animation sprite path for %s\n", filePath);
 					return false;
 				}
 				if (lastSlash + written + 1 >= PATH_MAX_LENGTH) {
-					LOG_INFO("Sprite path too long in %s\n", filePath);
+					LOG_ERROR("Sprite path too long in %s\n", filePath);
 					return false;
 				}
 				spritePath[lastSlash + 1 + written] = '\0';
@@ -196,7 +196,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					outAnimatedSprite.textureSize = frameTextureGL.size;
 				}
 				else if (outAnimatedSprite.textureSize != frameTextureGL.size) {
-					LOG_INFO("Animation sprite size mismatch for frame %s\n",
+					LOG_ERROR("Animation sprite size mismatch for frame %s\n",
 						spritePath);
 					return false;
 				}
@@ -205,18 +205,18 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 
 			if (currentAnim->numFrames == 0) {
-				LOG_INFO("Animation with no frames (%s)\n", filePath);
+				LOG_ERROR("Animation with no frames (%s)\n", filePath);
 				return false;
 			}
 		}
 		else if (KeywordCompare(keyword, KEYWORD_FPS)) {
 			int fps;
 			if (!StringToIntBase10(value.array, &fps)) {
-				LOG_INFO("Animation file fps parse failed (%s)\n", filePath);
+				LOG_ERROR("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
 			if (fps < 0 && fps != -1) {
-				LOG_INFO("Animation file invalid fps %d (%s)\n", fps, filePath);
+				LOG_ERROR("Animation file invalid fps %d (%s)\n", fps, filePath);
 				return false;
 			}
 			currentAnim->fps = fps;
@@ -226,7 +226,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
 			if (value.array.size == 0) {
-				LOG_INFO("Animation file missing exit information (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit information (%s)\n", filePath);
 				return false;
 			}
 
@@ -240,13 +240,13 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			else {
 				if (!StringToIntBase10(element, &exitFromFrame)) {
-					LOG_INFO("Animation file invalid exit-from frame (%s)\n", filePath);
+					LOG_ERROR("Animation file invalid exit-from frame (%s)\n", filePath);
 					return false;
 				}
 			}
 
 			if (next.size == 0) {
-				LOG_INFO("Animation file missing exit-to animation (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit-to animation (%s)\n", filePath);
 				return false;
 			}
 			element = next;
@@ -255,7 +255,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			exitToAnim.WriteString(element);
 
 			if (next.size == 0) {
-				LOG_INFO("Animation file missing exit-to frame (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit-to frame (%s)\n", filePath);
 				return false;
 			}
 			element = next;
@@ -263,7 +263,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			int exitToFrame;
 			{
 				if (!StringToIntBase10(element, &exitToFrame)) {
-					LOG_INFO("Animation file invalid exit-to frame (%s)\n", filePath);
+					LOG_ERROR("Animation file invalid exit-to frame (%s)\n", filePath);
 					return false;
 				}
 			}
@@ -282,11 +282,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
             if (!StringToElementArray(value.array, ' ', false,
                 StringToIntBase10,
                 ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
-                LOG_INFO("Failed to parse timing information (%s)\n", filePath);
+                LOG_ERROR("Failed to parse timing information (%s)\n", filePath);
                 return false;
             }
             if (parsedElements != currentAnim->numFrames) {
-                LOG_INFO("Not enough timing information (%s)\n", filePath);
+                LOG_ERROR("Not enough timing information (%s)\n", filePath);
+                return false;
             }
 		}
 		else if (KeywordCompare(keyword, KEYWORD_ROOTFOLLOW)) {
@@ -315,11 +316,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
                 int parsedElements;
                 if (!StringToElementArray(trimmed, ' ', false,
                     StringToIntBase10, 2, rootPos.e, &parsedElements)) {
-                    LOG_INFO("Failed to parse root motion coordinates %.*s (%s)\n",
+                    LOG_ERROR("Failed to parse root motion coordinates %.*s (%s)\n",
                         trimmed.size, trimmed.data, filePath);
+                	return false;
                 }
                 if (parsedElements != 2) {
-                    LOG_INFO("Not enough coordinates in root motion %.*s (%s)\n",
+                    LOG_ERROR("Not enough coordinates in root motion %.*s (%s)\n",
                         trimmed.size, trimmed.data, filePath);
                     return false;
                 }
@@ -354,7 +356,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			// Comment, ignore
 		}
 		else {
-			LOG_INFO("Animation file with unknown keyword: %.*s (%s)\n",
+			LOG_ERROR("Animation file with unknown keyword: %.*s (%s)\n",
                 keyword.array.size, keyword, filePath);
 			return false;
 		}
@@ -387,12 +389,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 					const Animation* toAnim = animTable->GetValue(*toAnimKey);
 					if (toAnim == nullptr) {
-						LOG_INFO("Animation file non-existent exit-to animation %.*s (%s)\n",
+						LOG_ERROR("Animation file non-existent exit-to animation %.*s (%s)\n",
 							toAnimKey->string.array.size, toAnimKey->string.array.data, filePath);
 						return false;
 					}
 					if (*exitToFrame >= toAnim->numFrames) {
-						LOG_INFO("Animation file exit-to frame out of bounds %d (%s)\n",
+						LOG_ERROR("Animation file exit-to frame out of bounds %d (%s)\n",
 							*exitToFrame, filePath);
 						return false;
 					}

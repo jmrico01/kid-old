@@ -15,13 +15,13 @@
 internal bool CompileAndCheckShader(GLuint shaderID,
 	DEBUGReadFileResult shaderFile)
 {
-	// Compile shader.
+	// Compile shader
 	GLint shaderFileSize = (GLint)shaderFile.size;
 	glShaderSource(shaderID, 1, (const GLchar* const*)&shaderFile.data,
 		&shaderFileSize);
 	glCompileShader(shaderID);
 
-	// Check shader.
+	// Check shader
 	GLint result;
 	glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
 	if (result == GL_FALSE) {
@@ -33,8 +33,8 @@ internal bool CompileAndCheckShader(GLuint shaderID,
 		}
 		glGetShaderInfoLog(shaderID, infoLogLength, NULL, infoLog);
 		infoLog[infoLogLength] = '\0';
-		LOG_INFO("Shader compilation log:\n");
-		LOG_INFO("%s\n", infoLog);
+		LOG_ERROR("Shader compilation log:\n");
+		LOG_ERROR("%s\n", infoLog);
 
 		return false;
 	}
@@ -84,26 +84,26 @@ GLuint LoadShaders(const ThreadContext* thread,
 	// Read shader code from files.
 	DEBUGReadFileResult vertFile = DEBUGPlatformReadFile(thread, vertFilePath);
 	if (vertFile.size == 0) {
-		LOG_INFO("Failed to read vertex shader file.\n");
+		LOG_ERROR("Failed to read vertex shader file.\n");
 		return 0; // TODO what to return
 	}
 	DEBUGReadFileResult fragFile = DEBUGPlatformReadFile(thread, fragFilePath);
 	if (fragFile.size == 0) {
-		LOG_INFO("Failed to read fragment shader file.\n");
+		LOG_ERROR("Failed to read fragment shader file.\n");
 		return 0; // TODO what to return
 	}
 
 	// Compile and check shader code.
 	// TODO error checking
 	if (!CompileAndCheckShader(vertShaderID, vertFile)) {
-		LOG_INFO("Vertex shader compilation failed (%s)\n", vertFilePath);
+		LOG_ERROR("Vertex shader compilation failed (%s)\n", vertFilePath);
 		glDeleteShader(vertShaderID);
 		glDeleteShader(fragShaderID);
 
 		return 0; // TODO what to return
 	}
 	if (!CompileAndCheckShader(fragShaderID, fragFile)) {
-		LOG_INFO("Fragment shader compilation failed (%s)\n", fragFilePath);
+		LOG_ERROR("Fragment shader compilation failed (%s)\n", fragFilePath);
 		glDeleteShader(vertShaderID);
 		glDeleteShader(fragShaderID);
 
@@ -128,8 +128,8 @@ GLuint LoadShaders(const ThreadContext* thread,
 		}
 		glGetProgramInfoLog(programID, infoLogLength, NULL, infoLog);
 		infoLog[infoLogLength] = '\0';
-		LOG_INFO("Program linking failed:\n");
-		LOG_INFO("%s\n", infoLog);
+		LOG_ERROR("Program linking failed:\n");
+		LOG_ERROR("%s\n", infoLog);
 
 		return 0; // TODO what to return
 	}

@@ -2,6 +2,7 @@
 
 #include "km_debug.h"
 #include "km_lib.h"
+#include "km_log.h"
 
 // REFERENCE_TIME as defined by Windows API
 #define REFERENCE_TIME_NANOSECONDS 100
@@ -52,14 +53,14 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
         (void**)&deviceEnumerator);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to create device enumerator\n");
+        LOG_ERROR("Failed to create device enumerator\n");
         return false;
     }
 
     IMMDevice* device;
     hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get default audio endpoint\n");
+        LOG_ERROR("Failed to get default audio endpoint\n");
         return false;
     }
 
@@ -67,14 +68,14 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL,
         (void**)&audioClient);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to activate audio device\n");
+        LOG_ERROR("Failed to activate audio device\n");
         return false;
     }
 
     WAVEFORMATEX* format;
     hr = audioClient->GetMixFormat(&format);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get audio device format\n");
+        LOG_ERROR("Failed to get audio device format\n");
         return false;
     }
 
@@ -94,7 +95,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         case WAVE_FORMAT_EXTENSIBLE: {
             if (sizeof(WAVEFORMATEX) + format->cbSize
             < sizeof(WAVEFORMATEXTENSIBLE)) {
-                LOG_INFO("Extended format, invalid structure size\n");
+                LOG_ERROR("Extended format, invalid structure size\n");
                 return false;
             }
 
@@ -115,13 +116,13 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
                     (int)formatExt->Samples.wValidBitsPerSample; // TODO wrong
             }
             else {
-                LOG_INFO("Unrecognized audio device ext format: %d\n",
+                LOG_ERROR("Unrecognized audio device ext format: %d\n",
                     formatExt->SubFormat);
                 return false;
             }
         } break;
         default: {
-            LOG_INFO("Unrecognized audio device format: %d\n",
+            LOG_ERROR("Unrecognized audio device format: %d\n",
                 format->wFormatTag);
             return false;
         } break;
@@ -139,14 +140,14 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         NULL
     );
     if (FAILED(hr)) {
-        LOG_INFO("Failed to initialize audio client\n");
+        LOG_ERROR("Failed to initialize audio client\n");
         return false;
     }
 
     UINT32 bufferSizeFrames;
     hr = audioClient->GetBufferSize(&bufferSizeFrames);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get audio buffer size\n");
+        LOG_ERROR("Failed to get audio buffer size\n");
         return false;
     }
 
@@ -154,7 +155,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = audioClient->GetService(__uuidof(IAudioRenderClient),
         (void**)&renderClient);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get audio render client\n");
+        LOG_ERROR("Failed to get audio render client\n");
         return false;
     }
 
@@ -162,7 +163,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     hr = audioClient->GetService(__uuidof(IAudioClock),
         (void**)&audioClock);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get audio clock\n");
+        LOG_ERROR("Failed to get audio clock\n");
         return false;
     }
 
@@ -170,12 +171,12 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
     BYTE* buffer;
     hr = renderClient->GetBuffer(0, &buffer);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to get audio render client buffer\n");
+        LOG_ERROR("Failed to get audio render client buffer\n");
         return false;
     }
     hr = renderClient->ReleaseBuffer(0, 0);
     if (FAILED(hr)) {
-        LOG_INFO("Failed to release audio render client buffer\n");
+        LOG_ERROR("Failed to release audio render client buffer\n");
         return false;
     }
 
@@ -189,7 +190,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
 
     hr = audioClient->Start();
     if (FAILED(hr)) {
-        LOG_INFO("Failed to start audio client\n");
+        LOG_ERROR("Failed to start audio client\n");
         return false;
     }
 
@@ -203,7 +204,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         res = midiInGetDevCaps(midiInDeviceID,
             &midiInCaps, sizeof(MIDIINCAPS));
         if (res != MMSYSERR_NOERROR) {
-            LOG_INFO("Couldn't get MIDI input device caps\n");
+            LOG_WARN("Couldn't get MIDI input device caps\n");
             return true;
         }
 
@@ -213,7 +214,7 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
             (DWORD_PTR)MidiInputCallback, (DWORD_PTR)winAudio,
             CALLBACK_FUNCTION);
         if (res != MMSYSERR_NOERROR) {
-            LOG_INFO("Couldn't open MIDI input\n");
+            LOG_WARN("Couldn't open MIDI input\n");
             return true;
         }
 
@@ -225,18 +226,18 @@ bool32 Win32InitAudio(Win32Audio* winAudio, int bufferSizeMilliseconds)
         midiHeader.dwFlags = 0;
         res = midiInPrepareHeader(midiInHandle, &midiHeader, sizeof(MIDIHDR));
         if (res != MMSYSERR_NOERROR) {
-            LOG_INFO("Couldn't prepare MIDI input header\n");
+            LOG_WARN("Couldn't prepare MIDI input header\n");
             return true;
         }
 
         res = midiInStart(midiInHandle);
         if (res != MMSYSERR_NOERROR) {
-            LOG_INFO("Couldn't start MIDI input\n");
+            LOG_WARN("Couldn't start MIDI input\n");
             return true;
         }
     }
     else {
-        LOG_INFO("No MIDI input devices detected\n");
+        LOG_WARN("No MIDI input devices detected\n");
     }
 
     return true;

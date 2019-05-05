@@ -3,6 +3,7 @@
 #include <png.h>
 
 #include "km_debug.h"
+#include "km_log.h"
 #include "opengl_funcs.h"
 
 struct PNGErrorData {
@@ -18,7 +19,7 @@ struct PNGDataReadStream {
 
 void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 {
-	LOG_INFO("Load PNG error: %s\n", msg);
+	LOG_ERROR("Load PNG error: %s\n", msg);
 
 	png_voidp errorPtr = png_get_error_ptr(pngPtr);
 	if (errorPtr) {
@@ -27,29 +28,25 @@ void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 			errorData->pngFile);
 	}
 	else {
-		LOG_INFO("Load PNG double-error: NO ERROR POINTER!\n");
+		LOG_ERROR("Load PNG double-error: NO ERROR POINTER!\n");
 	}
 
 	DEBUG_PANIC("IDK what happens now\n");
 }
 void LoadPNGWarning(png_structp pngPtr, png_const_charp msg)
 {
-	// TODO better logging & levels, ignoring spam for now
-	// LOG_INFO("Load PNG warning: %s\n", msg);
+	LOG_WARN("Load PNG warning: %s\n", msg);
 }
 
 void LoadPNGReadData(png_structp pngPtr,
 	png_bytep outBuffer, png_size_t bytesToRead)
 {
-	//LOG_INFO("read request: %d\n", (int)bytesToRead);
 	png_voidp ioPtr = png_get_io_ptr(pngPtr);
 	if (!ioPtr) {
 		png_error(pngPtr, "Invalid PNG I/O pointer\n");
 	}
 
 	PNGDataReadStream* inputStream = (PNGDataReadStream*)ioPtr;
-	// LOG_INFO("input stream: length: %d, readInd: %d\n",
-	//     inputStream->length, inputStream->readInd);
 	int readInd = inputStream->readInd;
 	if (readInd == inputStream->length) {
 		png_error(pngPtr, "Read stream empty\n");
@@ -57,7 +54,6 @@ void LoadPNGReadData(png_structp pngPtr,
 	int readLen = (int)bytesToRead;
 	if (readInd + readLen > inputStream->length) {
 		png_error(pngPtr, "Not enough bytes on read stream\n");
-		//readLen = inputStream->length - readInd;
 	}
 	png_bytep read = inputStream->data + readInd;
 	png_bytep write = outBuffer;
@@ -76,13 +72,13 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 
 	DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!pngFile.data) {
-		LOG_INFO("Failed to open PNG file at: %s\n", filePath);
+		LOG_ERROR("Failed to open PNG file at: %s\n", filePath);
 		return false;
 	}
 
 	const int headerSize = 8;
 	if (png_sig_cmp((png_const_bytep)pngFile.data, 0, headerSize)) {
-		LOG_INFO("Invalid PNG file: %s\n", filePath);
+		LOG_ERROR("Invalid PNG file: %s\n", filePath);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
 	}
@@ -94,13 +90,13 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	png_structp pngPtr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
 		&errorData, &LoadPNGError, &LoadPNGWarning);
 	if (!pngPtr) {
-		LOG_INFO("png_create_read_struct failed\n");
+		LOG_ERROR("png_create_read_struct failed\n");
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
 	}
 	png_infop infoPtr = png_create_info_struct(pngPtr);
 	if (!infoPtr) {
-		LOG_INFO("png_create_info_struct failed\n");
+		LOG_ERROR("png_create_info_struct failed\n");
 		png_destroy_read_struct(&pngPtr, NULL, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -121,7 +117,7 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	int width = (int)pngWidth;
 	int height = (int)pngHeight;
 	if (bitDepth != 8) {
-		LOG_INFO("Unsupported bit depth: %d\n", bitDepth);
+		LOG_ERROR("Unsupported bit depth: %d\n", bitDepth);
 		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -139,14 +135,14 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 		} break;
 
 		default: {
-			LOG_INFO("Unsupported color type: %d\n", colorType);
+			LOG_ERROR("Unsupported color type: %d\n", colorType);
 			png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 			DEBUGPlatformFreeFileMemory(thread, &pngFile);
 			return false;
 		}
 	}
 	if (interlaceMethod != PNG_INTERLACE_NONE) {
-		LOG_INFO("Unsupported interlace method\n");
+		LOG_ERROR("Unsupported interlace method\n");
 		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
 		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
@@ -159,7 +155,9 @@ bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	int dataSize = rowBytes * height * sizeof(png_byte) + 15; // TODO what are these 15 bytes?
 	int rowPtrsSize = height * sizeof(png_byte*);
 	if (transient.size < dataSize + rowPtrsSize) {
-		LOG_INFO("Not enough memory to load PNG %s\n", filePath);
+		LOG_ERROR("Not enough memory to load PNG %s\n", filePath);
+		png_destroy_read_struct(&pngPtr, &infoPtr, NULL);
+		DEBUGPlatformFreeFileMemory(thread, &pngFile);
 		return false;
 	}
 	png_byte* data = (png_byte*)transient.memory;
