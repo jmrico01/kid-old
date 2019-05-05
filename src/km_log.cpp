@@ -2,8 +2,16 @@
 
 #include "km_debug.h"
 
-void LogState::PrintFormat(const char* format, ...)
+void LogState::PrintFormat(LogCategory logCategory,
+	const char* file, int line, const char* function,
+	const char* format, ...)
 {
+#if GAME_INTERNAL
+	const char* PREFIX_FORMAT = "";
+#else
+	const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
+#endif
+
 	uint64 freeSpace1, freeSpace2;
 	if (writeIndex >= readIndex) {
 		freeSpace1 = LOG_BUFFER_SIZE - writeIndex;
@@ -16,11 +24,17 @@ void LogState::PrintFormat(const char* format, ...)
 
 	DEBUG_ASSERT(freeSpace1 != 0 || freeSpace2 != 0);
 
+	int n;
+
 	va_list args;
 	va_start(args, format);
-	int n = vsnprintf(buffer + writeIndex, freeSpace1, format, args);
+	n = snprintf(buffer + writeIndex, freeSpace1, PREFIX_FORMAT,
+		LOG_CATEGORY_NAMES[logCategory], file, line, function);
+	n += vsnprintf(buffer + writeIndex + n, freeSpace1 - n, format, args);
 	if (n < 0 || (uint64)n >= freeSpace1) {
-		n = vsnprintf(buffer, freeSpace2, format, args);
+		n = snprintf(buffer, freeSpace2, PREFIX_FORMAT,
+			LOG_CATEGORY_NAMES[logCategory], file, line, function);
+		n += vsnprintf(buffer + n, freeSpace2 - n, format, args);
 		if (n < 0 || (uint64)n >= freeSpace2) {
 			DEBUG_PANIC("log too big!");
 			return;

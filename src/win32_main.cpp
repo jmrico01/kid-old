@@ -45,6 +45,7 @@ global_var bool32 running_ = true;
 global_var GameInput* input_ = nullptr;             // for WndProc WM_CHAR
 global_var glViewportFunc* glViewport_ = nullptr;   // for WndProc WM_SIZE
 global_var ScreenInfo* screenInfo_ = nullptr;       // for WndProc WM_SIZE
+global_var FixedArray<char, MAX_PATH> logFilePath_;
 
 global_var WINDOWPLACEMENT DEBUGwpPrev = { sizeof(DEBUGwpPrev) };
 
@@ -322,7 +323,7 @@ void LogString(const char* string, uint64 n)
 	}
 #endif
 
-	if (!DEBUGPlatformWriteFile(nullptr, "logs/logs.txt", n, string)) {
+	if (!DEBUGPlatformWriteFile(nullptr, logFilePath_.array.data, n, string)) {
 		DEBUG_PANIC("failed to write to log file");
 	}
 }
@@ -886,6 +887,15 @@ int CALLBACK WinMain(
 	HINSTANCE hInstance, HINSTANCE hPrevInst,
 	LPSTR cmdline, int cmd_show)
 {
+	logFilePath_.Init();
+	SYSTEMTIME systemTime;
+	GetLocalTime(&systemTime);
+	int n = snprintf(logFilePath_.array.data, MAX_PATH,
+		"logs/log%04d-%02d-%02d_%02d-%02d-%02d.txt",
+		systemTime.wYear, systemTime.wMonth, systemTime.wDay,
+		systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+	logFilePath_.array.size += n;
+
 	LogState logState;
 	logState.readIndex = 0;
 	logState.writeIndex = 0;
