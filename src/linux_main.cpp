@@ -488,7 +488,7 @@ internal bool32 LinuxInitOpenGL(
 	int32 minorVersion = versionString[2] - '0';
 
 	if (majorVersion < 3 || (majorVersion == 3 && minorVersion < 3)) {
-		// TODO logging. opengl version is less than 3.3
+		LOG_ERROR("Unsupported OpenGL version (less than 3.3)\n");
 		return false;
 	}
 
@@ -913,15 +913,15 @@ int main(int argc, char **argv)
 	// TODO check allocation fail?
 	gameMemory.permanentStorage = mmap(baseAddress, (size_t)totalSize,
 		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (!gameMemory.permanentStorage) {
+		LOG_ERROR("Linux memory allocation (mmap) failed\n");
+		return 1;
+	}
 	gameMemory.transientStorage = ((uint8*)gameMemory.permanentStorage +
 		gameMemory.permanentStorageSize);
 
 	linuxState.gameMemorySize = totalSize;
 	linuxState.gameMemoryBlock = gameMemory.permanentStorage;
-	if (!gameMemory.permanentStorage || !gameMemory.transientStorage) {
-		// TODO log
-		return 1;
-	}
 	LOG_INFO("Initialized game memory\n");
 
 	GameInput input[2] = {};

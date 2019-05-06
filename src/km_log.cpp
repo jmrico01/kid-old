@@ -32,6 +32,8 @@ void LogState::PrintFormat(LogCategory logCategory,
 		LOG_CATEGORY_NAMES[logCategory], file, line, function);
 	n += vsnprintf(buffer + writeIndex + n, freeSpace1 - n, format, args);
 	if (n < 0 || (uint64)n >= freeSpace1) {
+		MemSet(buffer + writeIndex, ' ', freeSpace1);
+		buffer[LOG_BUFFER_SIZE - 1] = '\n';
 		n = snprintf(buffer, freeSpace2, PREFIX_FORMAT,
 			LOG_CATEGORY_NAMES[logCategory], file, line, function);
 		n += vsnprintf(buffer + n, freeSpace2 - n, format, args);

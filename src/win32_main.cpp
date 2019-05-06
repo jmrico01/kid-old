@@ -636,7 +636,7 @@ internal void Win32RecordInputBegin(Win32State* state, int inputRecordingIndex)
 		state->recordingHandle = CreateFile(filePath, GENERIC_WRITE,
 			0, NULL, CREATE_ALWAYS, 0, NULL);
 
-		CopyMemory(replayBuffer->gameMemoryBlock,
+		MemCopy(replayBuffer->gameMemoryBlock,
 			state->gameMemoryBlock, state->gameMemorySize);
 	}
 }
@@ -667,7 +667,7 @@ internal void Win32PlaybackBegin(Win32State* state, int inputPlayingIndex)
 		state->playbackHandle = CreateFile(filePath, GENERIC_READ,
 			0, NULL, OPEN_EXISTING, 0, NULL);
 
-		CopyMemory(state->gameMemoryBlock, replayBuffer->gameMemoryBlock, state->gameMemorySize);
+		MemCopy(state->gameMemoryBlock, replayBuffer->gameMemoryBlock, state->gameMemorySize);
 	}
 }
 internal void Win32PlaybackEnd(Win32State* state)
@@ -913,6 +913,7 @@ int CALLBACK WinMain(
 		"OpenGLWindowClass", "kid",
 		100, 100, START_WIDTH, START_HEIGHT);
 	if (!hWnd) {
+		FlushLogs(&logState);
 		return 1;
 	}
 	LOG_INFO("Created Win32 window\n");
@@ -933,6 +934,7 @@ int CALLBACK WinMain(
 	// Create and attach rendering context for OpenGL
 	if (!Win32CreateRC(hWnd, screenInfo.colorBits, screenInfo.alphaBits,
 	screenInfo.depthBits, screenInfo.stencilBits)) {
+		FlushLogs(&logState);
 		return 1;
 	}
 	LOG_INFO("Created Win32 OpenGL rendering context\n");
@@ -946,6 +948,7 @@ int CALLBACK WinMain(
 	// Initialize OpenGL
 	if (!Win32InitOpenGL(&platformFuncs.glFunctions,
 	screenInfo.size.x, screenInfo.size.y)) {
+		FlushLogs(&logState);
 		return 1;
 	}
 	LOG_INFO("Initialized Win32 OpenGL\n");
@@ -962,6 +965,7 @@ int CALLBACK WinMain(
 	// Initialize audio
 	Win32Audio winAudio = {};
 	if (!Win32InitAudio(&winAudio, AUDIO_DEFAULT_BUFFER_SIZE_MILLISECONDS)) {
+		FlushLogs(&logState);
 		return 1;
 	}
 	winAudio.latency = winAudio.sampleRate / monitorRefreshHz * 2;
@@ -996,15 +1000,16 @@ int CALLBACK WinMain(
 	// TODO check allocation fail?
 	gameMemory.permanent.memory = VirtualAlloc(baseAddress, (size_t)totalSize,
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	if (!gameMemory.permanent.memory) {
+		LOG_ERROR("Win32 memory allocation failed\n");
+		FlushLogs(&logState);
+		return 1;
+	}
 	gameMemory.transient.memory = ((uint8*)gameMemory.permanent.memory +
 		gameMemory.permanent.size);
 
 	state.gameMemorySize = totalSize;
 	state.gameMemoryBlock = gameMemory.permanent.memory;
-	if (!gameMemory.permanent.memory || !gameMemory.transient.memory) {
-		// TODO log
-		return 1;
-	}
 	LOG_INFO("Initialized game memory\n");
 
 #if 0

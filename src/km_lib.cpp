@@ -374,3 +374,8 @@ void MemMove(void* dst, const void* src, uint64 numBytes)
 {
 	memmove(dst, src, numBytes);
 }
+
+void MemSet(void* dst, char value, uint64 numBytes)
+{
+	memset(dst, value, numBytes);
+}

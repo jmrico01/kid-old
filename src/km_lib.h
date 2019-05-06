@@ -111,3 +111,4 @@ bool32 KeyCompare(const HashKey& key1, const HashKey& key2);
 
 void MemCopy(void* dst, const void* src, uint64 numBytes);
 void MemMove(void* dst, const void* src, uint64 numBytes);
+void MemSet(void* dst, char value, uint64 numBytes);
