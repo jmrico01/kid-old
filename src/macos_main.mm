@@ -44,7 +44,7 @@ internal void* MacOSLoadFunction(void* libHandle, const char* name)
 {
 	void* symbol = dlsym(libHandle, name);
 	if (!symbol) {
-		DEBUG_PRINT("dlsym failed: %s\n", dlerror());
+		LOG_INFO("dlsym failed: %s\n", dlerror());
 	}
 	// TODO(michiel): Check if lib with underscore exists?!
 	return symbol;
@@ -54,7 +54,7 @@ internal void* MacOSLoadLibrary(const char* libName)
 {
 	void* handle = dlopen(libName, RTLD_NOW | RTLD_LOCAL);
 	if (!handle) {
-		DEBUG_PRINT("dlopen failed: %s\n", dlerror());
+		LOG_INFO("dlopen failed: %s\n", dlerror());
 	}
 	return handle;
 }
@@ -187,7 +187,7 @@ internal bool32 MacOSInitOpenGL(
 {
 	void* glLib = MacOSLoadLibrary("/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL");
 	if (!glLib) {
-		DEBUG_PRINT("Failed to load OpenGL library\n");
+		LOG_INFO("Failed to load OpenGL library\n");
 		return false;
 	}
 
@@ -197,9 +197,9 @@ internal bool32 MacOSInitOpenGL(
 #undef FUNC
 
 	const GLubyte* versionString = glFuncs->glGetString(GL_VERSION);
-	DEBUG_PRINT("GL_VERSION: %s\n", versionString);
-	DEBUG_PRINT("GL_VENDOR: %s\n", glFuncs->glGetString(GL_VENDOR));
-	DEBUG_PRINT("GL_RENDERER: %s\n", glFuncs->glGetString(GL_RENDERER));
+	LOG_INFO("GL_VERSION: %s\n", versionString);
+	LOG_INFO("GL_VENDOR: %s\n", glFuncs->glGetString(GL_VENDOR));
+	LOG_INFO("GL_RENDERER: %s\n", glFuncs->glGetString(GL_RENDERER));
 
 	int32 majorVersion = versionString[0] - '0';
 	int32 minorVersion = versionString[2] - '0';
@@ -214,7 +214,7 @@ internal bool32 MacOSInitOpenGL(
 	GL_FUNCTIONS_ALL
 #undef FUNC
 
-	DEBUG_PRINT("GL_SHADING_LANGUAGE_VERSION: %s\n", 
+	LOG_INFO("GL_SHADING_LANGUAGE_VERSION: %s\n", 
 		glFuncs->glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	return true;
@@ -388,7 +388,7 @@ internal KeyInputCode MacOSKeyCodeToKM(int keyCode)
 		return keyCode - 0x60 + KM_KEY_NUMPAD_0;
 	}*/
 	else {
-		DEBUG_PRINT("Unrecognized key: %d\n", keyCode);
+		LOG_INFO("Unrecognized key: %d\n", keyCode);
 		return KM_KEY_LAST;
 	}
 }
@@ -530,7 +530,7 @@ int main(int argc, const char* argv[])
 		[[NSBundle mainBundle] bundlePath]];
 	const char* pathStr = [path UTF8String];
 	strncpy(pathToApp_, pathStr, [path length]);
-	DEBUG_PRINT("Path to application: %s", pathToApp_);
+	LOG_INFO("Path to application: %s", pathToApp_);
 
 	/*NSFileManager* fileManager = [NSFileManager defaultManager];
 	NSString* appPath = [NSString stringWithFormat:@"%@/Contents/Resources",
@@ -545,7 +545,7 @@ int main(int argc, const char* argv[])
 	KMAppDelegate* appDelegate = [[KMAppDelegate alloc] init];
 	[app setDelegate:appDelegate];
 	[NSApp finishLaunching];
-	DEBUG_PRINT("Finished launching NSApp\n");
+	LOG_INFO("Finished launching NSApp\n");
 
 	NSOpenGLPixelFormatAttribute openGLAttributesAccel[] = {
 		NSOpenGLPFAAccelerated,
@@ -561,7 +561,7 @@ int main(int argc, const char* argv[])
 	glContext_ = [[NSOpenGLContext alloc] initWithFormat:pixelFormat
 		shareContext:NULL];
 	if (glContext_ == NULL) {
-		DEBUG_PRINT("No hardware-accelerated GL renderer\n");
+		LOG_INFO("No hardware-accelerated GL renderer\n");
 		NSOpenGLPixelFormatAttribute openGLAttributesNoAccel[] = {
 			NSOpenGLPFADoubleBuffer, // Enable for vsync
 			NSOpenGLPFAColorSize, 24,
@@ -575,11 +575,11 @@ int main(int argc, const char* argv[])
 		glContext_ = [[NSOpenGLContext alloc] initWithFormat:pixelFormat
 			shareContext:NULL];
 		if (glContext_ == NULL) {
-			DEBUG_PRINT("Failed to create GL context\n");
+			LOG_INFO("Failed to create GL context\n");
 			return 1;
 		}
 	}
-	DEBUG_PRINT("Initialized GL context\n");
+	LOG_INFO("Initialized GL context\n");
 
 	// Create the main window and the content view
 	NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -627,7 +627,7 @@ int main(int argc, const char* argv[])
 	[window setMinSize:NSMakeSize(160, 90)];
 	[window setTitle:@"kid"];
 	[window makeKeyAndOrderFront:nil];
-	DEBUG_PRINT("Initialized window and OpenGL view\n");
+	LOG_INFO("Initialized window and OpenGL view\n");
 
 	GLint swapInt = 1;
 	//GLint swapInt = 0;
@@ -645,7 +645,7 @@ int main(int argc, const char* argv[])
 	screenInfo.size.x, screenInfo.size.y)) {
 		return 1;
 	}
-	DEBUG_PRINT("Initialized MacOS OpenGL\n");
+	LOG_INFO("Initialized MacOS OpenGL\n");
 
 #if 0
 	// Default to full screen mode at startup...
@@ -670,7 +670,7 @@ int main(int argc, const char* argv[])
 		* gameAudio.channels * sizeof(float32);
 	gameAudio.buffer = (float32*)mmap(0, (size_t)bufferSizeBytes,
 		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	DEBUG_PRINT("Initialized MacOS CoreAudio\n");
+	LOG_INFO("Initialized MacOS CoreAudio\n");
 
 #if GAME_INTERNAL
 	void* baseAddress = (void*)TERABYTES((uint64)2);;
@@ -679,7 +679,7 @@ int main(int argc, const char* argv[])
 #endif
 	
 	GameMemory gameMemory = {};
-	gameMemory.DEBUGShouldInitGlobalFuncs = true;
+	gameMemory.shouldInitGlobalVariables = true;
 	gameMemory.permanent.size = MEGABYTES(64);
 	gameMemory.transient.size = GIGABYTES(2);
 
@@ -691,7 +691,7 @@ int main(int argc, const char* argv[])
 		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	gameMemory.transient.memory = ((uint8*)gameMemory.permanent.memory +
 		gameMemory.permanent.size);
-	DEBUG_PRINT("Initialized game memory\n");
+	LOG_INFO("Initialized game memory\n");
 
 	GameInput input[2];
 	GameInput* newInput = &input[0];

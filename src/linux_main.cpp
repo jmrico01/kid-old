@@ -299,13 +299,13 @@ internal bool32 LinuxLoadGLXExtensions()
 {
     Display* tempDisplay = XOpenDisplay(NULL);
     if (!tempDisplay) {
-        DEBUG_PRINT("Failed to open display on GLX extension load\n");
+        LOG_INFO("Failed to open display on GLX extension load\n");
         return false;
     }
 
     int dummy;
     if (!glXQueryExtension(tempDisplay, &dummy, &dummy)) {
-        DEBUG_PRINT("GLX extension query failed\n");
+        LOG_INFO("GLX extension query failed\n");
         return false;
     }
 
@@ -323,7 +323,7 @@ internal bool32 LinuxLoadGLXExtensions()
     XVisualInfo* visuals = glXChooseVisual(tempDisplay,
         DefaultScreen(tempDisplay), displayBufferAttribs);
     if (!visuals) {
-        DEBUG_PRINT("Failed to choose GLX visual\n");
+        LOG_INFO("Failed to choose GLX visual\n");
         return false;
     }
 
@@ -340,20 +340,20 @@ internal bool32 LinuxLoadGLXExtensions()
         0, visuals->depth, InputOutput, visuals->visual,
         CWColormap, &attribs);
     if (!glWindow) {
-        DEBUG_PRINT("Failed to create dummy GL window\n");
+        LOG_INFO("Failed to create dummy GL window\n");
         return false;
     }
 
     GLXContext context = glXCreateContext(tempDisplay,
         visuals, NULL, true);
     if (!glXMakeCurrent(tempDisplay, glWindow, context)) {
-        DEBUG_PRINT("Failed to make GLX context current\n");
+        LOG_INFO("Failed to make GLX context current\n");
         return false;
     }
 
     char* extensions = (char*)glXQueryExtensionsString(tempDisplay,
         visuals->screen);
-    //DEBUG_PRINT("Supported extensions: %s\n", extensions);
+    //LOG_INFO("Supported extensions: %s\n", extensions);
     char* at = extensions;
     while (*at) {
         while (IsWhitespace(*at)) {
@@ -460,7 +460,7 @@ internal bool32 LinuxInitOpenGL(
     int width, int height)
 {
     if (!LinuxLoadBaseGLFunctions(glFuncs)) {
-        DEBUG_PRINT("Failed to load base GL functions\n");
+        LOG_INFO("Failed to load base GL functions\n");
         return false;
     }
 
@@ -473,33 +473,33 @@ internal bool32 LinuxInitOpenGL(
     }
     else {
         // TODO no vsync. logging? just exit? just exit for now
-        DEBUG_PRINT("Failed to load glXSwapIntervalEXT (no vsync)\n");
+        LOG_INFO("Failed to load glXSwapIntervalEXT (no vsync)\n");
         //return false;
     }
 
 	const GLubyte* vendorString = glFuncs->glGetString(GL_VENDOR);
-	DEBUG_PRINT("GL_VENDOR: %s\n", vendorString);
+	LOG_INFO("GL_VENDOR: %s\n", vendorString);
 	const GLubyte* rendererString = glFuncs->glGetString(GL_RENDERER);
-	DEBUG_PRINT("GL_RENDERER: %s\n", rendererString);
+	LOG_INFO("GL_RENDERER: %s\n", rendererString);
 	const GLubyte* versionString = glFuncs->glGetString(GL_VERSION);
-	DEBUG_PRINT("GL_VERSION: %s\n", versionString);
+	LOG_INFO("GL_VERSION: %s\n", versionString);
 
 	int32 majorVersion = versionString[0] - '0';
 	int32 minorVersion = versionString[2] - '0';
 
 	if (majorVersion < 3 || (majorVersion == 3 && minorVersion < 3)) {
-		// TODO logging. opengl version is less than 3.3
+		LOG_ERROR("Unsupported OpenGL version (less than 3.3)\n");
 		return false;
 	}
 
 	if (!LinuxLoadAllGLFunctions(glFuncs)) {
-        DEBUG_PRINT("Failed to load all GL functions\n");
+        LOG_INFO("Failed to load all GL functions\n");
 		return false;
 	}
 
 	const GLubyte* glslString =
         glFuncs->glGetString(GL_SHADING_LANGUAGE_VERSION);
-    DEBUG_PRINT("GL_SHADING_LANGUAGE_VERSION: %s\n", glslString);
+    LOG_INFO("GL_SHADING_LANGUAGE_VERSION: %s\n", glslString);
 
     return true;
 }
@@ -622,13 +622,13 @@ internal void LinuxProcessPendingMessages(
             case ButtonRelease:
             case ButtonPress: {
                 if (event.xbutton.button == 1) {
-                    //DEBUG_PRINT("left click something\n");
+                    //LOG_INFO("left click something\n");
                 }
                 else if (event.xbutton.button == 2) {
-                    //DEBUG_PRINT("middle click something\n");
+                    //LOG_INFO("middle click something\n");
                 }
                 else if (event.xbutton.button == 3) {
-                    //DEBUG_PRINT("right click something\n");
+                    //LOG_INFO("right click something\n");
                 }
             } break;
 
@@ -639,7 +639,7 @@ internal void LinuxProcessPendingMessages(
                 bool32 isDown = event.type == KeyPress;
                 int transitions = 1;
 
-                //DEBUG_PRINT("key code: %d\n", event.xkey.keycode);
+                //LOG_INFO("key code: %d\n", event.xkey.keycode);
                 int kmKeyCode = LinuxKeyCodeToKM(event.xkey.keycode);
                 if (kmKeyCode != -1) {
                     input->keyboard[kmKeyCode].isDown = isDown;
@@ -796,14 +796,14 @@ int main(int argc, char **argv)
     LinuxGetEXEFileName(&linuxState);
 
     RemoveFileNameFromPath(linuxState.exeFilePath, pathToApp_, LINUX_STATE_FILE_NAME_COUNT);
-    DEBUG_PRINT("Path to application: %s\n", pathToApp_);
+    LOG_INFO("Path to application: %s\n", pathToApp_);
     
     ScreenInfo screenInfo;
     screenInfo.size.x = 800;
     screenInfo.size.y = 600;
     Display* display = XOpenDisplay(NULL);
     if (!display) {
-        DEBUG_PRINT("Failed to open display\n");
+        LOG_INFO("Failed to open display\n");
         return 1;
     }
 
@@ -817,7 +817,7 @@ int main(int argc, char **argv)
     XVisualInfo* visualInfo = glXGetVisualFromFBConfig(display,
         framebufferConfig);
     if (!visualInfo) {
-        DEBUG_PRINT("Failed to get framebuffer visual info\n");
+        LOG_INFO("Failed to get framebuffer visual info\n");
         return 1;
     }
 
@@ -839,7 +839,7 @@ int main(int argc, char **argv)
         CWBorderPixel | CWColormap | CWEventMask /*| CWOverrideRedirect*/,
         &windowAttribs);
     if (!glWindow) {
-        DEBUG_PRINT("Failed to create X11 window\n");
+        LOG_INFO("Failed to create X11 window\n");
         return 1;
     }
     
@@ -857,7 +857,7 @@ int main(int argc, char **argv)
     Atom wmDeleteWindow = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, glWindow, &wmDeleteWindow, 1);
     XMapRaised(display, glWindow);
-    DEBUG_PRINT("Created X11 window\n");
+    LOG_INFO("Created X11 window\n");
 
     GLXContext glxContext = 0;
     LOAD_GLX_FUNCTION(glXCreateContextAttribsARB);
@@ -866,15 +866,15 @@ int main(int argc, char **argv)
             0, true, linuxOpenGLAttribs);
     }
     if (!glxContext) {
-        DEBUG_PRINT("Failed to create OpenGL 3+ context\n");
+        LOG_INFO("Failed to create OpenGL 3+ context\n");
         return 1;
     }
 
     if (!glXMakeCurrent(display, glWindow, glxContext)) {
-        DEBUG_PRINT("Failed to make GLX context current\n");
+        LOG_INFO("Failed to make GLX context current\n");
         return 1;
     }
-    DEBUG_PRINT("Created GLX context\n");
+    LOG_INFO("Created GLX context\n");
 
     PlatformFunctions platformFuncs = {};
 	platformFuncs.DEBUGPlatformPrint = DEBUGPlatformPrint;
@@ -885,14 +885,14 @@ int main(int argc, char **argv)
     screenInfo.size.x, screenInfo.size.y)) {
         return 1;
     }
-    DEBUG_PRINT("Initialized Linux OpenGL\n");
+    LOG_INFO("Initialized Linux OpenGL\n");
 
     GameAudio gameAudio_;
     if (!LinuxInitAudio(&globalAudio,
     AUDIO_CHANNELS, AUDIO_SAMPLERATE, AUDIO_PERIOD_SIZE, AUDIO_NUM_PERIODS)) {
         return 1;
     }
-    DEBUG_PRINT("Initialized Linux audio\n");
+    LOG_INFO("Initialized Linux audio\n");
 
 #if GAME_INTERNAL
 	void* baseAddress = (void*)TERABYTES((uint64)2);;
@@ -901,7 +901,7 @@ int main(int argc, char **argv)
 #endif
     
     GameMemory gameMemory = {};
-    gameMemory.DEBUGShouldInitGlobalFuncs = true;
+    gameMemory.shouldInitGlobalVariables = true;
 	gameMemory.permanentStorageSize = MEGABYTES(64);
 	gameMemory.transientStorageSize = GIGABYTES(1);
 
@@ -913,16 +913,16 @@ int main(int argc, char **argv)
 	// TODO check allocation fail?
 	gameMemory.permanentStorage = mmap(baseAddress, (size_t)totalSize,
 		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (!gameMemory.permanentStorage) {
+		LOG_ERROR("Linux memory allocation (mmap) failed\n");
+		return 1;
+	}
 	gameMemory.transientStorage = ((uint8*)gameMemory.permanentStorage +
 		gameMemory.permanentStorageSize);
 
 	linuxState.gameMemorySize = totalSize;
 	linuxState.gameMemoryBlock = gameMemory.permanentStorage;
-	if (!gameMemory.permanentStorage || !gameMemory.transientStorage) {
-		// TODO log
-		return 1;
-	}
-	DEBUG_PRINT("Initialized game memory\n");
+	LOG_INFO("Initialized game memory\n");
 
 	GameInput input[2] = {};
 	GameInput *newInput = &input[0];
@@ -1016,12 +1016,12 @@ int main(int argc, char **argv)
             writeLen = 0;
         }*/
 
-        DEBUG_PRINT("play mark: %d, target: %d\n", playMark, fillTarget);
-        DEBUG_PRINT("writeTo: %d\n", writeTo);
-        DEBUG_PRINT("writeLen: %d / %d\n", writeLen, globalAudio.bufferSize);
+        LOG_INFO("play mark: %d, target: %d\n", playMark, fillTarget);
+        LOG_INFO("writeTo: %d\n", writeTo);
+        LOG_INFO("writeLen: %d / %d\n", writeLen, globalAudio.bufferSize);
         if (newInput->keyboard[KM_KEY_SPACE].isDown
         && newInput->keyboard[KM_KEY_SPACE].transitions > 0) {
-            DEBUG_PRINT("Paused on terminal...\n");
+            LOG_INFO("Paused on terminal...\n");
             getchar();
         }
 

@@ -24,7 +24,7 @@ OSStatus MacOSAudioUnitCallback(void* inRefCon,
 	if (newSamples < inNumberFrames) {
 		sampleCount = newSamples;
 	}
-	//DEBUG_PRINT("new samples: %d\n", sampleCount);
+	//LOG_INFO("new samples: %d\n", sampleCount);
 
 	int16* outBufferL = (int16*)ioData->mBuffers[0].mData;
 	int16* outBufferR = (int16*)ioData->mBuffers[1].mData;
@@ -165,7 +165,7 @@ void MacOSInitCoreAudio(MacOSAudio* macAudio,
 		MidiInputCallback, (void*)macAudio, &midiInputPort);
 
 	int midiSources = MIDIGetNumberOfSources();
-	DEBUG_PRINT("midi sources: %d\n", midiSources);
+	LOG_INFO("midi sources: %d\n", midiSources);
 	MIDIEndpointRef midiSrc;
 	for (int i = 0; i < midiSources; i++) {
 		midiSrc = MIDIGetSource(i);

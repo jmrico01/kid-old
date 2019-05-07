@@ -158,7 +158,7 @@ void UpdateInputFields(InputField fields[], uint32 n,
         
         if (fields[i].box.pressed) {
             // TODO picks the last one for now. sort based on Z?
-            //DEBUG_PRINT("new input focus: %d\n", i);
+            //LOG_INFO("new input focus: %d\n", i);
             focus[fieldsID] = i;
             anyPressed = true;
         }
@@ -166,39 +166,39 @@ void UpdateInputFields(InputField fields[], uint32 n,
 
     if (focus[fieldsID] != -1 && input->mouseButtons[0].isDown
     && !anyPressed) {
-        //DEBUG_PRINT("lost focus\n");
+        //LOG_INFO("lost focus\n");
         focus[fieldsID] = -1;
     }
 
     // TODO mysterious bug: can't type in more than 16 characters...
     if (focus[fieldsID] != -1 && input->keyboardStringLen != 0) {
-        //DEBUG_PRINT("size: %d\n", (int)sizeof(fields[focus]));
+        //LOG_INFO("size: %d\n", (int)sizeof(fields[focus]));
         for (uint32 i = 0; i < input->keyboardStringLen; i++) {
             if (input->keyboardString[i] == 8) {
-                //DEBUG_PRINT(">> backspaced\n");
+                //LOG_INFO(">> backspaced\n");
                 if (fields[focus[fieldsID]].textLen > 0) {
                     fields[focus[fieldsID]].textLen--;
                 }
             }
             else if (input->keyboardString[i] == 13) {
-                //DEBUG_PRINT(">> CR (enter, at last in Windows)\n");
+                //LOG_INFO(">> CR (enter, at last in Windows)\n");
                 fields[focus[fieldsID]].callback(&fields[focus[fieldsID]],
                     data);
             }
             else if (fields[focus[fieldsID]].textLen < INPUT_BUFFER_SIZE - 1) {
-                //DEBUG_PRINT("added %c\n", input->keyboardString[i].ascii);
-                //DEBUG_PRINT("textLen before: %d\n", fields[focus].textLen);
+                //LOG_INFO("added %c\n", input->keyboardString[i].ascii);
+                //LOG_INFO("textLen before: %d\n", fields[focus].textLen);
                 fields[focus[fieldsID]].text[fields[focus[fieldsID]].textLen++]
                     = input->keyboardString[i];
             }
         }
         fields[focus[fieldsID]].text[fields[focus[fieldsID]].textLen] = '\0';
-        //DEBUG_PRINT("new focus (%d) length: %d\n",
+        //LOG_INFO("new focus (%d) length: %d\n",
         //    focus, fields[focus].textLen);
         for (uint32 i = 0; i < fields[focus[fieldsID]].textLen; i++) {
-            //DEBUG_PRINT("chardump: %c\n", fields[focus].text[i]);
+            //LOG_INFO("chardump: %c\n", fields[focus].text[i]);
         }
-        //DEBUG_PRINT("new text: %s\n", fields[focus].text);
+        //LOG_INFO("new text: %s\n", fields[focus].text);
     }
 }
 

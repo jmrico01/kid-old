@@ -1,8 +1,9 @@
 #pragma once
 
 #include "km_defines.h"
-#include "km_math.h"
 #include "km_input.h"
+#include "km_log.h"
+#include "km_math.h"
 #include "opengl.h"
 
 #define MIDI_IN_QUEUE_SIZE 256
@@ -13,32 +14,23 @@ struct ThreadContext
 };
 
 // ---------------------------- Platform functions ----------------------------
-//#if GAME_INTERNAL
-
 struct DEBUGReadFileResult
 {
 	uint64 size;
 	void* data;
 };
 
-#define DEBUG_PLATFORM_PRINT_FUNC(name) void name(const char* format, ...)
-typedef DEBUG_PLATFORM_PRINT_FUNC(DEBUGPlatformPrintFunc);
-
-#define DEBUG_PLATFORM_FLUSH_GL_FUNC(name) void name()
-typedef DEBUG_PLATFORM_FLUSH_GL_FUNC(DEBUGPlatformFlushGlFunc);
-
-
 #define DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(name) \
-    void name(const ThreadContext* thread, DEBUGReadFileResult* file)
+	void name(const ThreadContext* thread, DEBUGReadFileResult* file)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY_FUNC(DEBUGPlatformFreeFileMemoryFunc);
 
 #define DEBUG_PLATFORM_READ_FILE_FUNC(name) \
-    DEBUGReadFileResult name(const ThreadContext* thread, const char* fileName)
+	DEBUGReadFileResult name(const ThreadContext* thread, const char* fileName)
 typedef DEBUG_PLATFORM_READ_FILE_FUNC(DEBUGPlatformReadFileFunc);
 
 #define DEBUG_PLATFORM_WRITE_FILE_FUNC(name) \
-    bool32 name(const ThreadContext* thread, const char* fileName, \
-        uint32 memorySize, const void* memory)
+	bool32 name(const ThreadContext* thread, const char* fileName, \
+		uint64 memorySize, const void* memory)
 typedef DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFileFunc);
 
 //#endif
@@ -47,9 +39,9 @@ typedef DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFileFunc);
 
 struct ScreenInfo
 {
-    bool32 changed;
+	bool32 changed;
 
-    Vec2Int size;
+	Vec2Int size;
 
 	int8 colorBits;
 	int8 alphaBits;
@@ -89,81 +81,76 @@ struct GameControllerInput
 
 struct MidiMessage
 {
-    uint8 status;
-    uint8 dataByte1;
-    uint8 dataByte2;
+	uint8 status;
+	uint8 dataByte1;
+	uint8 dataByte2;
 };
 
 struct MidiInput
 {
-    int numMessages;
-    MidiMessage messages[MIDI_IN_QUEUE_SIZE];
+	int numMessages;
+	MidiMessage messages[MIDI_IN_QUEUE_SIZE];
 };
 
 struct GameInput
 {
 	GameButtonState mouseButtons[5];
-    Vec2Int mousePos;
-    Vec2Int mouseDelta;
+	Vec2Int mousePos;
+	Vec2Int mouseDelta;
 	int mouseWheel;
-    int mouseWheelDelta;
+	int mouseWheelDelta;
 
-    GameButtonState keyboard[KM_KEY_LAST];
-    char keyboardString[MAX_KEYS_PER_FRAME];
-    uint32 keyboardStringLen;
+	GameButtonState keyboard[KM_KEY_LAST];
+	char keyboardString[MAX_KEYS_PER_FRAME];
+	uint32 keyboardStringLen;
 
 	GameControllerInput controllers[4];
 
-    MidiInput midiIn;
+	MidiInput midiIn;
 };
 
 struct GameAudio
 {
-    int sampleRate;
-    int channels;
-    int bufferSizeSamples;
-    float32* buffer;
+	int sampleRate;
+	int channels;
+	int bufferSizeSamples;
+	float32* buffer;
 
-    int sampleDelta; // Samples elapsed/written since last update
-    int fillLength;
+	int sampleDelta; // Samples elapsed/written since last update
+	int fillLength;
 };
 
 struct PlatformFunctions
 {
-//#if GAME_INTERNAL
-	DEBUGPlatformPrintFunc*             DEBUGPlatformPrint;
-	DEBUGPlatformFlushGlFunc*           DEBUGPlatformFlushGl;
-	DEBUGPlatformFreeFileMemoryFunc*    DEBUGPlatformFreeFileMemory;
-	DEBUGPlatformReadFileFunc*          DEBUGPlatformReadFile;
-	DEBUGPlatformWriteFileFunc*         DEBUGPlatformWriteFile;
-//#endif
+	PlatformFlushLogsFunc* flushLogs;
+	OpenGLFunctions glFunctions;
 
-    OpenGLFunctions glFunctions;
+	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory;
+	DEBUGPlatformReadFileFunc*       DEBUGPlatformReadFile;
+	DEBUGPlatformWriteFileFunc*      DEBUGPlatformWriteFile;
 };
 
 struct MemoryBlock
 {
-    uint64 size;
-    // Required to be cleared to zero at startup    TODO... why??
-    void* memory;
+	uint64 size;
+	// Required to be cleared to zero at startup    TODO... why??
+	void* memory;
 };
 
 struct GameMemory
 {
 	bool32 isInitialized;
 
-    MemoryBlock permanent;
-    MemoryBlock transient;
+	MemoryBlock permanent;
+	MemoryBlock transient;
 
-//#if GAME_INTERNAL
-    bool32 DEBUGShouldInitGlobalFuncs;
-//#endif
+	bool32 shouldInitGlobalVariables;
 };
 
 // ------------------------------ Game functions ------------------------------
 #define GAME_UPDATE_AND_RENDER_FUNC(name) void name( \
-    const ThreadContext* thread, \
-    const PlatformFunctions* platformFuncs, \
-    const GameInput* input, ScreenInfo screenInfo, float32 deltaTime, \
-	GameMemory* memory, GameAudio* audio)
+	const ThreadContext* thread, \
+	const PlatformFunctions* platformFuncs, \
+	const GameInput* input, ScreenInfo screenInfo, float32 deltaTime, \
+	GameMemory* memory, GameAudio* audio, LogState* logState)
 typedef GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRenderFunc);

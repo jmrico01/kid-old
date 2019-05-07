@@ -33,10 +33,10 @@ defined on the platform-specific compilation unit
 #define ALIGN8(val) ((val + 7) & ~7)
 #define ALIGN16(val) ((val + 15) & ~15)
 
-#define KILOBYTES(bytes)		((bytes) * 1024LL)
-#define MEGABYTES(bytes)		(KILOBYTES(bytes) * 1024LL)
-#define GIGABYTES(bytes)		(MEGABYTES(bytes) * 1024LL)
-#define TERABYTES(bytes)		(GIGABYTES(bytes) * 1024LL)
+#define KILOBYTES(bytes) ((bytes) * 1024LL)
+#define MEGABYTES(bytes) (KILOBYTES(bytes) * 1024LL)
+#define GIGABYTES(bytes) (MEGABYTES(bytes) * 1024LL)
+#define TERABYTES(bytes) (GIGABYTES(bytes) * 1024LL)
 
 // NUMERIC TYPES
 typedef int8_t      int8;
