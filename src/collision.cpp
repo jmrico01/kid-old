@@ -164,46 +164,13 @@ void GetLineColliderIntersections(const Array<LineCollider>& lineColliders,
 			Vec2 intersectPoint;
 			if (LineSegmentIntersection(pos, playerDelta, vertPrev, edge, &intersectPoint)) {
 				Vec2 edgeDir = Normalize(edge);
-				uint64 intersectInd = intersects->size;
-				(*intersects)[intersectInd].pos = intersectPoint;
-				(*intersects)[intersectInd].normal = Vec2 { -edgeDir.y, edgeDir.x };
+                LineColliderIntersect* intersect = &intersects->data[intersects->size];
+				intersect->pos = intersectPoint;
+				intersect->normal = Vec2 { -edgeDir.y, edgeDir.x };
 				// TODO can't use [] operator directly because of it being a function probably,
 				// some lvalue/rvalue mess. Look it up?
-				(*intersects)[intersectInd].collider = &lineColliders.data[c];
+				intersect->collider = &lineColliders.data[c];
 				intersects->size++;
-				break;
-			}
-			vertPrev = vert;
-		}
-	}
-}
-
-void GetLineColliderIntersections(const LineCollider lineColliders[], int numLineColliders,
-	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
-	LineColliderIntersect outIntersects[], int* outNumIntersects)
-{
-	*outNumIntersects = 0;
-	float32 deltaPosMag = Mag(deltaPos);
-	if (deltaPosMag == 0.0f) {
-		return;
-	}
-	Vec2 dir = deltaPos / deltaPosMag;
-	Vec2 playerDelta = deltaPos + dir * movementMargin;
-
-	for (int c = 0; c < numLineColliders; c++) {
-		DEBUG_ASSERT(lineColliders[c].line.array.size >= 2);
-		Vec2 vertPrev = lineColliders[c].line[0];
-		for (uint64 v = 1; v < lineColliders[c].line.array.size; v++) {
-			Vec2 vert = lineColliders[c].line[v];
-			Vec2 edge = vert - vertPrev;
-			Vec2 intersectPoint;
-			if (LineSegmentIntersection(pos, playerDelta, vertPrev, edge, &intersectPoint)) {
-				Vec2 edgeDir = Normalize(edge);
-				int intersectInd = *outNumIntersects;
-				outIntersects[intersectInd].pos = intersectPoint;
-				outIntersects[intersectInd].normal = Vec2 { -edgeDir.y, edgeDir.x };
-				outIntersects[intersectInd].collider = &lineColliders[c];
-				(*outNumIntersects)++;
 				break;
 			}
 			vertPrev = vert;
