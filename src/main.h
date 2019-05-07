@@ -80,8 +80,7 @@ struct GameState
 
     int levelLoaded;
 
-    int numLineColliders;
-    LineCollider lineColliders[LINE_COLLIDERS_MAX];
+    FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
 
 	float32 grainTime;
 
