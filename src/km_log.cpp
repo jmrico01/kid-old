@@ -6,8 +6,10 @@ void LogState::PrintFormat(LogCategory logCategory,
 	const char* file, int line, const char* function,
 	const char* format, ...)
 {
-#if GAME_INTERNAL
-	const char* PREFIX_FORMAT = "%s - ";
+#if GAME_SLOW
+    const char* PREFIX_FORMAT = "";
+#elif GAME_INTERNAL
+    const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
 #else
 	const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
 #endif
@@ -38,7 +40,7 @@ void LogState::PrintFormat(LogCategory logCategory,
 			LOG_CATEGORY_NAMES[logCategory], file, line, function);
 		n += vsnprintf(buffer + n, freeSpace2 - n, format, args);
 		if (n < 0 || (uint64)n >= freeSpace2) {
-			DEBUG_PANIC("log too big!");
+			DEBUG_PANIC("log too big!\n");
 			return;
 		}
 	}

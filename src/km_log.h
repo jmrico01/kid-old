@@ -3,7 +3,7 @@
 #include "km_defines.h"
 #include "km_lib.h"
 
-#define LOG_BUFFER_SIZE KILOBYTES(4)
+#define LOG_BUFFER_SIZE KILOBYTES(16)
 
 enum LogCategory
 {

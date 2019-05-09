@@ -178,7 +178,7 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 #define LOAD_GL_FUNCTION(name) \
 	glFuncs->name = (name##Func*)MacOSLoadFunction(glLib, #name); \
 	if (!glFuncs->name) { \
-		DEBUG_PANIC("OpenGL function load failed: %s", #name); \
+		DEBUG_PANIC("OpenGL function load failed: %s\n", #name); \
 	}
 
 internal bool32 MacOSInitOpenGL(

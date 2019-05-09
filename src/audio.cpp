@@ -3,7 +3,7 @@
 #include "main.h"
 #include "km_debug.h"
 
-internal void SoundInit(const ThreadContext* thread,
+internal bool32 SoundInit(const ThreadContext* thread,
     const GameAudio* audio, Sound* sound,
     const char* filePath,
     MemoryBlock* transient,
@@ -14,7 +14,7 @@ internal void SoundInit(const ThreadContext* thread,
     sound->playing = false;
     sound->sampleIndex = 0;
 
-    LoadWAV(thread, filePath,
+    return LoadWAV(thread, filePath,
         audio, &sound->buffer,
         transient,
         DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
@@ -59,7 +59,7 @@ internal void SoundWriteSamples(const Sound* sound, float32 amplitude,
     }
 }
 
-void InitAudioState(const ThreadContext* thread,
+bool32 InitAudioState(const ThreadContext* thread,
     AudioState* audioState, GameAudio* audio,
     MemoryBlock* transient,
     DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
@@ -81,25 +81,36 @@ void InitAudioState(const ThreadContext* thread,
         "data/audio/death.wav"
     };
 
-    SoundInit(thread, audio,
+    if (!SoundInit(thread, audio,
         &audioState->soundKick,
         kickSoundFiles[0],
         transient,
-        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
-    SoundInit(thread, audio,
+        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+        LOG_ERROR("Failed to init kick sound");
+        return false;
+    }
+    if (!SoundInit(thread, audio,
         &audioState->soundSnare,
         snareSoundFiles[0],
         transient,
-        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
-    SoundInit(thread, audio,
+        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+        LOG_ERROR("Failed to init snare sound");
+        return false;
+    }
+    if (!SoundInit(thread, audio,
         &audioState->soundDeath,
         deathSoundFiles[0],
         transient,
-        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+        LOG_ERROR("Failed to init death sound");
+        return false;
+    }
 
 #if GAME_INTERNAL
     audioState->debugView = false;
 #endif
+
+    return true;
 }
 
 void OutputAudio(GameAudio* audio, GameState* gameState,

@@ -19,7 +19,9 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define LINE_COLLIDERS_MAX 32
+#define LINE_COLLIDERS_MAX 16
+
+#define INVENTORY_SIZE 8
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
@@ -44,15 +46,18 @@ struct Rock
 	float32 angle;
 };
 
-struct RockLauncher
-{
-	Vec2 coords;
-};
-
 struct GrabbedObjectInfo
 {
     Vec2* coordsPtr;
     Vec2 rangeX, rangeY;
+};
+
+struct InventoryItem
+{
+    Vec2 playerOffset;
+    Vec2 anchor;
+    TextureGL* textureWorld;
+    TextureGL* textureIcon;
 };
 
 struct GameState
@@ -73,6 +78,16 @@ struct GameState
     float32 playerJumpHold;
 
     GrabbedObjectInfo grabbedObject;
+
+    FixedArray<InventoryItem, INVENTORY_SIZE> inventoryItems;
+    TextureGL jonItemWorld1;
+    TextureGL jonItemIcon1;
+    TextureGL jonItemWorld2;
+    TextureGL jonItemIcon2;
+    TextureGL jonItemWorld3;
+    TextureGL jonItemIcon3;
+    TextureGL jonItemWorld4;
+    TextureGL jonItemIcon4;
 
 	Vec2 barrelCoords;
 
@@ -115,9 +130,6 @@ struct GameState
 
     Rock rock;
     TextureGL rockTexture;
-
-    RockLauncher rockLauncher;
-    TextureGL rockLauncherTexture;
 
     TextureGL frame;
 

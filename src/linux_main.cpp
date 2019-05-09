@@ -431,7 +431,7 @@ internal GLXFBConfig* LinuxGetOpenGLFramebufferConfig(Display *display)
 #define LOAD_GL_FUNCTION(name) \
     glFuncs->name = (name##Func*)glXGetProcAddress((const GLubyte*)#name); \
     if (!glFuncs->name) { \
-        DEBUG_PANIC("OpenGL function load failed: %s", #name); \
+        DEBUG_PANIC("OpenGL function load failed: %s\n", #name); \
     }
 
 internal bool32 LinuxLoadBaseGLFunctions(OpenGLFunctions* glFuncs)

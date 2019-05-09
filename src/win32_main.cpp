@@ -896,10 +896,16 @@ int CALLBACK WinMain(
 		systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
 	logFilePath_.array.size += n;
 
-	LogState logState;
-	logState.readIndex = 0;
-	logState.writeIndex = 0;
-	logState_ = &logState;
+    LogState* logState = (LogState*)VirtualAlloc(0, sizeof(LogState),
+        MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (!logState) {
+        LOG_ERROR("Log state memory allocation failed\n");
+        FlushLogs(logState);
+        return 1;
+    }
+	logState->readIndex = 0;
+	logState->writeIndex = 0;
+	logState_ = logState;
 
 	Win32State state = {};
 	Win32GetExeFilePath(&state);
@@ -913,7 +919,8 @@ int CALLBACK WinMain(
 		"OpenGLWindowClass", "kid",
 		100, 100, START_WIDTH, START_HEIGHT);
 	if (!hWnd) {
-		FlushLogs(&logState);
+        LOG_ERROR("Win32 create window failed\n");
+		FlushLogs(logState);
 		return 1;
 	}
 	LOG_INFO("Created Win32 window\n");
@@ -934,7 +941,8 @@ int CALLBACK WinMain(
 	// Create and attach rendering context for OpenGL
 	if (!Win32CreateRC(hWnd, screenInfo.colorBits, screenInfo.alphaBits,
 	screenInfo.depthBits, screenInfo.stencilBits)) {
-		FlushLogs(&logState);
+        LOG_ERROR("Win32 create RC failed\n");
+		FlushLogs(logState);
 		return 1;
 	}
 	LOG_INFO("Created Win32 OpenGL rendering context\n");
@@ -948,7 +956,8 @@ int CALLBACK WinMain(
 	// Initialize OpenGL
 	if (!Win32InitOpenGL(&platformFuncs.glFunctions,
 	screenInfo.size.x, screenInfo.size.y)) {
-		FlushLogs(&logState);
+        LOG_ERROR("Win32 OpenGL init failed\n");
+		FlushLogs(logState);
 		return 1;
 	}
 	LOG_INFO("Initialized Win32 OpenGL\n");
@@ -965,7 +974,8 @@ int CALLBACK WinMain(
 	// Initialize audio
 	Win32Audio winAudio = {};
 	if (!Win32InitAudio(&winAudio, AUDIO_DEFAULT_BUFFER_SIZE_MILLISECONDS)) {
-		FlushLogs(&logState);
+        LOG_ERROR("Win32 audio init failed\n");
+		FlushLogs(logState);
 		return 1;
 	}
 	winAudio.latency = winAudio.sampleRate / monitorRefreshHz * 2;
@@ -979,6 +989,11 @@ int CALLBACK WinMain(
 		* gameAudio.channels * sizeof(float32);
 	gameAudio.buffer = (float32*)VirtualAlloc(0, (size_t)bufferSizeBytes,
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (!gameAudio.buffer) {
+        LOG_ERROR("Win32 audio memory allocation failed\n");
+        FlushLogs(logState);
+        return 1;
+    }
 	gameAudio.sampleDelta = 0; // TODO revise this
 	LOG_INFO("Initialized Win32 audio\n");
 
@@ -1002,7 +1017,7 @@ int CALLBACK WinMain(
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (!gameMemory.permanent.memory) {
 		LOG_ERROR("Win32 memory allocation failed\n");
-		FlushLogs(&logState);
+		FlushLogs(logState);
 		return 1;
 	}
 	gameMemory.transient.memory = ((uint8*)gameMemory.permanent.memory +
@@ -1071,7 +1086,7 @@ int CALLBACK WinMain(
 	Win32GameCode gameCode =
 		Win32LoadGameCode(gameCodeDLLPath, tempCodeDLLPath);
 
-	FlushLogs(&logState);
+	FlushLogs(logState);
 	running_ = true;
 	while (running_) {
 		// TODO this gets called twice very quickly in succession
@@ -1129,8 +1144,7 @@ int CALLBACK WinMain(
 			// TODO the get state function has a really bad performance bug
 			// which causes it to stall for a couple ms if a controller
 			// isn't connected
-			if (XInputGetState(controllerInd, &controllerState)
-			== ERROR_SUCCESS) {
+			if (XInputGetState(controllerInd, &controllerState) == ERROR_SUCCESS) {
 				newController->isConnected = true;
 
 				// TODO check controller_state.dwPacketNumber
@@ -1251,7 +1265,7 @@ int CALLBACK WinMain(
 			gameAudio.fillLength = winAudio.latency;
 			gameCode.gameUpdateAndRender(&thread, &platformFuncs,
 				newInput, screenInfo, elapsed,
-				&gameMemory, &gameAudio, &logState);
+				&gameMemory, &gameAudio, logState);
 			screenInfo.changed = false;
 		}
 		else {
@@ -1277,7 +1291,7 @@ int CALLBACK WinMain(
 			}
 		}
 
-		FlushLogs(&logState);
+		FlushLogs(logState);
 
 		// NOTE
 		// SwapBuffers seems to effectively stall for vsync target time
@@ -1296,7 +1310,7 @@ int CALLBACK WinMain(
 
 	Win32StopAudio(&winAudio);
 
-	FlushLogs(&logState);
+	FlushLogs(logState);
 
 	return 0;
 }
