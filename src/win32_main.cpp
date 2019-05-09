@@ -1178,9 +1178,9 @@ int CALLBACK WinMain(
 				newController->leftEnd.y = Win32ProcessXInputStickValue(
 					pad->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 				newController->rightEnd.x = Win32ProcessXInputStickValue(
-					pad->sThumbRX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+					pad->sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 				newController->rightEnd.y = Win32ProcessXInputStickValue(
-					pad->sThumbRY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+					pad->sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
 #if 0
 				XINPUT_VIBRATION vibration;
