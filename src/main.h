@@ -79,6 +79,7 @@ struct GameState
 
     GrabbedObjectInfo grabbedObject;
 
+    uint64 selectedItem;
     FixedArray<InventoryItem, INVENTORY_SIZE> inventoryItems;
     TextureGL jonItemWorld1;
     TextureGL jonItemIcon1;
@@ -132,6 +133,7 @@ struct GameState
     TextureGL rockTexture;
 
     TextureGL frame;
+    TextureGL pixelTexture;
 
     //TextureGL lutBase;
     TextureGL lut1;

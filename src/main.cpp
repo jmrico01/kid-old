@@ -499,6 +499,14 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		angle = -angle;
 	}
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+
+    if (input->mouseWheelDelta < 0 && gameState->selectedItem > 0) {
+        gameState->selectedItem -= 1;
+    }
+    if (input->mouseWheelDelta > 0
+    && gameState->selectedItem < gameState->inventoryItems.array.size) {
+        gameState->selectedItem += 1;
+    }
 }
 
 internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -564,17 +572,23 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
         float32 margin = 1.0f;
         float32 spacing = 0.2f;
         float32 iconScale = 1.0f;
-        Vec2 iconPos = Vec2 {
+        Vec2 iconOrigin = Vec2 {
             -screenSizeWorld.x / 2.0f + marginX + margin,
             screenSizeWorld.y / 2.0f - margin
         };
         Vec2 iconSize = Vec2 { iconScale, iconScale };
         Vec2 iconAnchor = Vec2 { 0.0f, 1.0f };
+
         for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
+            Vec2 iconPos = iconOrigin;
+            iconPos.x += (iconScale + spacing) * i;
             Mat4 transform = CalculateTransform(iconPos, iconSize, iconAnchor, Quat::one);
-            PushSprite(spriteDataGL, transform, 1.0f, false,
+            float32 alpha = 1.0f;
+            if (i == gameState->selectedItem) {
+                alpha = 0.4f;
+            }
+            PushSprite(spriteDataGL, transform, alpha, false,
                 gameState->inventoryItems[i].textureIcon->textureID);
-            iconPos.x += iconScale + spacing;
         }
     }
 
@@ -731,6 +745,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
         gameState->inventoryItems[2].textureIcon = &gameState->jonItemIcon3;
         gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
         gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
+
+        gameState->selectedItem = gameState->inventoryItems.array.size;
 
 		gameState->barrelCoords = { 1.0f, 0.0f };
 
@@ -991,14 +1007,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/frame.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->frame, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load frame\n");
-		}
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/frame.png",
+        GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->frame, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load frame\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/pixel.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->pixelTexture, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load pixel texture\n");
+        }
 
 		/*if (!LoadPNGOpenGL(thread,
 		"data/luts/lutbase.png",
