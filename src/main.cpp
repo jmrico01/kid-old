@@ -19,6 +19,7 @@
 #include "temp_data.h"
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
+#define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)
 #define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 6.0f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
@@ -196,7 +197,7 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
 
-internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInput* input)
+internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput* input)
 {
 	HashKey ANIM_IDLE;
 	ANIM_IDLE.WriteString("Idle");
@@ -332,12 +333,12 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->playerCoords + deltaCoords);
 	Vec2 deltaPos = playerPosNew - playerPos;
 
-	LineColliderIntersect intersects[LINE_COLLIDERS_MAX];
-	int numIntersects;
-	GetLineColliderIntersections(gameState->lineColliders, gameState->numLineColliders,
+    FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
+    intersects.Init();
+	GetLineColliderIntersections(gameState->lineColliders.array,
 		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
-		intersects, &numIntersects);
-	for (int i = 0; i < numIntersects; i++) {
+		&intersects.array);
+	for (uint64 i = 0; i < intersects.array.size; i++) {
 		if (gameState->currentPlatform == intersects[i].collider) {
 			continue;
 		}
@@ -410,25 +411,10 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		gameState->rock.angle = -gameState->rock.coords.x / radius;
 		gameState->rock.coords.y = radius;
 
-		/*float32 rockLauncherDeltaY = 0.0f;
-		Vec2 toRockLauncher = gameState->rockLauncher.coords - gameState->rock.coords;
-		float32 distX = AbsFloat32(toRockLauncher.x);
-		const float32 PLATFORM_RADIUS = 0.75f;
-		const float32 PLATFORM_RAMP_RADIUS = 1.75f;
-		const float32 PLATFORM_HEIGHT = 0.7f;
-		if (distX < PLATFORM_RADIUS) {
-			rockLauncherDeltaY = PLATFORM_HEIGHT;
-		}
-		else if (distX < PLATFORM_RAMP_RADIUS) {
-			rockLauncherDeltaY = Lerp(PLATFORM_HEIGHT, 0.0f,
-				(distX - PLATFORM_RADIUS) / (PLATFORM_RAMP_RADIUS - PLATFORM_RADIUS));;
-		}
-		gameState->rock.coords.y += rockLauncherDeltaY;*/
-
 		Vec2 floorPos, floorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
 		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
-		LineCollider* rockPlatform = &gameState->lineColliders[gameState->numLineColliders - 1];
+		LineCollider* rockPlatform = &gameState->lineColliders[gameState->lineColliders.array.size - 1];
 		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
 		float32 platformWidth = radius * 0.5f;
 		rockPlatform->line[0] = pos + radius * floorNormal
@@ -450,11 +436,6 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 			&gameState->rock.coords,
 			Vec2 { rockRadius * 1.2f, rockRadius * 1.7f },
 			Vec2 { 0.0f, rockRadius * 2.0f }
-		});
-		candidates.Append({
-			&gameState->rockLauncher.coords,
-			Vec2 { PLAYER_RADIUS * 3.0f, PLAYER_RADIUS * 4.0f },
-			Vec2 { 0.0f, 1.0f }
 		});
 		candidates.Append({
 			&gameState->barrelCoords,
@@ -518,9 +499,17 @@ internal void UpdateTown(GameState* gameState, float32 deltaTime, const GameInpu
 		angle = -angle;
 	}
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+
+    if (input->mouseWheelDelta < 0 && gameState->selectedItem > 0) {
+        gameState->selectedItem -= 1;
+    }
+    if (input->mouseWheelDelta > 0
+    && gameState->selectedItem < gameState->inventoryItems.array.size) {
+        gameState->selectedItem += 1;
+    }
 }
 
-internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
+internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 	Mat4 projection, ScreenInfo screenInfo)
 {
 	spriteDataGL->numSprites = 0;
@@ -539,21 +528,6 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
 		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot);
 		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockTexture.textureID);
-	}
-
-	{ // rock launcher
-		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rockLauncher.coords);
-		Vec2 size = ToVec2(gameState->rockLauncherTexture.size) / REF_PIXELS_PER_UNIT;
-		Vec2 floorPos, floorNormal;
-		gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
-			&floorPos, &floorNormal);
-		float32 angle = acosf(Dot(Vec2::unitY, floorNormal));
-		if (floorNormal.x > 0.0f) {
-			angle = -angle;
-		}
-		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
-		Mat4 transform = CalculateTransform(pos, size, Vec2 { 0.5f, 0.15f }, rot);
-		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockLauncherTexture.textureID);
 	}
 
 	{ // barrel
@@ -590,8 +564,34 @@ internal void DrawTown(GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	spriteDataGL->numSprites = 0;
 
-	const float32 ASPECT_RATIO = (float32)screenInfo.size.x / screenInfo.size.y;
-	Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * ASPECT_RATIO, CAMERA_HEIGHT_UNITS };
+    const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
+    const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
+    const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
+
+    { // inventory icons
+        float32 margin = 1.0f;
+        float32 spacing = 0.2f;
+        float32 iconScale = 1.0f;
+        Vec2 iconOrigin = Vec2 {
+            -screenSizeWorld.x / 2.0f + marginX + margin,
+            screenSizeWorld.y / 2.0f - margin
+        };
+        Vec2 iconSize = Vec2 { iconScale, iconScale };
+        Vec2 iconAnchor = Vec2 { 0.0f, 1.0f };
+
+        for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
+            Vec2 iconPos = iconOrigin;
+            iconPos.x += (iconScale + spacing) * i;
+            Mat4 transform = CalculateTransform(iconPos, iconSize, iconAnchor, Quat::one);
+            float32 alpha = 1.0f;
+            if (i == gameState->selectedItem) {
+                alpha = 0.4f;
+            }
+            PushSprite(spriteDataGL, transform, alpha, false,
+                gameState->inventoryItems[i].textureIcon->textureID);
+        }
+    }
+
 	gameState->paper.Draw(spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
@@ -632,6 +632,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		#undef FUNC
 
 		memory->shouldInitGlobalVariables = false;
+        LOG_INFO("Initialized global variables\n");
 	}
 	if (!memory->isInitialized) {
 		// Very explicit depth testing setup (DEFAULT VALUES)
@@ -651,10 +652,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(2.0f);
 
-		InitAudioState(thread, &gameState->audioState, audio,
+		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+			platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to init audio state\n");
+        }
 
 		// Game data
 		gameState->playerCoords = Vec2 { 0.0f, 0.0f };
@@ -666,34 +669,117 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->grabbedObject.coordsPtr = nullptr;
 
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_world_1.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemWorld1, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item world 1\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_icon_1.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemIcon1, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item icon 1\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_world_2.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemWorld2, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item world 2\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_icon_2.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemIcon2, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item icon 2\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_world_3.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemWorld3, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item world 2\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_icon_3.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemIcon3, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item icon 2\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_world_4.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemWorld4, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item world 2\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/jon_item_icon_4.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->jonItemIcon4, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load jon item icon 2\n");
+        }
+
+        gameState->inventoryItems.Init();
+        gameState->inventoryItems.array.size = 4;
+
+        gameState->inventoryItems[0].textureWorld = &gameState->jonItemWorld1;
+        gameState->inventoryItems[0].textureIcon = &gameState->jonItemIcon1;
+        gameState->inventoryItems[1].textureWorld = &gameState->jonItemWorld2;
+        gameState->inventoryItems[1].textureIcon = &gameState->jonItemIcon2;
+        gameState->inventoryItems[2].textureWorld = &gameState->jonItemWorld3;
+        gameState->inventoryItems[2].textureIcon = &gameState->jonItemIcon3;
+        gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
+        gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
+
+        gameState->selectedItem = gameState->inventoryItems.array.size;
+
 		gameState->barrelCoords = { 1.0f, 0.0f };
 
 		if (!LoadFloorVertices(thread, &gameState->floor,
 			"data/levels/level0.kml",
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load level 0");
+			DEBUG_PANIC("Failed to load level 0\n");
 		}
 		gameState->levelLoaded = 0;
 
-		gameState->numLineColliders = 0;
+        gameState->lineColliders.Init();
+        gameState->lineColliders.array.size = 0;
 		LineCollider* lineCollider;
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+        lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
 		lineCollider->line.Append(Vec2 { 11.24f, 46.73f });
 		lineCollider->line.Append(Vec2 { 11.25f, 48.03f });
 		lineCollider->line.Append(Vec2 { 12.68f, 48.07f });
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+        lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 8.54f, 47.79f });
 		lineCollider->line.Append(Vec2 { 8.98f, 48.09f });
 		lineCollider->line.Append(Vec2 { 9.58f, 48.09f });
 		lineCollider->line.Append(Vec2 { 9.73f, 47.70f });
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+        lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 6.33f, 50.50f });
 		lineCollider->line.Append(Vec2 { 6.79f, 50.51f });
@@ -702,7 +788,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 7.94f, 49.96f });
 		lineCollider->line.Append(Vec2 { 8.33f, 49.69f });
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+        lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { -1.89f, 52.59f });
 		lineCollider->line.Append(Vec2 { -1.39f, 52.64f });
@@ -714,79 +801,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 {  4.18f, 51.59f });
 		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });
 
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 27.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 27.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 30.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 30.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 33.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 33.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 36.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 36.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 39.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 39.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 42.44f, 28.73f });
-		lineCollider->line.Append(Vec2 { 42.44f, 32.64f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 17.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 17.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 20.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 20.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 23.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 23.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 26.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 26.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 29.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 29.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 32.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 32.41f });
-
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 38.40f, 35.41f });
-		lineCollider->line.Append(Vec2 { 41.55f, 35.41f });
-
 		// reserved for rock
-		lineCollider = &gameState->lineColliders[gameState->numLineColliders++];
+		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+        lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
 
-		DEBUG_ASSERT(gameState->numLineColliders <= LINE_COLLIDERS_MAX);
-		for (int i = 0; i < gameState->numLineColliders; i++) {
+		DEBUG_ASSERT(gameState->lineColliders.array.size <= LINE_COLLIDERS_MAX);
+		for (uint64 i = 0; i < gameState->lineColliders.array.size; i++) {
 			DEBUG_ASSERT(gameState->lineColliders[i].line.array.size <= LINE_COLLIDER_MAX_VERTICES);
 		}
 
@@ -919,7 +942,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->background.texture, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load background");
+			DEBUG_PANIC("Failed to load background\n");
 		}
 
 		gameState->rock.coords = { 5.0f, 0.0f };
@@ -930,17 +953,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->rockTexture, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load rock");
-		}
-
-		gameState->rockLauncher.coords = { 10.0f, 0.0f };
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/rocklauncher.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->rockLauncherTexture, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load rock launcher");
+			DEBUG_PANIC("Failed to load rock\n");
 		}
 
 		if (!LoadAnimatedSprite(thread,
@@ -948,7 +961,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->spriteKid, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load kid animation sprite");
+			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 
 		if (!LoadAnimatedSprite(thread,
@@ -956,7 +969,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->spriteBarrel, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load barrel animation sprite");
+			DEBUG_PANIC("Failed to load barrel animation sprite\n");
 		}
 
 		/*bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
@@ -965,7 +978,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 		if (!loadCrystalAnim) {
-			DEBUG_PANIC("Failed to load crystal animation sprite");
+			DEBUG_PANIC("Failed to load crystal animation sprite\n");
 		}*/
 
 		gameState->kid.animatedSprite = &gameState->spriteKid;
@@ -985,7 +998,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->spritePaper, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load paper animation sprite");
+			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
 
 		gameState->paper.animatedSprite = &gameState->spritePaper;
@@ -994,14 +1007,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/frame.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->frame, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load frame");
-		}
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/frame.png",
+        GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->frame, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load frame\n");
+        }
+        if (!LoadPNGOpenGL(thread,
+        "data/sprites/pixel.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->pixelTexture, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load pixel texture\n");
+        }
 
 		/*if (!LoadPNGOpenGL(thread,
 		"data/luts/lutbase.png",
@@ -1009,17 +1030,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->lutBase, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load base LUT");
+			DEBUG_PANIC("Failed to load base LUT\n");
 		}*/
 
-		if (!LoadPNGOpenGL(thread,
-		"data/luts/kodak5205.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->lut1, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load base LUT");
-		}
+        if (!LoadPNGOpenGL(thread,
+        "data/luts/kodak5205.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->lut1, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load base LUT\n");
+        }
 
 		memory->isInitialized = true;
 	}
@@ -1058,7 +1079,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			if (!LoadFloorVertices(thread, &gameState->floor, levelFilePath,
 				platformFuncs->DEBUGPlatformReadFile,
 				platformFuncs->DEBUGPlatformFreeFileMemory)) {
-				DEBUG_PANIC("Failed to load level %d", i);
+				DEBUG_PANIC("Failed to load level %d\n", i);
 			}
 			gameState->levelLoaded = i;
 			gameState->playerCoords = { 0.0f, 0.0f };
@@ -1066,12 +1087,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			snprintf(levelFilePath, 32, "data/levels/level%d-bak.kml", i);
 			if (!SaveFloorVertices(thread, &gameState->floor, levelFilePath,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
-				DEBUG_PANIC("Failed to save backup level data for %d", i);
+				DEBUG_PANIC("Failed to save backup level data for %d\n", i);
 			}
 		}
 	}
 
-	UpdateTown(gameState, deltaTime, input);
+	UpdateWorld(gameState, deltaTime, input);
 
 	// ---------------------------- Begin Rendering ---------------------------
 	glEnable(GL_DEPTH_TEST);
@@ -1091,7 +1112,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
 
-	DrawTown(gameState, spriteDataGL, projection, screenInfo);
+	DrawWorld(gameState, spriteDataGL, projection, screenInfo);
 
 	// ------------------------ Post processing passes ------------------------
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1165,6 +1186,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
 	const Vec2Int MARGIN = { 30, 45 };
 
+#if 0
 	{ // solid floor
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
@@ -1180,6 +1202,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 		DrawLine(gameState->lineGL, projection, view, lineData, floorColor);
 	}
+#endif
 
 	if (gameState->debugView) {
 		FontFace& textFont = gameState->fontFaceSmall;
@@ -1273,7 +1296,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		{ // line colliders
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-			for (int i = 0; i < gameState->numLineColliders; i++) {
+			for (uint64 i = 0; i < gameState->lineColliders.array.size; i++) {
 				const LineCollider& lineCollider = gameState->lineColliders[i];
 				lineData->count = (int)lineCollider.line.array.size;
 				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
@@ -1307,17 +1330,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
-		}
-
-		{ // rock launcher dir
-			Vec4 rockLauncherDirColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
-			Vec2 floorPos, floorNormal;
-			gameState->floor.GetInfoFromCoordX(gameState->rockLauncher.coords.x,
-				&floorPos, &floorNormal);
-			lineData->count = 2;
-			lineData->pos[0] = ToVec3(floorPos, 0.0f);
-			lineData->pos[1] = ToVec3(floorPos + floorNormal * 1000.0f, 0.0f);
-			DrawLine(gameState->lineGL, projection, view, lineData, rockLauncherDirColor);
 		}
 
 		{ // player

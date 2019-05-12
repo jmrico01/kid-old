@@ -111,7 +111,8 @@ void FixedArray<T, S>::Init()
 template <typename T, uint64 S>
 void FixedArray<T, S>::Append(const T& element)
 {
-	DEBUG_ASSERT(array.size < S);
+	DEBUG_ASSERTF(array.size < S, "fixedArray: %p, array.data %p, array.size %llu, S %llu\n",
+        fixedArray, array.data, array.size, S);
 	array.Append(element);
 }
 
