@@ -190,6 +190,12 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 	return true;
 }
 
+bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword)
+{
+    return StringCompare(keyword.array.data, refKeyword,
+        MaxInt((int)keyword.array.size, StringLength(refKeyword)));
+}
+
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
 int ReadNextKeywordValue(const Array<char>& string,
 	FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value)

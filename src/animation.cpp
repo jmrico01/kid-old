@@ -4,8 +4,6 @@
 #include "km_string.h"
 #include "main.h"
 
-#define KEYWORD_MAX_LENGTH 32
-#define VALUE_MAX_LENGTH 256
 // TODO plz standardize file paths
 #define PATH_MAX_LENGTH 128
 
@@ -90,12 +88,6 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
     Mat4 transform = CalculateTransform(pos, size, animAnchor, rot);
 	PushSprite(spriteDataGL, transform, alpha, flipHorizontal,
 		activeAnim->frameTextures[activeFrame].textureID);
-}
-
-bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword)
-{
-    return StringCompare(keyword.array.data, refKeyword,
-        MaxInt((int)keyword.array.size, StringLength(refKeyword)));
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
@@ -357,7 +349,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else {
 			LOG_ERROR("Animation file with unknown keyword: %.*s (%s)\n",
-                keyword.array.size, keyword, filePath);
+                keyword.array.size, &keyword[0], filePath);
 			return false;
 		}
 	}

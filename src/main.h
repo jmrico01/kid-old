@@ -19,6 +19,8 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
+#define LEVEL_SPRITES_MAX 16
+
 #define LINE_COLLIDERS_MAX 16
 
 #define INVENTORY_SIZE 8
@@ -92,9 +94,10 @@ struct GameState
 
 	Vec2 barrelCoords;
 
+    // Level data
+    uint64 levelLoaded;
     FloorCollider floor;
-
-    int levelLoaded;
+    FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
 
     FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
 

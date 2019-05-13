@@ -188,6 +188,80 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	return true;
 }
 
+internal bool32 LoadLevelSprites(const ThreadContext* thread,
+	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>* sprites, const char* metadataFilePath,
+	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
+{
+	DEBUGReadFileResult metadataFile = DEBUGPlatformReadFile(thread, metadataFilePath);
+	if (!metadataFile.data) {
+		LOG_ERROR("Failed to load sprite metadata file %s\n", metadataFilePath);
+		return false;
+	}
+
+	sprites->Init();
+	sprites->array.size = 0;
+
+    Array<char> fileString;
+    fileString.size = metadataFile.size;
+    fileString.data = (char*)metadataFile.data;
+	while (true) {
+        FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+        keyword.Init();
+        FixedArray<char, VALUE_MAX_LENGTH> value;
+        value.Init();
+        int read = ReadNextKeywordValue(fileString, &keyword, &value);
+        if (read < 0) {
+            LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", metadataFilePath);
+            return false;
+        }
+        else if (read == 0) {
+            break;
+        }
+        fileString.size -= read;
+        fileString.data += read;
+
+		if (KeywordCompare(keyword, "name")) {
+			// TODO Load png with the same name, append to sprites
+		}
+		else if (KeywordCompare(keyword, "origin")) {
+			// TODO Write to sprite position info
+		}
+		else {
+			LOG_ERROR("Sprite metadata file unsupported keyword %.*s (%s)\n",
+				keyword.array.size, &keyword[0], metadataFilePath);
+			return false;
+		}
+	}
+}
+
+internal bool32 LoadLevel(const ThreadContext* thread,
+	GameState* gameState, uint64 level, MemoryBlock transient,
+	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
+	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+{
+	char levelFilePath[64];
+	snprintf(levelFilePath, 64, "data/levels/level%llu/collision.kml", level);
+	if (!LoadFloorVertices(thread, &gameState->floor, levelFilePath,
+		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+		LOG_ERROR("Failed to load floor vertices for level %llu\n", level);
+		return false;
+	}
+
+	snprintf(levelFilePath, 64, "data/levels/level%llu/collision-bak.kml", level);
+	if (!SaveFloorVertices(thread, &gameState->floor, levelFilePath,
+		transient, DEBUGPlatformWriteFile)) {
+		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
+		return false;
+	}
+
+	gameState->levelLoaded = level;
+	gameState->playerCoords = { 0.0f, 0.0f };
+
+	return true;
+}
+
 internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object)
 {
 	Vec2 toCoords = playerCoords - *object.coordsPtr;
@@ -333,8 +407,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerCoords + deltaCoords);
 	Vec2 deltaPos = playerPosNew - playerPos;
 
-    FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
-    intersects.Init();
+	FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
+	intersects.Init();
 	GetLineColliderIntersections(gameState->lineColliders.array,
 		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
 		&intersects.array);
@@ -500,13 +574,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 
-    if (input->mouseWheelDelta < 0 && gameState->selectedItem > 0) {
-        gameState->selectedItem -= 1;
-    }
-    if (input->mouseWheelDelta > 0
-    && gameState->selectedItem < gameState->inventoryItems.array.size) {
-        gameState->selectedItem += 1;
-    }
+	if (input->mouseWheelDelta < 0 && gameState->selectedItem > 0) {
+		gameState->selectedItem -= 1;
+	}
+	if (input->mouseWheelDelta > 0
+	&& gameState->selectedItem < gameState->inventoryItems.array.size) {
+		gameState->selectedItem += 1;
+	}
 }
 
 internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -564,33 +638,33 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	spriteDataGL->numSprites = 0;
 
-    const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
-    const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
-    const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
+	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
+	const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
+	const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
 
-    { // inventory icons
-        float32 margin = 1.0f;
-        float32 spacing = 0.2f;
-        float32 iconScale = 1.0f;
-        Vec2 iconOrigin = Vec2 {
-            -screenSizeWorld.x / 2.0f + marginX + margin,
-            screenSizeWorld.y / 2.0f - margin
-        };
-        Vec2 iconSize = Vec2 { iconScale, iconScale };
-        Vec2 iconAnchor = Vec2 { 0.0f, 1.0f };
+	{ // inventory icons
+		float32 margin = 1.0f;
+		float32 spacing = 0.2f;
+		float32 iconScale = 1.0f;
+		Vec2 iconOrigin = Vec2 {
+			-screenSizeWorld.x / 2.0f + marginX + margin,
+			screenSizeWorld.y / 2.0f - margin
+		};
+		Vec2 iconSize = Vec2 { iconScale, iconScale };
+		Vec2 iconAnchor = Vec2 { 0.0f, 1.0f };
 
-        for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
-            Vec2 iconPos = iconOrigin;
-            iconPos.x += (iconScale + spacing) * i;
-            Mat4 transform = CalculateTransform(iconPos, iconSize, iconAnchor, Quat::one);
-            float32 alpha = 1.0f;
-            if (i == gameState->selectedItem) {
-                alpha = 0.4f;
-            }
-            PushSprite(spriteDataGL, transform, alpha, false,
-                gameState->inventoryItems[i].textureIcon->textureID);
-        }
-    }
+		for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
+			Vec2 iconPos = iconOrigin;
+			iconPos.x += (iconScale + spacing) * i;
+			Mat4 transform = CalculateTransform(iconPos, iconSize, iconAnchor, Quat::one);
+			float32 alpha = 1.0f;
+			if (i == gameState->selectedItem) {
+				alpha = 0.4f;
+			}
+			PushSprite(spriteDataGL, transform, alpha, false,
+				gameState->inventoryItems[i].textureIcon->textureID);
+		}
+	}
 
 	gameState->paper.Draw(spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
@@ -632,7 +706,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		#undef FUNC
 
 		memory->shouldInitGlobalVariables = false;
-        LOG_INFO("Initialized global variables\n");
+		LOG_INFO("Initialized global variables\n");
 	}
 	if (!memory->isInitialized) {
 		// Very explicit depth testing setup (DEFAULT VALUES)
@@ -656,8 +730,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			&memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to init audio state\n");
-        }
+			DEBUG_PANIC("Failed to init audio state\n");
+		}
 
 		// Game data
 		gameState->playerCoords = Vec2 { 0.0f, 0.0f };
@@ -669,101 +743,100 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->grabbedObject.coordsPtr = nullptr;
 
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_world_1.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemWorld1, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item world 1\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_icon_1.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemIcon1, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item icon 1\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_world_2.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemWorld2, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item world 2\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_icon_2.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemIcon2, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item icon 2\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_world_3.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemWorld3, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item world 2\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_icon_3.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemIcon3, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item icon 2\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_world_4.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemWorld4, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item world 2\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/jon_item_icon_4.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->jonItemIcon4, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load jon item icon 2\n");
-        }
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_world_1.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemWorld1, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item world 1\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_icon_1.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemIcon1, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item icon 1\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_world_2.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemWorld2, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item world 2\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_icon_2.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemIcon2, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item icon 2\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_world_3.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemWorld3, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item world 2\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_icon_3.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemIcon3, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item icon 2\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_world_4.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemWorld4, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item world 2\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/jon_item_icon_4.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->jonItemIcon4, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load jon item icon 2\n");
+		}
 
-        gameState->inventoryItems.Init();
-        gameState->inventoryItems.array.size = 4;
+		gameState->inventoryItems.Init();
+		gameState->inventoryItems.array.size = 4;
 
-        gameState->inventoryItems[0].textureWorld = &gameState->jonItemWorld1;
-        gameState->inventoryItems[0].textureIcon = &gameState->jonItemIcon1;
-        gameState->inventoryItems[1].textureWorld = &gameState->jonItemWorld2;
-        gameState->inventoryItems[1].textureIcon = &gameState->jonItemIcon2;
-        gameState->inventoryItems[2].textureWorld = &gameState->jonItemWorld3;
-        gameState->inventoryItems[2].textureIcon = &gameState->jonItemIcon3;
-        gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
-        gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
+		gameState->inventoryItems[0].textureWorld = &gameState->jonItemWorld1;
+		gameState->inventoryItems[0].textureIcon = &gameState->jonItemIcon1;
+		gameState->inventoryItems[1].textureWorld = &gameState->jonItemWorld2;
+		gameState->inventoryItems[1].textureIcon = &gameState->jonItemIcon2;
+		gameState->inventoryItems[2].textureWorld = &gameState->jonItemWorld3;
+		gameState->inventoryItems[2].textureIcon = &gameState->jonItemIcon3;
+		gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
+		gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
 
-        gameState->selectedItem = gameState->inventoryItems.array.size;
+		gameState->selectedItem = gameState->inventoryItems.array.size;
 
 		gameState->barrelCoords = { 1.0f, 0.0f };
 
-		if (!LoadFloorVertices(thread, &gameState->floor,
-			"data/levels/level0.kml",
+		if (!LoadLevel(thread, gameState, 0, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			platformFuncs->DEBUGPlatformFreeFileMemory,
+			platformFuncs->DEBUGPlatformWriteFile)) {
 			DEBUG_PANIC("Failed to load level 0\n");
 		}
-		gameState->levelLoaded = 0;
 
-        gameState->lineColliders.Init();
-        gameState->lineColliders.array.size = 0;
+		gameState->lineColliders.Init();
+		gameState->lineColliders.array.size = 0;
 		LineCollider* lineCollider;
 
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-        lineCollider->line.array.size = 0;
+		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
 		lineCollider->line.Append(Vec2 { 11.24f, 46.73f });
@@ -771,7 +844,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 12.68f, 48.07f });
 
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-        lineCollider->line.array.size = 0;
+		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 8.54f, 47.79f });
 		lineCollider->line.Append(Vec2 { 8.98f, 48.09f });
@@ -779,7 +852,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 9.73f, 47.70f });
 
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-        lineCollider->line.array.size = 0;
+		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 6.33f, 50.50f });
 		lineCollider->line.Append(Vec2 { 6.79f, 50.51f });
@@ -789,7 +862,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 { 8.33f, 49.69f });
 
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-        lineCollider->line.array.size = 0;
+		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { -1.89f, 52.59f });
 		lineCollider->line.Append(Vec2 { -1.39f, 52.64f });
@@ -803,7 +876,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		// reserved for rock
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-        lineCollider->line.array.size = 0;
+		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
 		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
@@ -1007,22 +1080,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/frame.png",
-        GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->frame, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load frame\n");
-        }
-        if (!LoadPNGOpenGL(thread,
-        "data/sprites/pixel.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->pixelTexture, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load pixel texture\n");
-        }
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/frame.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->frame, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load frame\n");
+		}
+		if (!LoadPNGOpenGL(thread,
+		"data/sprites/pixel.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->pixelTexture, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load pixel texture\n");
+		}
 
 		/*if (!LoadPNGOpenGL(thread,
 		"data/luts/lutbase.png",
@@ -1033,14 +1106,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}*/
 
-        if (!LoadPNGOpenGL(thread,
-        "data/luts/kodak5205.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->lut1, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load base LUT\n");
-        }
+		if (!LoadPNGOpenGL(thread,
+		"data/luts/kodak5205.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->lut1, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load base LUT\n");
+		}
 
 		memory->isInitialized = true;
 	}
@@ -1072,22 +1145,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
-	for (int i = 0; i < 10; i++) {
+	for (uint64 i = 0; i < 10; i++) {
 		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
-			char levelFilePath[32];
-			snprintf(levelFilePath, 32, "data/levels/level%d.kml", i);
-			if (!LoadFloorVertices(thread, &gameState->floor, levelFilePath,
+			if (!LoadLevel(thread, gameState, i, memory->transient,
 				platformFuncs->DEBUGPlatformReadFile,
-				platformFuncs->DEBUGPlatformFreeFileMemory)) {
-				DEBUG_PANIC("Failed to load level %d\n", i);
-			}
-			gameState->levelLoaded = i;
-			gameState->playerCoords = { 0.0f, 0.0f };
-
-			snprintf(levelFilePath, 32, "data/levels/level%d-bak.kml", i);
-			if (!SaveFloorVertices(thread, &gameState->floor, levelFilePath,
-				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
-				DEBUG_PANIC("Failed to save backup level data for %d\n", i);
+				platformFuncs->DEBUGPlatformFreeFileMemory,
+				platformFuncs->DEBUGPlatformWriteFile)) {
+				DEBUG_PANIC("Failed to load level %llu\n", i);
 			}
 		}
 	}
@@ -1442,7 +1506,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char fileName[32];
-			snprintf(fileName, 32, "data/levels/level%d.kml", gameState->levelLoaded);
+			snprintf(fileName, 32, "data/levels/level%llu/collision.kml", gameState->levelLoaded);
 			if (!SaveFloorVertices(thread, &gameState->floor, fileName,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
 				LOG_ERROR("Level save failed!\n");

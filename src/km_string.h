@@ -3,6 +3,9 @@
 #include "km_lib.h"
 #include "km_math.h"
 
+#define KEYWORD_MAX_LENGTH 32
+#define VALUE_MAX_LENGTH 256
+
 int StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);
 void CatStrings(
@@ -23,6 +26,7 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
     int maxElements, T* array, int* numElements);
 
 // TODO this fits more into a km-file-format module. not really a general string lib function
+bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword);
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>
 bool32 ReadNextKeywordValue(const Array<char>& string,
     FixedArray<char, KEYWORD_SIZE>* keyword, FixedArray<char, VALUE_SIZE>* value);
