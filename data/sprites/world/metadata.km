@@ -1,0 +1,36 @@
+name bg_ground
+offset 433 218
+
+name bg_house1
+offset 352 612
+
+name bg_house2
+offset 388 425
+
+name bg_flower1
+offset 388 310
+
+name bg_house3
+offset 1096 147
+
+name bg_sun
+offset 904 6
+
+name bg_cloud1
+offset 235 586
+
+name bg_cloud2
+offset 220 390
+
+name bg_cloud3
+offset 255 324
+
+name bg_badclouds
+offset 476 907
+
+name bg_mountain
+offset 975 858
+
+name bg_dude
+offset 1231 167
+
