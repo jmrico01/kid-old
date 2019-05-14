@@ -1167,14 +1167,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
 
-		/*if (!LoadPNGOpenGL(thread,
+		if (!LoadPNGOpenGL(thread,
 		"data/luts/lutbase.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 		gameState->lutBase, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
-		}*/
+		}
 
 		if (!LoadPNGOpenGL(thread,
 		"data/luts/kodak5205.png",
@@ -1261,7 +1261,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	PostProcessLUT(gameState->framebuffersColorDepth[0],
 		gameState->framebuffersColor[0],
 		gameState->screenQuadVertexArray,
-		gameState->lutShader, gameState->lut1);
+		gameState->lutShader, gameState->lutBase);
 
 	// Render to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
