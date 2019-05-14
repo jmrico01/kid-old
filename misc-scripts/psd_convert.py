@@ -7,7 +7,7 @@ def ConvertPSD(filePath, outputDir):
 	psd = psd_tools.PSDImage.open(filePath)
 	print("Converting PSD file {} ({} x {})".format(filePath, psd.width, psd.height))
 	print("")
-	metadata = ""
+	metadata = "size {} {}\n".format(psd.width, psd.height)
 
 	print("Processing layers...")
 	for layer in psd:
@@ -21,13 +21,14 @@ def ConvertPSD(filePath, outputDir):
 		print("Layer {}, offset {}, size {}".format(layerName, layerOffset, layerSize))
 		print("{}".format(layerImagePath))
 
-		metadata += "name " + layerName + "\n"
-		metadata += "offset " + str(layerOffset[0]) + " " + str(layerOffset[1]) + "\n"
 		metadata += "\n"
+		metadata += "name {}\n".format(layerName)
+		offsetY = psd.height - layerSize[1] - layerOffset[1]
+		metadata += "offset {} {}\n".format(layerOffset[0], offsetY)
 	print("")
 
-	metadataFilePath = os.path.join(outputDir, "metadata.km")
-	print("Writing metadata to {}".format(metadataFilePath))
+	metadataFilePath = os.path.join(outputDir, "sprites.kml")
+	print("Writing sprite metadata to {}".format(metadataFilePath))
 	print("")
 	with open(metadataFilePath, "w") as metadataFile:
 		metadataFile.write(metadata)

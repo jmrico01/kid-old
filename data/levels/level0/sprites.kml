@@ -1,36 +1,37 @@
+size 1920 1080
+
 name bg_ground
-offset 433 218
+offset 433 188
 
 name bg_house1
-offset 352 612
+offset 352 359
 
 name bg_house2
-offset 388 425
+offset 388 540
 
 name bg_flower1
-offset 388 310
+offset 388 694
 
 name bg_house3
-offset 1096 147
+offset 1096 818
 
 name bg_sun
-offset 904 6
+offset 904 896
 
 name bg_cloud1
-offset 235 586
+offset 235 318
 
 name bg_cloud2
-offset 220 390
+offset 220 540
 
 name bg_cloud3
-offset 255 324
+offset 255 655
 
 name bg_badclouds
-offset 476 907
+offset 476 22
 
 name bg_mountain
-offset 975 858
+offset 975 3
 
 name bg_dude
-offset 1231 167
-
+offset 1231 812

@@ -3,6 +3,9 @@
 #include "km_lib.h"
 #include "km_math.h"
 
+// TODO plz standardize file paths
+#define PATH_MAX_LENGTH 128
+
 #define KEYWORD_MAX_LENGTH 32
 #define VALUE_MAX_LENGTH 256
 

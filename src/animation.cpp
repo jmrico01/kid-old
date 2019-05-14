@@ -4,9 +4,6 @@
 #include "km_string.h"
 #include "main.h"
 
-// TODO plz standardize file paths
-#define PATH_MAX_LENGTH 128
-
 const char KEYWORD_ANIM             [KEYWORD_MAX_LENGTH] = "anim";
 const char KEYWORD_DIR              [KEYWORD_MAX_LENGTH] = "dir";
 const char KEYWORD_FPS              [KEYWORD_MAX_LENGTH] = "fps";
