@@ -67,7 +67,7 @@ struct GameState
 	AudioState audioState;
 
 	Vec2 cameraPos;
-	Quat cameraRot;
+	Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
 	Vec2 cameraCoords;
 	float32 prevFloorCoordY;
     Vec2 playerCoords;

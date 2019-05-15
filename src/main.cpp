@@ -533,9 +533,6 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->barrel.Update(deltaTime, barrelNextAnimations.array);
 	}
 
-	{ // rock launcher
-	}
-
 	{ // rock
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		float32 radius = size.y / 2.0f * 0.8f;
@@ -631,12 +628,12 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 
-	if (input->mouseWheelDelta < 0 && gameState->selectedItem > 0) {
-		gameState->selectedItem -= 1;
-	}
-	if (input->mouseWheelDelta > 0
-	&& gameState->selectedItem < gameState->inventoryItems.array.size) {
+	if (input->mouseWheelDelta < 0
+    && gameState->selectedItem < gameState->inventoryItems.array.size) {
 		gameState->selectedItem += 1;
+	}
+	if (input->mouseWheelDelta > 0 && gameState->selectedItem > 0) {
+		gameState->selectedItem -= 1;
 	}
 }
 
@@ -688,12 +685,26 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 			1.0f, false);
 	}
 
-	{ // kid
+	{ // kid and item
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 		Vec2 anchorUnused = Vec2::zero;
 		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		gameState->kid.Draw(spriteDataGL, pos, size, anchorUnused, gameState->cameraRot,
 			1.0f, !gameState->facingRight);
+
+        uint64 selectedItem = gameState->selectedItem;
+        if (selectedItem != gameState->inventoryItems.array.size) {
+            Vec3 offset = ToVec3(gameState->inventoryItems[selectedItem].playerOffset, 0.0f);
+            offset = gameState->cameraRot * offset;
+            Vec2 itemPos = pos + ToVec2(offset);
+            Vec2 itemAnchor = gameState->inventoryItems[selectedItem].anchor;
+            Vec2 itemSize = ToVec2(gameState->inventoryItems[selectedItem].textureWorld->size)
+                / REF_PIXELS_PER_UNIT;
+            Mat4 transform = CalculateTransform(itemPos, itemSize, itemAnchor,
+                gameState->cameraRot);
+            PushSprite(spriteDataGL, transform, 1.0f, false,
+                gameState->inventoryItems[selectedItem].textureWorld->textureID);
+        }
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
@@ -880,6 +891,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		gameState->inventoryItems.Init();
 		gameState->inventoryItems.array.size = 4;
+
+        for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
+            gameState->inventoryItems[i].playerOffset = Vec2 { 0.0f, 4.2f };
+            gameState->inventoryItems[i].anchor = Vec2::one / 2.0f;
+        }
 
 		gameState->inventoryItems[0].textureWorld = &gameState->jonItemWorld1;
 		gameState->inventoryItems[0].textureIcon = &gameState->jonItemIcon1;
