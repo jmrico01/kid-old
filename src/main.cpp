@@ -20,7 +20,7 @@
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)
-#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 6.0f)
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 4.0f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
@@ -179,7 +179,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 		DEBUG_ASSERT(stringSize < stringCapacity);
 	}
 
-	if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string)) {
+	if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string, true)) {
 		LOG_ERROR("Failed to write vertices to file\n");
 		return false;
 	}
@@ -264,7 +264,7 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 				return false;
 			}
 			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordinates in sprite offset %.*s (%s)\n",
+				LOG_ERROR("Not enough coordilnates in sprite offset %.*s (%s)\n",
 					value.array.size, &value[0], metadataFilePath);
 				return false;
 			}
@@ -273,7 +273,6 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 			sprites->array.data[sprites->array.size - 1].pos = ToVec2(pos) / REF_PIXELS_PER_UNIT;
 			sprites->array.data[sprites->array.size - 1].anchor = Vec2::zero;
 			sprites->array.data[sprites->array.size - 1].scale = 1.0f;
-			sprites->array.data[sprites->array.size - 1].scale = 3.0f; // TODO temp
 		}
 		else {
 			LOG_ERROR("Sprite metadata file unsupported keyword %.*s (%s)\n",
@@ -642,14 +641,6 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 {
 	spriteDataGL->numSprites = 0;
 
-	{ // background
-		Vec2 size = gameState->background.scale
-			* ToVec2(gameState->background.texture.size) / REF_PIXELS_PER_UNIT;
-		Mat4 transform = CalculateTransform(gameState->background.pos, size,
-			gameState->background.anchor, Quat::one);
-		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->background.texture.textureID);
-	}
-
 	{ // level sprites
 		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
 			Vec2 pos = gameState->sprites[i].scale * gameState->sprites[i].pos;
@@ -906,9 +897,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
 		gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
 
+        gameState->inventoryItems.array.size = 0;
+
 		gameState->selectedItem = gameState->inventoryItems.array.size;
 
-		gameState->barrelCoords = { 1.0f, 0.0f };
+		gameState->barrelCoords = { 100.0f, 0.0f };
 
 		if (!LoadLevel(thread, gameState, 0, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -1091,18 +1084,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			"shaders/screen.vert", "shaders/lut.frag",
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
-
-		gameState->background.pos = { 0.0f, -5.5f };
-		gameState->background.anchor = { 0.5f, 0.5f };
-		gameState->background.scale = 1.0f;
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/pixel.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->background.texture, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load background\n");
-		}
 
 		gameState->rock.coords = { 5.0f, 0.0f };
 		gameState->rock.angle = 0.0f;

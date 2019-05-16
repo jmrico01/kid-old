@@ -12,14 +12,18 @@ def ConvertPSD(filePath, outputDir):
 	print("Processing layers...")
 	for layer in psd:
 		layerName = layer.name
+		print("Layer: {}".format(layerName))
+		if not layer.visible:
+			print("Skipping hidden layer")
+			continue
 		layerOffset = layer.offset
 		layerSize = layer.size
 		layerImagePath = os.path.join(outputDir, layerName + ".png")
 		image = layer.compose()
 		assert layerSize == image.size
 		image.save(layerImagePath)
-		print("Layer {}, offset {}, size {}".format(layerName, layerOffset, layerSize))
-		print("{}".format(layerImagePath))
+		print("    offset {}, size {}".format(layerOffset, layerSize))
+		print("    {}".format(layerImagePath))
 
 		metadata += "\n"
 		metadata += "name {}\n".format(layerName)

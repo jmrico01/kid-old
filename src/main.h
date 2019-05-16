@@ -130,8 +130,6 @@ struct GameState
 
     AnimatedSpriteInstance barrel;
 
-    TextureWithPosition background;
-
     Rock rock;
     TextureGL rockTexture;
 

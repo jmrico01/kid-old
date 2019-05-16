@@ -30,7 +30,7 @@ typedef DEBUG_PLATFORM_READ_FILE_FUNC(DEBUGPlatformReadFileFunc);
 
 #define DEBUG_PLATFORM_WRITE_FILE_FUNC(name) \
 	bool32 name(const ThreadContext* thread, const char* fileName, \
-		uint64 memorySize, const void* memory)
+		uint64 memorySize, const void* memory, bool overwrite)
 typedef DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFileFunc);
 
 //#endif

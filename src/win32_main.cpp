@@ -291,7 +291,9 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 		return false;
 	}
 
-	DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
+    if (!overwrite) {
+        DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
+    }
 
 	DWORD bytesWritten;
 	if (!WriteFile(hFile, memory, (DWORD)memorySize, &bytesWritten, NULL)) {
@@ -323,7 +325,7 @@ void LogString(const char* string, uint64 n)
 	}
 #endif
 
-	if (!DEBUGPlatformWriteFile(nullptr, logFilePath_.array.data, n, string)) {
+	if (!DEBUGPlatformWriteFile(nullptr, logFilePath_.array.data, n, string, false)) {
 		DEBUG_PANIC("failed to write to log file");
 	}
 }
