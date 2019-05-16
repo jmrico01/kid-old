@@ -20,7 +20,7 @@
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)
-#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 4.0f)
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 3.5f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
@@ -914,7 +914,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->lineColliders.array.size = 0;
 		LineCollider* lineCollider;
 
-		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
+		/*lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
 		lineCollider->line.array.size = 0;
 		lineCollider->line.Init();
 		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
@@ -951,7 +951,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		lineCollider->line.Append(Vec2 {  1.25f, 52.43f });
 		lineCollider->line.Append(Vec2 {  2.95f, 51.57f });
 		lineCollider->line.Append(Vec2 {  4.18f, 51.59f });
-		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });
+		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });*/
 
 		// reserved for rock
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
