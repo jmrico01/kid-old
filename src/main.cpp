@@ -318,11 +318,22 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	return true;
 }
 
-internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object)
+internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object,
+    float32 floorLength)
 {
 	Vec2 toCoords = playerCoords - *object.coordsPtr;
-	float32 distX = AbsFloat32(toCoords.x);
-	float32 distY = AbsFloat32(toCoords.y);
+    float32 distX = AbsFloat32(toCoords.x);
+    float32 distXAlt = AbsFloat32(toCoords.x + floorLength);
+    if (distXAlt < distX) {
+        distX = distXAlt;
+    }
+    else {
+        distXAlt = AbsFloat32(toCoords.x - floorLength);
+        if (distXAlt < distX) {
+            distX = distXAlt;
+        }
+    }
+    float32 distY = AbsFloat32(toCoords.y);
 	return object.rangeX.x <= distX && distX <= object.rangeX.y
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
@@ -343,8 +354,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	const float32 PLAYER_WALK_SPEED = 3.5f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
-	const float32 PLAYER_JUMP_MAG_MAX = 1.5f;
-	const float32 PLAYER_JUMP_MAG_MIN = 0.5f;
+	const float32 PLAYER_JUMP_MAG_MAX = 1.3f;
+	const float32 PLAYER_JUMP_MAG_MIN = 0.4f;
 
 	gameState->playerVel.x = 0.0f;
 	bool skipPlayerInput = false;
@@ -550,6 +561,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			+ floorTangent * platformWidth;
 	}
 
+    const float32 floorLength = gameState->floor.length;
 	const float32 GRAB_RANGE = 0.2f;
 	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
@@ -570,7 +582,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			Vec2 { 0.0f, 1.0f }
 		});
 		for (uint64 i = 0; i < candidates.array.size; i++) {
-			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i])) {
+			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floorLength)) {
 				gameState->grabbedObject = candidates[i];
 				break;
 			}
@@ -578,10 +590,18 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
-		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject)
+		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject,
+            floorLength)
 		&& pushPullKeyPressed) {
 			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-			(*gameState->grabbedObject.coordsPtr).x += deltaX;
+            Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
+			coordsPtr->x += deltaX;
+            if (coordsPtr->x < 0.0f) {
+                coordsPtr->x += floorLength;
+            }
+            else if (coordsPtr->x > floorLength) {
+                coordsPtr->x -= floorLength;
+            }
 		}
 		else {
 			gameState->grabbedObject.coordsPtr = nullptr;
@@ -589,6 +609,12 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	gameState->playerCoords = playerCoordsNew;
+    if (gameState->playerCoords.x < 0.0f) {
+        gameState->playerCoords.x += floorLength;
+    }
+    if (gameState->playerCoords.x > floorLength) {
+        gameState->playerCoords.x -= floorLength;
+    }
 
 	Array<HashKey> paperNextAnims;
 	paperNextAnims.size = 0;
@@ -604,11 +630,28 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
 	float32 cameraFollowLerpMag = 0.08f;
 	Vec2 cameraCoordsTarget = gameState->playerCoords;
-	if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
-		cameraCoordsTarget.y = gameState->prevFloorCoordY;
-	}
-	Vec2 distVector = cameraCoordsTarget - gameState->cameraCoords;
-	float32 dist = Mag(distVector);
+    if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
+        cameraCoordsTarget.y = gameState->prevFloorCoordY;
+    }
+
+    // Wrap camera if necessary
+    float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
+    Vec2 cameraCoordsWrap = gameState->cameraCoords;
+    cameraCoordsWrap.x += floorLength;
+    float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+    if (altDist < dist) {
+        gameState->cameraCoords = cameraCoordsWrap;
+        dist = altDist;
+    }
+    else {
+        cameraCoordsWrap.x -= floorLength * 2.0f;
+        altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+        if (altDist < dist) {
+            gameState->cameraCoords = cameraCoordsWrap;
+            dist = altDist;
+        }
+    }
+
 	if (dist > CAMERA_FOLLOW_ACCEL_DIST_MIN) {
 		float32 lerpMagAccelT = (dist - CAMERA_FOLLOW_ACCEL_DIST_MIN)
 			/ (CAMERA_FOLLOW_ACCEL_DIST_MAX - CAMERA_FOLLOW_ACCEL_DIST_MIN);
@@ -618,13 +661,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
 		cameraFollowLerpMag);
 
-	gameState->cameraPos = gameState->floor.GetWorldPosFromCoords(gameState->cameraCoords);
 	Vec2 camFloorPos, camFloorNormal;
 	gameState->floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
 	float32 angle = acosf(Dot(Vec2::unitY, camFloorNormal));
 	if (camFloorNormal.x > 0.0f) {
 		angle = -angle;
 	}
+    gameState->cameraPos = camFloorPos + camFloorNormal * gameState->cameraCoords.y;
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 
 	if (input->mouseWheelDelta < 0
@@ -1380,10 +1423,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerCoords.x, gameState->playerCoords.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+        textPosRight.y -= textFont.height;
+        sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerCoords.x, gameState->playerCoords.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+        textPosRight.y -= textFont.height;
+        sprintf(textStr, "%.2f|%.2f - CMCRD", gameState->cameraCoords.x, gameState->cameraCoords.y);
+        DrawText(gameState->textGL, textFont, screenInfo,
+            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		Vec2 playerPosWorld = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
