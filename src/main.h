@@ -23,8 +23,6 @@
 
 #define LINE_COLLIDERS_MAX 16
 
-#define INVENTORY_SIZE 8
-
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
 enum PlayerState
@@ -54,14 +52,6 @@ struct GrabbedObjectInfo
     Vec2 rangeX, rangeY;
 };
 
-struct InventoryItem
-{
-    Vec2 playerOffset;
-    Vec2 anchor;
-    TextureGL* textureWorld;
-    TextureGL* textureIcon;
-};
-
 struct GameState
 {
 	AudioState audioState;
@@ -80,17 +70,6 @@ struct GameState
     float32 playerJumpHold;
 
     GrabbedObjectInfo grabbedObject;
-
-    uint64 selectedItem;
-    FixedArray<InventoryItem, INVENTORY_SIZE> inventoryItems;
-    TextureGL jonItemWorld1;
-    TextureGL jonItemIcon1;
-    TextureGL jonItemWorld2;
-    TextureGL jonItemIcon2;
-    TextureGL jonItemWorld3;
-    TextureGL jonItemIcon3;
-    TextureGL jonItemWorld4;
-    TextureGL jonItemIcon4;
 
 	Vec2 barrelCoords;
 

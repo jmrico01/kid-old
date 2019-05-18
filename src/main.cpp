@@ -252,27 +252,29 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 					pngFilePath, metadataFilePath);
 				return false;
 			}
+
 			sprites->array.size++;
 		}
 		else if (KeywordCompare(keyword, "offset")) {
-			Vec2Int pos;
+			Vec2Int offset;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
-			StringToIntBase10, 2, pos.e, &parsedElements)) {
+			StringToIntBase10, 2, offset.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse sprite offset %.*s (%s)\n",
 					value.array.size, &value[0], metadataFilePath);
 				return false;
 			}
 			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordilnates in sprite offset %.*s (%s)\n",
+				LOG_ERROR("Not enough coordinates in sprite offset %.*s (%s)\n",
 					value.array.size, &value[0], metadataFilePath);
 				return false;
 			}
 
-
-			sprites->array.data[sprites->array.size - 1].pos = ToVec2(pos) / REF_PIXELS_PER_UNIT;
-			sprites->array.data[sprites->array.size - 1].anchor = Vec2::zero;
-			sprites->array.data[sprites->array.size - 1].scale = 1.0f;
+			TextureWithPosition* sprite = &sprites->array.data[sprites->array.size - 1];
+			sprite->pos = (ToVec2(offset) + ToVec2(sprite->texture.size) / 2.0f)
+				/ REF_PIXELS_PER_UNIT;
+			sprite->anchor = Vec2::one / 2.0f;
+			sprite->scale = 1.0f;
 		}
 		else {
 			LOG_ERROR("Sprite metadata file unsupported keyword %.*s (%s)\n",
@@ -319,21 +321,21 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 }
 
 internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object,
-    float32 floorLength)
+	float32 floorLength)
 {
 	Vec2 toCoords = playerCoords - *object.coordsPtr;
-    float32 distX = AbsFloat32(toCoords.x);
-    float32 distXAlt = AbsFloat32(toCoords.x + floorLength);
-    if (distXAlt < distX) {
-        distX = distXAlt;
-    }
-    else {
-        distXAlt = AbsFloat32(toCoords.x - floorLength);
-        if (distXAlt < distX) {
-            distX = distXAlt;
-        }
-    }
-    float32 distY = AbsFloat32(toCoords.y);
+	float32 distX = AbsFloat32(toCoords.x);
+	float32 distXAlt = AbsFloat32(toCoords.x + floorLength);
+	if (distXAlt < distX) {
+		distX = distXAlt;
+	}
+	else {
+		distXAlt = AbsFloat32(toCoords.x - floorLength);
+		if (distXAlt < distX) {
+			distX = distXAlt;
+		}
+	}
+	float32 distY = AbsFloat32(toCoords.y);
 	return object.rangeX.x <= distX && distX <= object.rangeX.y
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
@@ -561,7 +563,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			+ floorTangent * platformWidth;
 	}
 
-    const float32 floorLength = gameState->floor.length;
+	const float32 floorLength = gameState->floor.length;
 	const float32 GRAB_RANGE = 0.2f;
 	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
@@ -589,19 +591,24 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
+	if (WasKeyPressed(input, KM_KEY_E)) {
+		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
+		}
+	}
+
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
 		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject,
-            floorLength)
+			floorLength)
 		&& pushPullKeyPressed) {
 			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-            Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
+			Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
 			coordsPtr->x += deltaX;
-            if (coordsPtr->x < 0.0f) {
-                coordsPtr->x += floorLength;
-            }
-            else if (coordsPtr->x > floorLength) {
-                coordsPtr->x -= floorLength;
-            }
+			if (coordsPtr->x < 0.0f) {
+				coordsPtr->x += floorLength;
+			}
+			else if (coordsPtr->x > floorLength) {
+				coordsPtr->x -= floorLength;
+			}
 		}
 		else {
 			gameState->grabbedObject.coordsPtr = nullptr;
@@ -609,12 +616,12 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	gameState->playerCoords = playerCoordsNew;
-    if (gameState->playerCoords.x < 0.0f) {
-        gameState->playerCoords.x += floorLength;
-    }
-    if (gameState->playerCoords.x > floorLength) {
-        gameState->playerCoords.x -= floorLength;
-    }
+	if (gameState->playerCoords.x < 0.0f) {
+		gameState->playerCoords.x += floorLength;
+	}
+	if (gameState->playerCoords.x > floorLength) {
+		gameState->playerCoords.x -= floorLength;
+	}
 
 	Array<HashKey> paperNextAnims;
 	paperNextAnims.size = 0;
@@ -630,27 +637,27 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
 	float32 cameraFollowLerpMag = 0.08f;
 	Vec2 cameraCoordsTarget = gameState->playerCoords;
-    if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
-        cameraCoordsTarget.y = gameState->prevFloorCoordY;
-    }
+	if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
+		cameraCoordsTarget.y = gameState->prevFloorCoordY;
+	}
 
-    // Wrap camera if necessary
-    float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
-    Vec2 cameraCoordsWrap = gameState->cameraCoords;
-    cameraCoordsWrap.x += floorLength;
-    float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
-    if (altDist < dist) {
-        gameState->cameraCoords = cameraCoordsWrap;
-        dist = altDist;
-    }
-    else {
-        cameraCoordsWrap.x -= floorLength * 2.0f;
-        altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
-        if (altDist < dist) {
-            gameState->cameraCoords = cameraCoordsWrap;
-            dist = altDist;
-        }
-    }
+	// Wrap camera if necessary
+	float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
+	Vec2 cameraCoordsWrap = gameState->cameraCoords;
+	cameraCoordsWrap.x += floorLength;
+	float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+	if (altDist < dist) {
+		gameState->cameraCoords = cameraCoordsWrap;
+		dist = altDist;
+	}
+	else {
+		cameraCoordsWrap.x -= floorLength * 2.0f;
+		altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+		if (altDist < dist) {
+			gameState->cameraCoords = cameraCoordsWrap;
+			dist = altDist;
+		}
+	}
 
 	if (dist > CAMERA_FOLLOW_ACCEL_DIST_MIN) {
 		float32 lerpMagAccelT = (dist - CAMERA_FOLLOW_ACCEL_DIST_MIN)
@@ -667,16 +674,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (camFloorNormal.x > 0.0f) {
 		angle = -angle;
 	}
-    gameState->cameraPos = camFloorPos + camFloorNormal * gameState->cameraCoords.y;
+	gameState->cameraPos = camFloorPos + camFloorNormal * gameState->cameraCoords.y;
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
-
-	if (input->mouseWheelDelta < 0
-    && gameState->selectedItem < gameState->inventoryItems.array.size) {
-		gameState->selectedItem += 1;
-	}
-	if (input->mouseWheelDelta > 0 && gameState->selectedItem > 0) {
-		gameState->selectedItem -= 1;
-	}
 }
 
 internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
@@ -725,20 +724,6 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		gameState->kid.Draw(spriteDataGL, pos, size, anchorUnused, gameState->cameraRot,
 			1.0f, !gameState->facingRight);
-
-        uint64 selectedItem = gameState->selectedItem;
-        if (selectedItem != gameState->inventoryItems.array.size) {
-            Vec3 offset = ToVec3(gameState->inventoryItems[selectedItem].playerOffset, 0.0f);
-            offset = gameState->cameraRot * offset;
-            Vec2 itemPos = pos + ToVec2(offset);
-            Vec2 itemAnchor = gameState->inventoryItems[selectedItem].anchor;
-            Vec2 itemSize = ToVec2(gameState->inventoryItems[selectedItem].textureWorld->size)
-                / REF_PIXELS_PER_UNIT;
-            Mat4 transform = CalculateTransform(itemPos, itemSize, itemAnchor,
-                gameState->cameraRot);
-            PushSprite(spriteDataGL, transform, 1.0f, false,
-                gameState->inventoryItems[selectedItem].textureWorld->textureID);
-        }
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
@@ -749,30 +734,6 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
 	const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
 	const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
-
-	{ // inventory icons
-		float32 margin = 1.0f;
-		float32 spacing = 0.2f;
-		float32 iconScale = 1.0f;
-		Vec2 iconOrigin = Vec2 {
-			-screenSizeWorld.x / 2.0f + marginX + margin,
-			screenSizeWorld.y / 2.0f - margin
-		};
-		Vec2 iconSize = Vec2 { iconScale, iconScale };
-		Vec2 iconAnchor = Vec2 { 0.0f, 1.0f };
-
-		for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
-			Vec2 iconPos = iconOrigin;
-			iconPos.x += (iconScale + spacing) * i;
-			Mat4 transform = CalculateTransform(iconPos, iconSize, iconAnchor, Quat::one);
-			float32 alpha = 1.0f;
-			if (i == gameState->selectedItem) {
-				alpha = 0.4f;
-			}
-			PushSprite(spriteDataGL, transform, alpha, false,
-				gameState->inventoryItems[i].textureIcon->textureID);
-		}
-	}
 
 #if GAME_INTERNAL
 	if (gameState->editor) {
@@ -857,92 +818,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->currentPlatform = nullptr;
 
 		gameState->grabbedObject.coordsPtr = nullptr;
-
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_world_1.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemWorld1, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item world 1\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_icon_1.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemIcon1, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item icon 1\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_world_2.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemWorld2, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item world 2\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_icon_2.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemIcon2, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item icon 2\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_world_3.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemWorld3, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item world 2\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_icon_3.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemIcon3, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item icon 2\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_world_4.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemWorld4, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item world 2\n");
-		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/jon_item_icon_4.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->jonItemIcon4, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load jon item icon 2\n");
-		}
-
-		gameState->inventoryItems.Init();
-		gameState->inventoryItems.array.size = 4;
-
-        for (uint64 i = 0; i < gameState->inventoryItems.array.size; i++) {
-            gameState->inventoryItems[i].playerOffset = Vec2 { 0.0f, 4.2f };
-            gameState->inventoryItems[i].anchor = Vec2::one / 2.0f;
-        }
-
-		gameState->inventoryItems[0].textureWorld = &gameState->jonItemWorld1;
-		gameState->inventoryItems[0].textureIcon = &gameState->jonItemIcon1;
-		gameState->inventoryItems[1].textureWorld = &gameState->jonItemWorld2;
-		gameState->inventoryItems[1].textureIcon = &gameState->jonItemIcon2;
-		gameState->inventoryItems[2].textureWorld = &gameState->jonItemWorld3;
-		gameState->inventoryItems[2].textureIcon = &gameState->jonItemIcon3;
-		gameState->inventoryItems[3].textureWorld = &gameState->jonItemWorld4;
-		gameState->inventoryItems[3].textureIcon = &gameState->jonItemIcon4;
-
-        gameState->inventoryItems.array.size = 0;
-
-		gameState->selectedItem = gameState->inventoryItems.array.size;
 
 		gameState->barrelCoords = { 100.0f, 0.0f };
 
@@ -1423,15 +1298,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-        textPosRight.y -= textFont.height;
-        sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerCoords.x, gameState->playerCoords.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerCoords.x, gameState->playerCoords.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-        textPosRight.y -= textFont.height;
-        sprintf(textStr, "%.2f|%.2f - CMCRD", gameState->cameraCoords.x, gameState->cameraCoords.y);
-        DrawText(gameState->textGL, textFont, screenInfo,
-            textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f - CMCRD", gameState->cameraCoords.x, gameState->cameraCoords.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		Vec2 playerPosWorld = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
@@ -1472,6 +1347,36 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
+
+		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
+			const float32 POINT_CROSS_OFFSET = 0.05f;
+			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
+			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };
+			const TextureWithPosition& sprite = gameState->sprites[i];
+			lineData->count = 2;
+			Vec3 pos = ToVec3(sprite.pos, 0.0f);
+			lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
+			lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
+			DrawLine(gameState->lineGL, projection, view, lineData, centerColor);
+			lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
+			lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
+			DrawLine(gameState->lineGL, projection, view, lineData, centerColor);
+			Vec2 worldSize = ToVec2(sprite.texture.size) / REF_PIXELS_PER_UNIT;
+			Vec2 anchorOffset = Vec2 {
+				sprite.anchor.x * worldSize.x,
+				sprite.anchor.y * worldSize.y
+			};
+			Vec3 origin = ToVec3(sprite.pos - anchorOffset, 0.0f);
+			lineData->count = 5;
+			lineData->pos[0] = origin;
+			lineData->pos[1] = origin;
+			lineData->pos[1].x += worldSize.x;
+			lineData->pos[2] = origin + ToVec3(worldSize, 0.0f);
+			lineData->pos[3] = origin;
+			lineData->pos[3].y += worldSize.y;
+			lineData->pos[4] = lineData->pos[0];
+			DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
+		}
 
 		{ // line colliders
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
