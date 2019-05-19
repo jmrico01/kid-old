@@ -3,13 +3,27 @@
 #include "opengl_base.h"
 #include "opengl_funcs.h"
 
-Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot)
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor,
+    Quat baseRot, Quat rot, bool32 flip)
+{
+    Vec2 anchorOffset = -Vec2 { anchor.x * size.x, anchor.y * size.y };
+    Mat4 transform1 = UnitQuatToMat4(baseRot)
+        * Translate(ToVec3(anchorOffset, 0.0f))
+        * Scale(ToVec3(size, 1.0f));
+    if (flip) {
+        transform1 = Scale(Vec3 { -1.0f, 1.0f, 1.0f }) * transform1;
+    }
+    return Translate(ToVec3(pos, 0.0f)) * UnitQuatToMat4(rot) * transform1;
+}
+
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip)
 {
 	Vec2 anchorOffset = -Vec2 { anchor.x * size.x, anchor.y * size.y };
-	return Translate(ToVec3(pos, 0.0f))
-		* UnitQuatToMat4(rot)
-		* Translate(ToVec3(anchorOffset, 0.0f))
-		* Scale(ToVec3(size, 1.0f));
+    Mat4 transform = Translate(ToVec3(anchorOffset, 0.0f)) * Scale(ToVec3(size, 1.0f));
+    if (flip) {
+        transform = Scale(Vec3 { -1.0f, 1.0f, 1.0f }) * transform;
+    }
+	return Translate(ToVec3(pos, 0.0f)) * UnitQuatToMat4(rot) * transform;
 }
 
 bool InitSpriteState(SpriteStateGL& spriteStateGL,
@@ -125,23 +139,26 @@ bool InitRenderState(RenderState& renderState,
 	return true;
 }
 
-void PushSprite(SpriteDataGL* spriteDataGL,
-	Mat4 transform, float32 alpha, bool32 flipHorizontal, GLuint texture)
+void PushSprite(SpriteDataGL* spriteDataGL, Mat4 transform, float32 alpha, GLuint texture)
 {
 	DEBUG_ASSERT(spriteDataGL->numSprites < SPRITE_BATCH_SIZE);
 
 	int spriteInd = spriteDataGL->numSprites;
+    /*if (flipHorizontal) {
+        Mat4 flipMatrix = Translate(Vec3::unitX) * Scale(Vec3 { -1.0f, 1.0f, 1.0f });
+        transform = flipMatrix * transform;
+    }*/
 	spriteDataGL->transform[spriteInd] = transform;
 	spriteDataGL->uvInfo[spriteInd] = Vec4 {
 		0.0f, 0.0f,
 		1.0f, 1.0f
 	};
-	if (flipHorizontal) {
+	/*if (flipHorizontal) {
 		spriteDataGL->uvInfo[spriteInd] = Vec4 {
 			1.0f, 0.0f,
 			-1.0f, 1.0f
 		};
-	}
+	}*/
     spriteDataGL->alpha[spriteInd] = alpha;
 	spriteDataGL->texture[spriteInd] = texture;
 
@@ -176,7 +193,7 @@ void DrawSprites(const RenderState& renderState,
         glUniform1f(loc, spriteDataGL.alpha[i]);
 
 		glBindVertexArray(renderState.spriteStateGL.vertexArray);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		glBindVertexArray(0);
 	}
 }

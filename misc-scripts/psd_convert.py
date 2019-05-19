@@ -16,6 +16,9 @@ def ConvertPSD(filePath, outputDir):
 		if not layer.visible:
 			print("Skipping hidden layer")
 			continue
+		layerType = "bg"
+		if len(layerName) > 5 and layerName[:4] == "obj_":
+			layerType = "obj"
 		layerOffset = layer.offset
 		layerSize = layer.size
 		layerImagePath = os.path.join(outputDir, layerName + ".png")
@@ -27,6 +30,7 @@ def ConvertPSD(filePath, outputDir):
 
 		metadata += "\n"
 		metadata += "name {}\n".format(layerName)
+		metadata += "type {}\n".format(layerType)
 		offsetY = psd.height - layerSize[1] - layerOffset[1]
 		metadata += "offset {} {}\n".format(layerOffset[0], offsetY)
 	print("")

@@ -30,15 +30,16 @@ struct SpriteDataGL
 	GLuint texture[SPRITE_BATCH_SIZE];
 };
 
-Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot);
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor,
+    Quat baseRot, Quat rot, bool32 flip);
+Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip);
 
 bool InitRenderState(RenderState& renderState,
 	const ThreadContext* thread,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
 
-void PushSprite(SpriteDataGL* spriteDataGL,
-	Mat4 transform, float32 alpha, bool32 flipHorizontal, GLuint texture);
+void PushSprite(SpriteDataGL* spriteDataGL, Mat4 transform, float32 alpha, GLuint texture);
 
 void DrawSprites(const RenderState& renderState,
 	const SpriteDataGL& spriteDataGL, Mat4 transform);

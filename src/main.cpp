@@ -191,6 +191,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 internal bool32 LoadLevelSprites(const ThreadContext* thread,
 	const char* metadataFilePath,
 	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>* sprites,
+	const FloorCollider& floor,
 	MemoryBlock transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
@@ -245,7 +246,7 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 			snprintf(pngFilePath + lastSlash, PATH_MAX_LENGTH - lastSlash,
 				"/%.*s.png", (int)value.array.size, &value[0]);
 			if (!LoadPNGOpenGL(thread, pngFilePath,
-				GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+				GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 				sprites->array.data[sprites->array.size].texture, transient,
 				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 				LOG_ERROR("Failed to load sprite PNG file %s (%s)\n",
@@ -269,7 +270,8 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 				return false;
 			}
 
-			sprites->array.data[sprites->array.size - 1].type = type;
+			TextureWithPosition* sprite = &sprites->array.data[sprites->array.size - 1];
+			sprite->type = type;
 		}
 		else if (StringCompare(keyword.array, "offset")) {
 			Vec2Int offset;
@@ -287,15 +289,86 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 			}
 
 			TextureWithPosition* sprite = &sprites->array.data[sprites->array.size - 1];
-			sprite->pos = (ToVec2(offset) + ToVec2(sprite->texture.size) / 2.0f)
-				/ REF_PIXELS_PER_UNIT;
-			sprite->anchor = Vec2::one / 2.0f;
-			sprite->scale = 1.0f;
+			sprite->pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
+			sprite->anchor = Vec2::zero;
+			sprite->restAngle = 0.0f;
+			sprite->flipped = false;
 		}
 		else {
 			LOG_ERROR("Sprite metadata file unsupported keyword %.*s (%s)\n",
 				keyword.array.size, &keyword[0], metadataFilePath);
 			return false;
+		}
+	}
+
+	for (uint64 i = 0; i < sprites->array.size; i++) {
+		TextureWithPosition* sprite = &sprites->array.data[i];
+		if (sprite->type == SPRITE_OBJECT) {
+			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
+			Vec2 coords = floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
+
+			sprite->coords = coords;
+			sprite->anchor = Vec2::one / 2.0f;
+
+			Vec2 floorPos, floorNormal;
+			floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
+			if (floorNormal.x > 0.0f) {
+				sprite->restAngle = -sprite->restAngle;
+			}
+#if 0
+			// TODO Code to calculate ground anchor for sprite (use it later)
+			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
+			Vec2 originBottom = {
+				sprite->pos.x + worldSize.x / 2.0f,
+				sprite->pos.y
+			};
+			Vec2 originLeft = {
+				sprite->pos.x,
+				sprite->pos.y + worldSize.y / 2.0f
+			};
+			Vec2 originTop = {
+				sprite->pos.x + worldSize.x / 2.0f,
+				sprite->pos.y + worldSize.y
+			};
+			Vec2 originRight = {
+				sprite->pos.x + worldSize.x,
+				sprite->pos.y + worldSize.y / 2.0f
+			};
+			Vec2 origins[4] = { originBottom, originLeft, originTop, originRight };
+			int ind = -1;
+			Vec2 selectedCoords = { 0.0f, 1e6 };
+			for (int o = 0; o < 4; o++) {
+				Vec2 coords = floor.GetCoordsFromWorldPos(origins[o]);
+				if (coords.y < selectedCoords.y) {
+					ind = o;
+					selectedCoords = coords;
+				}
+			}
+
+			sprite->coords = selectedCoords;
+			switch (ind) {
+				case 0: {
+					sprite->anchor = Vec2 { 0.5f, 0.0f };
+				} break;
+				case 1: {
+					sprite->anchor = Vec2 { 0.0f, 0.5f };
+				} break;
+				case 2: {
+					sprite->anchor = Vec2 { 0.5f, 1.0f };
+				} break;
+				case 3: {
+					sprite->anchor = Vec2 { 1.0f, 0.5f };
+				} break;
+				default: {
+					LOG_ERROR("No closest origin on sprite %llu (%s)\n", i, metadataFilePath);
+					return false;
+				}
+			}
+			Vec2 floorPos, floorNormal;
+			floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
+#endif
 		}
 	}
 
@@ -324,7 +397,8 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	}
 
 	snprintf(levelFilePath, 64, "data/levels/level%llu/sprites.kml", level);
-	if (!LoadLevelSprites(thread, levelFilePath, &gameState->sprites, transient,
+	if (!LoadLevelSprites(thread, levelFilePath, &gameState->sprites,
+		gameState->floor, transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 		LOG_ERROR("Failed to load sprite data for level %llu\n", level);
 		return false;
@@ -608,8 +682,53 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	if (WasKeyPressed(input, KM_KEY_E)) {
-		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
+		if (gameState->liftedObject.spritePtr == nullptr) {
+			TextureWithPosition* newLiftedObject = nullptr;
+			float32 minDist = 2.0f;
+			for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
+				TextureWithPosition* sprite = &gameState->sprites[i];
+				if (sprite->type != SPRITE_OBJECT) {
+					continue;
+				}
+
+				Vec2 toCoords = sprite->coords - gameState->playerCoords;
+				float32 coordDist = Mag(toCoords);
+				if (coordDist < minDist) {
+					newLiftedObject = sprite;
+					minDist = coordDist;
+				}
+			}
+
+			if (newLiftedObject != nullptr) {
+				gameState->liftedObject.offset = Vec2 { -0.25f, 1.9f };
+				gameState->liftedObject.placementOffsetX = 1.2f;
+				gameState->liftedObject.coordYPrev = newLiftedObject->coords.y;
+				gameState->liftedObject.spritePtr = newLiftedObject;
+				gameState->liftedObject.spritePtr->restAngle -= PI_F / 2.0f;
+			}
 		}
+		else {
+			TextureWithPosition* spritePtr = gameState->liftedObject.spritePtr;
+			float32 placementOffsetX = gameState->liftedObject.placementOffsetX;
+			if (spritePtr->flipped) {
+				placementOffsetX = -placementOffsetX;
+			}
+			spritePtr->coords.x += placementOffsetX;
+			spritePtr->coords.y = gameState->liftedObject.coordYPrev;
+			spritePtr->restAngle += PI_F / 2.0f;
+			gameState->liftedObject.spritePtr = nullptr;
+		}
+	}
+
+	TextureWithPosition* grabbedSprite = gameState->liftedObject.spritePtr;
+	if (grabbedSprite != nullptr) {
+		grabbedSprite->coords = gameState->playerCoords;
+		grabbedSprite->flipped = !gameState->facingRight;
+		Vec2 offset = gameState->liftedObject.offset;
+		if (grabbedSprite->flipped) {
+			offset.x = -offset.x;
+		}
+		grabbedSprite->coords += offset;
 	}
 
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
@@ -699,15 +818,53 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 {
 	spriteDataGL->numSprites = 0;
 
+	//Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
+	Vec2 playerFloorPos, playerFloorNormal;
+	gameState->floor.GetInfoFromCoordX(gameState->playerCoords.x,
+		&playerFloorPos, &playerFloorNormal);
+	Vec2 playerPos = playerFloorPos + playerFloorNormal * gameState->playerCoords.y;
+	float32 playerAngle = acosf(Dot(Vec2::unitY, playerFloorNormal));
+	if (playerFloorNormal.x > 0.0f) {
+		playerAngle = -playerAngle;
+	}
+	Quat playerRot = QuatFromAngleUnitAxis(playerAngle, Vec3::unitZ);
+	Vec2 playerSize = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+	Vec2 anchorUnused = Vec2::zero;
+	gameState->kid.Draw(spriteDataGL, playerPos, playerSize, anchorUnused, playerRot,
+		1.0f, !gameState->facingRight);
+
 	{ // level sprites
 		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
-			Vec2 pos = gameState->sprites[i].scale * gameState->sprites[i].pos;
-			Vec2 size = gameState->sprites[i].scale *
-				ToVec2(gameState->sprites[i].texture.size) / REF_PIXELS_PER_UNIT;
-			Mat4 transform = CalculateTransform(pos, size,
-				gameState->sprites[i].anchor, Quat::one);
-			PushSprite(spriteDataGL, transform, 1.0f, false,
-				gameState->sprites[i].texture.textureID);
+			TextureWithPosition* sprite = &gameState->sprites[i];
+			Vec2 pos;
+			Quat baseRot;
+			Quat rot;
+			if (sprite->type == SPRITE_OBJECT) {
+				baseRot = QuatFromAngleUnitAxis(-sprite->restAngle, Vec3::unitZ);
+
+				Vec2 floorPos, floorNormal;
+				gameState->floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+				pos = floorPos + floorNormal * sprite->coords.y;
+				if (sprite == gameState->liftedObject.spritePtr) {
+					rot = playerRot;
+				}
+				else {
+					float32 angle = acosf(Dot(Vec2::unitY, floorNormal));
+					if (floorNormal.x > 0.0f) {
+						angle = -angle;
+					}
+					rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+				}
+			}
+			else {
+				pos = sprite->pos;
+				baseRot = Quat::one;
+				rot = Quat::one;
+			}
+			Vec2 size = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
+			Mat4 transform = CalculateTransform(pos, size, sprite->anchor,
+				baseRot, rot, sprite->flipped);
+			PushSprite(spriteDataGL, transform, 1.0f, sprite->texture.textureID);
 		}
 	}
 
@@ -715,16 +872,16 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rock.coords);
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
-		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot);
-		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->rockTexture.textureID);
+		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
+		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
 	}
 
 	{ // barrel
-		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->barrelCoords);
 		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		Vec2 barrelFloorPos, barrelFloorNormal;
 		gameState->floor.GetInfoFromCoordX(gameState->barrelCoords.x,
 			&barrelFloorPos, &barrelFloorNormal);
+		Vec2 pos = barrelFloorPos + barrelFloorNormal * gameState->barrelCoords.y;
 		float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
 		if (barrelFloorNormal.x > 0.0f) {
 			angle = -angle;
@@ -732,14 +889,6 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, rot,
 			1.0f, false);
-	}
-
-	{ // kid and item
-		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
-		Vec2 anchorUnused = Vec2::zero;
-		Vec2 size = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-		gameState->kid.Draw(spriteDataGL, pos, size, anchorUnused, gameState->cameraRot,
-			1.0f, !gameState->facingRight);
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
@@ -766,8 +915,8 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 		// TODO this sounds like I need another batch transform matrix
 		float32 scale = (float32)REF_PIXEL_SCREEN_HEIGHT / gameState->frame.size.y;
 		Vec2 size = scale * ToVec2(gameState->frame.size) / REF_PIXELS_PER_UNIT;
-		Mat4 transform = CalculateTransform(Vec2::zero, size, Vec2::one / 2.0f, Quat::one);
-		PushSprite(spriteDataGL, transform, 1.0f, false, gameState->frame.textureID);
+		Mat4 transform = CalculateTransform(Vec2::zero, size, Vec2::one / 2.0f, Quat::one, false);
+		PushSprite(spriteDataGL, transform, 1.0f, gameState->frame.textureID);
 	}
 
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
@@ -812,9 +961,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		// Depth buffer transforms -1 to 1 range to 0 to 1 range
 		glDepthRange(0.0, 1.0);
 
-		glEnable(GL_CULL_FACE);
-		glFrontFace(GL_CCW);
-		glCullFace(GL_BACK);
+		glDisable(GL_CULL_FACE);
+		//glFrontFace(GL_CCW);
+		//glCullFace(GL_BACK);
 
 		glLineWidth(2.0f);
 
@@ -834,6 +983,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->currentPlatform = nullptr;
 
 		gameState->grabbedObject.coordsPtr = nullptr;
+		gameState->liftedObject.spritePtr = nullptr;
 
 		gameState->barrelCoords = { 100.0f, 0.0f };
 
@@ -980,7 +1130,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
-		gameState->rock.coords = { 5.0f, 0.0f };
+		gameState->rock.coords = { gameState->floor.length - 10.0f, 0.0f };
 		gameState->rock.angle = 0.0f;
 		if (!LoadPNGOpenGL(thread,
 		"data/sprites/rock.png",
@@ -1318,12 +1468,19 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
-		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
-			LOG_INFO("Mouse: %.2f, %.2f\n", mouseWorld.x, mouseWorld.y);
-		}
-
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
+
+		{ // mouse
+			Vec2 coords = gameState->floor.GetCoordsFromWorldPos(mouseWorld);
+			Vec2 floorPos, floorNormal;
+			gameState->floor.GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
+			lineData->count = 2;
+			lineData->pos[0] = ToVec3(floorPos, 0.0f);
+			lineData->pos[1] = ToVec3(floorPos + floorNormal * coords.y, 0.0f);
+			DrawLine(gameState->lineGL, projection, view, lineData,
+				Vec4 { 0.5f, 0.4f, 0.0f, 0.25f });
+		}
 
 		// sprites
 		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
@@ -1335,7 +1492,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };
 			const TextureWithPosition& sprite = gameState->sprites[i];
 			lineData->count = 2;
-			Vec3 pos = ToVec3(sprite.pos, 0.0f);
+			Vec2 worldPos = gameState->floor.GetWorldPosFromCoords(sprite.pos);
+			Vec3 pos = ToVec3(worldPos, 0.0f);
 			lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
 			lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
 			DrawLine(gameState->lineGL, projection, view, lineData, centerColor);
@@ -1347,7 +1505,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				sprite.anchor.x * worldSize.x,
 				sprite.anchor.y * worldSize.y
 			};
-			Vec3 origin = ToVec3(sprite.pos - anchorOffset, 0.0f);
+			Vec3 origin = ToVec3(worldPos - anchorOffset, 0.0f);
 			lineData->count = 5;
 			lineData->pos[0] = origin;
 			lineData->pos[1] = origin;

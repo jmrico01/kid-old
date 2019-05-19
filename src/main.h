@@ -40,11 +40,15 @@ enum SpriteType
 
 struct TextureWithPosition
 {
-	Vec2 pos;
+	union {
+		Vec2 pos;
+		Vec2 coords;
+	};
 	Vec2 anchor;
-    float32 scale;
+	float32 restAngle;
 	TextureGL texture;
 	SpriteType type;
+	bool32 flipped;
 };
 
 struct Rock
@@ -57,6 +61,14 @@ struct GrabbedObjectInfo
 {
     Vec2* coordsPtr;
     Vec2 rangeX, rangeY;
+};
+
+struct LiftedObjectInfo
+{
+    TextureWithPosition* spritePtr;
+    Vec2 offset;
+    float32 placementOffsetX;
+    float32 coordYPrev;
 };
 
 struct GameState
@@ -77,6 +89,7 @@ struct GameState
     float32 playerJumpHold;
 
     GrabbedObjectInfo grabbedObject;
+    LiftedObjectInfo liftedObject;
 
 	Vec2 barrelCoords;
 

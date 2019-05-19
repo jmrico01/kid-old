@@ -50,6 +50,11 @@ inline int RoundFloat32Fast(float32 a) {
 	}
 }
 
+float32 Lerp(float32 a, float32 b, float32 t)
+{
+    return a + (b - a) * t;
+}
+
 bool IsPrime(uint64 n)
 {
     for (uint64 i = 0; i < n / 2; i++) {
@@ -86,6 +91,11 @@ union Vec2
 	float32 e[2];
 };
 
+const Vec2 Vec2::zero  = { 0.0f, 0.0f };
+const Vec2 Vec2::one   = { 1.0f, 1.0f };
+const Vec2 Vec2::unitX = { 1.0f, 0.0f };
+const Vec2 Vec2::unitY = { 0.0f, 1.0f };
+
 union Vec2Int
 {
 	const static Vec2Int zero;
@@ -98,6 +108,10 @@ union Vec2Int
 	};
 	int e[2];
 };
+
+const Vec2Int Vec2Int::zero  = { 0, 0 };
+const Vec2Int Vec2Int::unitX = { 1, 0 };
+const Vec2Int Vec2Int::unitY = { 0, 1 };
 
 union Vec3
 {
@@ -176,15 +190,10 @@ struct Quat
 	float32 x, y, z, w;
 };
 
-inline float32 Lerp(float32 a, float32 b, float32 t)
-{
-	return a + (b - a) * t;
-}
-
 // ========== OPERATORS & FUNCTIONS ==========
 
 // -------------------- Vec2 --------------------
-const Vec2 Vec2::zero = {
+/*const Vec2 Vec2::zero = {
 	0.0f, 0.0f
 };
 const Vec2 Vec2::one = {
@@ -195,7 +204,7 @@ const Vec2 Vec2::unitX = {
 };
 const Vec2 Vec2::unitY = {
 	0.0f, 1.0f
-};
+};*/
 
 inline Vec2Int ToVec2Int(Vec2 v)
 {
@@ -309,7 +318,7 @@ inline Vec2 Normalize(Vec2 v)
 }
 
 // ------------------ Vec2Int -------------------
-const Vec2Int Vec2Int::zero = {
+/*const Vec2Int Vec2Int::zero = {
 	0, 0
 };
 const Vec2Int Vec2Int::unitX = {
@@ -317,7 +326,7 @@ const Vec2Int Vec2Int::unitX = {
 };
 const Vec2Int Vec2Int::unitY = {
 	0, 1
-};
+};*/
 
 inline Vec2 ToVec2(Vec2Int v)
 {

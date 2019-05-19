@@ -4,6 +4,13 @@
 
 #define FLOOR_PRECOMPUTED_STEP_LENGTH 0.05f
 
+internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
+{
+    float32 oneMinusT = 1.0f - t;
+    return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
+}
+
+// TODO maybe make a version specifically for potentially-out-of-bounds coordX
 void FloorCollider::GetInfoFromCoordX(float32 coordX, Vec2* outPos, Vec2* outNormal) const
 {
     if (coordX < 0.0f) {
@@ -19,7 +26,7 @@ void FloorCollider::GetInfoFromCoordX(float32 coordX, Vec2* outPos, Vec2* outNor
 	FloorSampleVertex sampleVertex2 = sampleVertices[ind2];
 	float32 lerpT = indFloat - (float32)ind1;
 	*outPos = Lerp(sampleVertex1.pos, sampleVertex2.pos, lerpT);
-	*outNormal = Lerp(sampleVertex1.normal, sampleVertex2.normal, lerpT);
+	*outNormal = Normalize(Lerp(sampleVertex1.normal, sampleVertex2.normal, lerpT));
 }
 
 Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
@@ -27,6 +34,91 @@ Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
 	Vec2 floorPos, floorNormal;
 	GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
 	return floorPos + floorNormal * coords.y;
+}
+
+Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
+{
+    DEBUG_ASSERT(sampleVertices.array.size > 0);
+
+    uint64 ind = 0;
+    float32 minDistSq = MagSq(worldPos - sampleVertices[0].pos);
+    for (uint64 i = 1; i < sampleVertices.array.size; i++) {
+        float32 distSq = MagSq(worldPos - sampleVertices[i].pos);
+        if (distSq < minDistSq) {
+            ind = i;
+            minDistSq = distSq;
+        }
+    }
+
+    //float32 coordX = ind * FLOOR_PRECOMPUTED_STEP_LENGTH;
+    //float32 coordXPrev = coordX - FLOOR_PRECOMPUTED_STEP_LENGTH;
+    //float32 coordXNext = coordX - FLOOR_PRECOMPUTED_STEP_LENGTH;
+    Vec2 coords = {
+        ind * FLOOR_PRECOMPUTED_STEP_LENGTH,
+        Dot(worldPos - sampleVertices[ind].pos, sampleVertices[ind].normal)
+    };
+    return coords;
+}
+
+void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const
+{
+    const int EDGE_NEIGHBORS = 2;
+    
+    *outFloorPos = Vec2::zero;
+    *outNormal = Vec2::unitY;
+
+    float32 t = 0.0f;
+    uint64 i = 1;
+    while (true) {
+        uint64 iWrap = i % line.array.size;
+        uint64 iPrev = (i - 1) % line.array.size;
+        Vec2 edge = line[iWrap] - line[iPrev];
+        float32 edgeLength = Mag(edge);
+        if (t + edgeLength >= coordX) {
+            float32 tEdge = (coordX - t) / edgeLength;
+            Vec2 sumNormals = Vec2::zero;
+            for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
+                float32 edgeWeight = (float32)EDGE_NEIGHBORS
+                    - AbsFloat32((float32)n - (tEdge - 0.5f)) + 0.5f;
+                edgeWeight = MaxFloat32(edgeWeight, 0.0f);
+                int edgeVertInd1 = (int)i + n - 1;
+                if (edgeVertInd1 < 0) {
+                    edgeVertInd1 += (int)line.array.size;
+                }
+                else if (edgeVertInd1 >= line.array.size) {
+                    edgeVertInd1 -= (int)line.array.size;
+                }
+                int edgeVertInd2 = (int)i + n;
+                if (edgeVertInd2 < 0) {
+                    edgeVertInd2 += (int)line.array.size;
+                }
+                else if (edgeVertInd2 >= line.array.size) {
+                    edgeVertInd2 -= (int)line.array.size;
+                }
+                Vec2 neighborEdge = line[edgeVertInd2] - line[edgeVertInd1];
+                Vec2 neighborNormal = Normalize(Vec2 { -neighborEdge.y, neighborEdge.x });
+                sumNormals += neighborNormal * edgeWeight;
+                //}
+            }
+            uint64 iPrevPrev = i - 2;
+            if (i == 1) {
+                iPrevPrev = line.array.size - 1;
+            }
+            iPrevPrev %= line.array.size;
+            uint64 iNext = (i + 1) % line.array.size;
+            Vec2 tangentPrev = Normalize(line[iPrev] - line[iPrevPrev]);
+            Vec2 tangentNext = Normalize(line[iNext] - line[iWrap]);
+            Vec2 bezierMid = (line[iPrev] + tangentPrev * edgeLength / 2.0f
+                + line[iWrap] - tangentNext * edgeLength / 2.0f) / 2.0f;
+            *outFloorPos = GetQuadraticBezierPoint(line[iPrev], bezierMid, line[iWrap],
+                tEdge);
+            *outNormal = Normalize(sumNormals);
+            return;
+        }
+
+        t += edgeLength;
+        i++;
+    }
 }
 
 void FloorCollider::PrecomputeSampleVerticesFromLine()
@@ -49,12 +141,6 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	}
 }
 
-internal Vec2 GetQuadraticBezierPoint(Vec2 v1, Vec2 v2, Vec2 v3, float32 t)
-{
-	float32 oneMinusT = 1.0f - t;
-	return oneMinusT * oneMinusT * v1 + 2.0f * oneMinusT * t * v2 + t * t * v3;
-}
-
 int Sex(int suzie, int josie)
 {
     /* i love jose */
@@ -64,67 +150,6 @@ int Sex(int suzie, int josie)
     int sex = suzie * josie;
     bool pregnant = suzie % josie == 0;
     return sex;
-}
-
-void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const
-{
-	const int EDGE_NEIGHBORS = 2;
-	
-	*outFloorPos = Vec2::zero;
-	*outNormal = Vec2::unitY;
-
-	float32 t = 0.0f;
-    uint64 i = 1;
-	while (true) {
-        uint64 iWrap = i % line.array.size;
-        uint64 iPrev = (i - 1) % line.array.size;
-		Vec2 edge = line[iWrap] - line[iPrev];
-		float32 edgeLength = Mag(edge);
-		if (t + edgeLength >= coordX) {
-			float32 tEdge = (coordX - t) / edgeLength;
-			Vec2 sumNormals = Vec2::zero;
-			for (int n = -EDGE_NEIGHBORS; n <= EDGE_NEIGHBORS; n++) {
-				float32 edgeWeight = (float32)EDGE_NEIGHBORS
-                    - AbsFloat32((float32)n - (tEdge - 0.5f)) + 0.5f;
-				edgeWeight = MaxFloat32(edgeWeight, 0.0f);
-                int edgeVertInd1 = (int)i + n - 1;
-                if (edgeVertInd1 < 0) {
-                    edgeVertInd1 += (int)line.array.size;
-                }
-                else if (edgeVertInd1 >= line.array.size) {
-                    edgeVertInd1 -= (int)line.array.size;
-                }
-                int edgeVertInd2 = (int)i + n;
-                if (edgeVertInd2 < 0) {
-                    edgeVertInd2 += (int)line.array.size;
-                }
-                else if (edgeVertInd2 >= line.array.size) {
-                    edgeVertInd2 -= (int)line.array.size;
-                }
-                Vec2 neighborEdge = line[edgeVertInd2] - line[edgeVertInd1];
-                Vec2 neighborNormal = Normalize(Vec2 { -neighborEdge.y, neighborEdge.x });
-                sumNormals += neighborNormal * edgeWeight;
-                //}
-			}
-            uint64 iPrevPrev = i - 2;
-            if (i == 1) {
-                iPrevPrev = line.array.size - 1;
-            }
-            iPrevPrev %= line.array.size;
-            uint64 iNext = (i + 1) % line.array.size;
-			Vec2 tangentPrev = Normalize(line[iPrev] - line[iPrevPrev]);
-			Vec2 tangentNext = Normalize(line[iNext] - line[iWrap]);
-			Vec2 bezierMid = (line[iPrev] + tangentPrev * edgeLength / 2.0f
-				+ line[iWrap] - tangentNext * edgeLength / 2.0f) / 2.0f;
-			*outFloorPos = GetQuadraticBezierPoint(line[iPrev], bezierMid, line[iWrap],
-				tEdge);
-			*outNormal = Normalize(sumNormals);
-			return;
-		}
-
-		t += edgeLength;
-        i++;
-	}
 }
 
 internal float32 Cross2D(Vec2 v1, Vec2 v2)

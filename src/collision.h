@@ -24,6 +24,7 @@ struct FloorCollider
 	void GetInfoFromCoordX(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const;
 	Vec2 GetWorldPosFromCoords(Vec2 coords) const;
 
+    Vec2 GetCoordsFromWorldPos(Vec2 worldPos) const;
 	void GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const;
 	void PrecomputeSampleVerticesFromLine();
 };

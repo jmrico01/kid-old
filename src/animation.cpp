@@ -82,9 +82,8 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
     if (activeAnim->rootMotion) {
         animAnchor = activeAnim->frameRootAnchor[activeFrame];
     }
-    Mat4 transform = CalculateTransform(pos, size, animAnchor, rot);
-	PushSprite(spriteDataGL, transform, alpha, flipHorizontal,
-		activeAnim->frameTextures[activeFrame].textureID);
+    Mat4 transform = CalculateTransform(pos, size, animAnchor, rot, flipHorizontal);
+	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
