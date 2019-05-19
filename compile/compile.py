@@ -100,7 +100,7 @@ if platform.system() == "Linux":
 
 NormalizePathSlashes(paths)
 
-def WinCompile(compileMode):
+def WinCompile(compileMode, debugger):
 	macros = " ".join([
 		"/DGAME_WIN32",
 		"/D_CRT_SECURE_NO_WARNINGS"
@@ -220,9 +220,8 @@ def WinCompile(compileMode):
 		"/link", linkerFlags, libPathsPlatform, libsPlatform])
 	
 	devenvCommand = "rem"
-	if len(sys.argv) > 2:
-		if sys.argv[2] == "devenv":
-			devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
+	if debugger:
+		devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
 
 	loadCompiler = "call \"" + paths["win32-vcvarsall"] + "\" x64"
 	os.system(" & ".join([
@@ -472,8 +471,7 @@ def Clean():
 			elif os.path.isdir(filePath):
 				shutil.rmtree(filePath)
 		except Exception as e:
-			# Handles file-in-use kinds of things.
-			# ... exceptions are so ugly.
+			# Handles file-in-use kinds of things
 			print(e)
 
 def Run():
@@ -492,6 +490,8 @@ def Main():
 	parser.add_argument("mode", help="compilation mode")
 	parser.add_argument("--ifchanged", action="store_true",
 		help="run the specified compile command only if files have changed")
+	parser.add_argument("--debugger", action="store_true",
+		help="open the platform debugger after compiling")
 	args = parser.parse_args()
 
 	if not os.path.exists(paths["build"]):
@@ -518,7 +518,7 @@ def Main():
 		compileMode = compileModeDict[args.mode]
 		platformName = platform.system()
 		if platformName == "Windows":
-			WinCompile(compileMode)
+			WinCompile(compileMode, args.debugger)
 		elif platformName == "Linux":
 			LinuxCompile(compileMode)
 		elif platformName == "Darwin":
