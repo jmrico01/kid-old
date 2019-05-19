@@ -223,7 +223,7 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 		fileString.size -= read;
 		fileString.data += read;
 
-		if (KeywordCompare(keyword, "size")) {
+		if (StringCompare(keyword.array, "size")) {
 			// TODO do I need this?
 			/*Vec2Int pos;
 			int parsedElements;
@@ -234,7 +234,7 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 				return false;
 			}*/
 		}
-		else if (KeywordCompare(keyword, "name")) {
+		else if (StringCompare(keyword.array, "name")) {
 			Array<char> filePath;
 			filePath.data = (char*)metadataFilePath;
 			filePath.size = StringLength(metadataFilePath);
@@ -255,7 +255,23 @@ internal bool32 LoadLevelSprites(const ThreadContext* thread,
 
 			sprites->array.size++;
 		}
-		else if (KeywordCompare(keyword, "offset")) {
+		else if (StringCompare(keyword.array, "type")) {
+			SpriteType type;
+			if (StringCompare(value.array, "bg")) {
+				type = SPRITE_BACKGROUND;
+			}
+			else if (StringCompare(value.array, "obj")) {
+				type = SPRITE_OBJECT;
+			}
+			else {
+				LOG_ERROR("Sprite metadata file unsupported type %.*s (%s)\n",
+					value.array.size, &value[0], metadataFilePath);
+				return false;
+			}
+
+			sprites->array.data[sprites->array.size - 1].type = type;
+		}
+		else if (StringCompare(keyword.array, "offset")) {
 			Vec2Int offset;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
@@ -832,45 +848,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->lineColliders.array.size = 0;
 		LineCollider* lineCollider;
 
-		/*lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-		lineCollider->line.array.size = 0;
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 10.51f, 46.69f });
-		lineCollider->line.Append(Vec2 { 11.24f, 46.73f });
-		lineCollider->line.Append(Vec2 { 11.25f, 48.03f });
-		lineCollider->line.Append(Vec2 { 12.68f, 48.07f });
-
-		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-		lineCollider->line.array.size = 0;
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 8.54f, 47.79f });
-		lineCollider->line.Append(Vec2 { 8.98f, 48.09f });
-		lineCollider->line.Append(Vec2 { 9.58f, 48.09f });
-		lineCollider->line.Append(Vec2 { 9.73f, 47.70f });
-
-		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-		lineCollider->line.array.size = 0;
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 6.33f, 50.50f });
-		lineCollider->line.Append(Vec2 { 6.79f, 50.51f });
-		lineCollider->line.Append(Vec2 { 6.93f, 50.73f });
-		lineCollider->line.Append(Vec2 { 7.58f, 50.69f });
-		lineCollider->line.Append(Vec2 { 7.94f, 49.96f });
-		lineCollider->line.Append(Vec2 { 8.33f, 49.69f });
-
-		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-		lineCollider->line.array.size = 0;
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { -1.89f, 52.59f });
-		lineCollider->line.Append(Vec2 { -1.39f, 52.64f });
-		lineCollider->line.Append(Vec2 { -0.56f, 52.86f });
-		lineCollider->line.Append(Vec2 {  0.19f, 52.86f });
-		lineCollider->line.Append(Vec2 {  0.79f, 52.51f });
-		lineCollider->line.Append(Vec2 {  1.25f, 52.43f });
-		lineCollider->line.Append(Vec2 {  2.95f, 51.57f });
-		lineCollider->line.Append(Vec2 {  4.18f, 51.59f });
-		lineCollider->line.Append(Vec2 {  5.16f, 51.54f });*/
-
 		// reserved for rock
 		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
 		lineCollider->line.array.size = 0;
@@ -1348,7 +1325,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
+		// sprites
 		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
+			if (gameState->sprites[i].type != SPRITE_OBJECT) {
+				continue;
+			}
 			const float32 POINT_CROSS_OFFSET = 0.05f;
 			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
 			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };

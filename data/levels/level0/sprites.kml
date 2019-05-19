@@ -1,40 +1,53 @@
 size 13727 14321
 
-name floor
+name bg_floor
+type bg
 offset -645 -1334
 
 name cloud6
+type obj
 offset 1963 7206
 
 name cloud5
+type obj
 offset 2124 9478
 
 name cloud4
+type obj
 offset 1712 9262
 
 name cloud3
+type obj
 offset 1937 8673
 
 name cloud2
+type obj
 offset 1668 6684
 
 name cloud1
+type obj
 offset 2091 6504
 
 name sadcloud
+type obj
 offset 1286 7400
 
-name bg
+name bg_scenery
+type bg
 offset 2121 2595
 
 name sun
+type obj
 offset 11277 7847
 
 name gardener
+type obj
 offset 7627 4633
 
-name water2
+name bg_water2
+type bg
 offset 10091 693
 
-name water1
+name bg_water1
+type bg
 offset 3109 693

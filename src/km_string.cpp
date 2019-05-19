@@ -2,7 +2,7 @@
 
 #include "km_debug.h"
 
-int StringLength(const char* string)
+uint64 StringLength(const char* string)
 {
 	int length = 0;
 	while (*string++) {
@@ -12,15 +12,30 @@ int StringLength(const char* string)
 	return length;
 }
 
-bool StringCompare(const char* str1, const char* str2, int n)
+bool StringCompare(const char* str1, const char* str2, uint64 n)
 {
-	for (int i = 0; i < n; i++) {
+	for (uint64 i = 0; i < n; i++) {
 		if (str1[i] != str2[i]) {
 			return false;
 		}
 	}
 
 	return true;
+}
+
+bool StringCompare(const Array<char>& str1, const Array<char>& str2)
+{
+    return StringCompare(str1.data, str2.data, MaxUInt64(str1.size, str2.size));
+}
+
+bool StringCompare(const Array<char>& str1, const char* str2)
+{
+    return StringCompare(str1.data, str2, MaxUInt64(str1.size, StringLength(str2)));
+}
+
+bool StringCompare(const char* str1, const char* str2)
+{
+    return StringCompare(str1, str2, MaxUInt64(StringLength(str1), StringLength(str2)));
 }
 
 void CatStrings(
@@ -188,12 +203,6 @@ bool32 StringToElementArray(const Array<char>& string, char sep, bool trimElemen
 
 	*numElements = elementInd + 1;
 	return true;
-}
-
-bool32 KeywordCompare(FixedArray<char, KEYWORD_MAX_LENGTH> keyword, const char* refKeyword)
-{
-    return StringCompare(keyword.array.data, refKeyword,
-        MaxInt((int)keyword.array.size, StringLength(refKeyword)));
 }
 
 template <uint64 KEYWORD_SIZE, uint64 VALUE_SIZE>

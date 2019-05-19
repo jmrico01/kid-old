@@ -32,12 +32,19 @@ enum PlayerState
 	PLAYER_STATE_FALLING
 };
 
+enum SpriteType
+{
+	SPRITE_BACKGROUND,
+	SPRITE_OBJECT
+};
+
 struct TextureWithPosition
 {
 	Vec2 pos;
 	Vec2 anchor;
     float32 scale;
 	TextureGL texture;
+	SpriteType type;
 };
 
 struct Rock

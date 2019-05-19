@@ -122,7 +122,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
         fileString.data += read;
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
-		if (KeywordCompare(keyword, KEYWORD_ANIM)) {
+		if (StringCompare(keyword.array, KEYWORD_ANIM)) {
 			currentAnimKey.WriteString(value.array);
 			outAnimatedSprite.animations.Add(currentAnimKey, {});
 			currentAnim = outAnimatedSprite.animations.GetValue(currentAnimKey);
@@ -133,7 +133,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->rootFollow = false;
 			currentAnim->rootFollowEndLoop = false;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_DIR)) {
+		else if (StringCompare(keyword.array, KEYWORD_DIR)) {
 			int frame = 0;
 			Array<char> filePathArray;
 			filePathArray.size = StringLength(filePath);
@@ -198,7 +198,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				return false;
 			}
 		}
-		else if (KeywordCompare(keyword, KEYWORD_FPS)) {
+		else if (StringCompare(keyword.array, KEYWORD_FPS)) {
 			int fps;
 			if (!StringToIntBase10(value.array, &fps)) {
 				LOG_ERROR("Animation file fps parse failed (%s)\n", filePath);
@@ -210,10 +210,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			currentAnim->fps = fps;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_LOOP)) {
+		else if (StringCompare(keyword.array, KEYWORD_LOOP)) {
 			currentAnim->loop = true;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_EXIT)) {
+		else if (StringCompare(keyword.array, KEYWORD_EXIT)) {
 			if (value.array.size == 0) {
 				LOG_ERROR("Animation file missing exit information (%s)\n", filePath);
 				return false;
@@ -266,7 +266,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
-		else if (KeywordCompare(keyword, KEYWORD_TIMING)) {
+		else if (StringCompare(keyword.array, KEYWORD_TIMING)) {
             int parsedElements;
             if (!StringToElementArray(value.array, ' ', false,
                 StringToIntBase10,
@@ -279,13 +279,13 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
                 return false;
             }
 		}
-		else if (KeywordCompare(keyword, KEYWORD_ROOTFOLLOW)) {
+		else if (StringCompare(keyword.array, KEYWORD_ROOTFOLLOW)) {
 			currentAnim->rootFollow = true;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_ROOTFOLLOWENDLOOP)) {
+		else if (StringCompare(keyword.array, KEYWORD_ROOTFOLLOWENDLOOP)) {
 			currentAnim->rootFollowEndLoop = true;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_ROOTMOTION)) {
+		else if (StringCompare(keyword.array, KEYWORD_ROOTMOTION)) {
             currentAnim->rootMotion = true;
 
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
@@ -336,12 +336,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				element = next;
 			}
 		}
-		else if (KeywordCompare(keyword, KEYWORD_START)) {
+		else if (StringCompare(keyword.array, KEYWORD_START)) {
 			HashKey startAnim;
 			startAnim.WriteString(value.array);
 			outAnimatedSprite.startAnimation = startAnim;
 		}
-		else if (KeywordCompare(keyword, KEYWORD_COMMENT)) {
+		else if (StringCompare(keyword.array, KEYWORD_COMMENT)) {
 			// Comment, ignore
 		}
 		else {

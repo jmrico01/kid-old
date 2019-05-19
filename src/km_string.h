@@ -9,8 +9,11 @@
 #define KEYWORD_MAX_LENGTH 32
 #define VALUE_MAX_LENGTH 256
 
-int StringLength(const char* str);
+uint64 StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);
+bool StringCompare(const Array<char>& str1, const Array<char>& str2);
+bool StringCompare(const Array<char>& str1, const char* str2);
+bool StringCompare(const char* str1, const char* str2);
 void CatStrings(
 	size_t sourceACount, const char* sourceA,
 	size_t sourceBCount, const char* sourceB,
