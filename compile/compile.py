@@ -8,8 +8,17 @@ import random
 import shutil
 import sys
 import string
+import zipfile
 
 PROJECT_NAME = "kid"
+
+DEPLOY_FILES = [
+	"data",
+	"logs",
+	"shaders",
+	"kid_game.dll",
+	"kid_win32.exe"
+]
 
 class CompileMode(Enum):
 	DEBUG    = "debug"
@@ -49,26 +58,27 @@ def LoadEnvSettings(pathDict, envSettingsPath):
 # Important directory & file paths
 paths = { "root": GetEnclosingDir(GetScriptPath()) }
 
-paths["build"]          = paths["root"] + "/build"
-paths["data"]           = paths["root"] + "/data"
-paths["src"]            = paths["root"] + "/src"
+paths["build"]          = paths["root"]  + "/build"
+paths["data"]           = paths["root"]  + "/data"
+paths["deploy"]         = paths["root"]  + "/deploy"
+paths["src"]            = paths["root"]  + "/src"
 
 paths["build-data"]     = paths["build"] + "/data"
 paths["build-logs"]     = paths["build"] + "/logs"
 paths["build-shaders"]  = paths["build"] + "/shaders"
-paths["src-shaders"]    = paths["src"] + "/shaders"
+paths["src-shaders"]    = paths["src"]   + "/shaders"
 
 # Main source files
-paths["main-cpp"]       = paths["src"] + "/main.cpp"
-paths["linux-main-cpp"] = paths["src"] + "/linux_main.cpp"
-paths["macos-main-mm"]  = paths["src"] + "/macos_main.mm"
-paths["win32-main-cpp"] = paths["src"] + "/win32_main.cpp"
+paths["main-cpp"]       = paths["src"]   + "/main.cpp"
+paths["linux-main-cpp"] = paths["src"]   + "/linux_main.cpp"
+paths["macos-main-mm"]  = paths["src"]   + "/macos_main.mm"
+paths["win32-main-cpp"] = paths["src"]   + "/win32_main.cpp"
 
 # Source hashes for if-changed compilation
 paths["src-hashes"]     = paths["build"] + "/src_hashes"
 paths["src-hashes-old"] = paths["build"] + "/src_hashes_old"
 
-paths["env-settings"]   = paths["root"] + "/compile/env_settings.json"
+paths["env-settings"]   = paths["root"]  + "/compile/env_settings.json"
 
 NormalizePathSlashes(paths)
 LoadEnvSettings(paths, paths["env-settings"])
@@ -99,6 +109,28 @@ if platform.system() == "Linux":
 	paths["lib-libpng-linux"] = "/usr/local/lib"
 
 NormalizePathSlashes(paths)
+
+def RemakeDestAndCopyDir(srcPath, dstPath):
+	# Re-create (clear) the directory
+	if os.path.exists(dstPath):
+		shutil.rmtree(dstPath)
+	os.makedirs(dstPath)
+
+	# Copy
+	for fileName in os.listdir(srcPath):
+		filePath = os.path.join(srcPath, fileName)
+		if os.path.isfile(filePath):
+			shutil.copy2(filePath, dstPath)
+		elif os.path.isdir(filePath):
+			shutil.copytree(filePath, os.path.join(dstPath, fileName))
+
+def ClearDirContents(path):
+	for fileName in os.listdir(path):
+		filePath = os.path.join(path, fileName)
+		if os.path.isfile(filePath):
+			os.remove(filePath)
+		elif os.path.isdir(filePath):
+			shutil.rmtree(filePath)
 
 def WinCompile(compileMode, debugger):
 	macros = " ".join([
@@ -239,6 +271,24 @@ def WinRun():
 		PROJECT_NAME + "_win32.exe",
 		"popd"
 	]))
+
+def WinDeploy():
+	if not os.path.exists(paths["deploy"]):
+		os.makedirs(paths["deploy"])
+
+	deployBundleName = PROJECT_NAME
+	deployBundlePath = os.path.join(paths["deploy"], deployBundleName)
+	RemakeDestAndCopyDir(paths["build"], deployBundlePath)
+	for fileName in os.listdir(deployBundlePath):
+		if fileName not in DEPLOY_FILES:
+			filePath = os.path.join(deployBundlePath, fileName)
+			if os.path.isfile(filePath):
+				os.remove(filePath)
+			elif os.path.isdir(filePath):
+				shutil.rmtree(filePath)
+
+	deployZipPath = os.path.join(paths["deploy"], "0. Unnamed")
+	shutil.make_archive(deployZipPath, "zip", root_dir=paths["deploy"], base_dir=deployBundleName)
 
 def LinuxCompile(compileMode):
 	macros = " ".join([
@@ -430,20 +480,6 @@ def ComputeSrcHashes():
 				out.write(filePath + "\n")
 				out.write(FileMD5(filePath) + "\n")
 
-def CopyDir(srcPath, dstPath):
-	# Re-create (clear) the directory
-	if os.path.exists(dstPath):
-		shutil.rmtree(dstPath)
-	os.makedirs(dstPath)
-
-	# Copy
-	for fileName in os.listdir(srcPath):
-		filePath = os.path.join(srcPath, fileName)
-		if os.path.isfile(filePath):
-			shutil.copy2(filePath, dstPath)
-		elif os.path.isdir(filePath):
-			shutil.copytree(filePath, dstPath + os.sep + fileName)
-
 def DidFilesChange():
 	hashPath = paths["src-hashes"]
 	oldHashPath = paths["src-hashes-old"]
@@ -463,16 +499,8 @@ def DidFilesChange():
 	return False
 
 def Clean():
-	for fileName in os.listdir(paths["build"]):
-		filePath = os.path.join(paths["build"], fileName)
-		try:
-			if os.path.isfile(filePath):
-				os.remove(filePath)
-			elif os.path.isdir(filePath):
-				shutil.rmtree(filePath)
-		except Exception as e:
-			# Handles file-in-use kinds of things
-			print(e)
+	ClearDirContents(paths["build"])
+	ClearDirContents(paths["deploy"])
 
 def Run():
 	platformName = platform.system()
@@ -492,6 +520,8 @@ def Main():
 		help="run the specified compile command only if files have changed")
 	parser.add_argument("--debugger", action="store_true",
 		help="open the platform debugger after compiling")
+	parser.add_argument("--deploy", action="store_true",
+		help="package and deploy a game build after compiling")
 	args = parser.parse_args()
 
 	if not os.path.exists(paths["build"]):
@@ -510,8 +540,8 @@ def Main():
 		Run()
 	elif args.mode in compileModeDict:
 		ComputeSrcHashes()
-		CopyDir(paths["data"], paths["build-data"])
-		CopyDir(paths["src-shaders"], paths["build-shaders"])
+		RemakeDestAndCopyDir(paths["data"], paths["build-data"])
+		RemakeDestAndCopyDir(paths["src-shaders"], paths["build-shaders"])
 		if not os.path.exists(paths["build-logs"]):
 			os.makedirs(paths["build-logs"])
 
@@ -519,6 +549,8 @@ def Main():
 		platformName = platform.system()
 		if platformName == "Windows":
 			WinCompile(compileMode, args.debugger)
+			if args.deploy:
+				WinDeploy()
 		elif platformName == "Linux":
 			LinuxCompile(compileMode)
 		elif platformName == "Darwin":
