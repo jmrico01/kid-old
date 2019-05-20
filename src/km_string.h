@@ -7,7 +7,7 @@
 #define PATH_MAX_LENGTH 128
 
 #define KEYWORD_MAX_LENGTH 32
-#define VALUE_MAX_LENGTH 256
+#define VALUE_MAX_LENGTH 4096
 
 uint64 StringLength(const char* str);
 bool StringCompare(const char* str1, const char* str2, int n);

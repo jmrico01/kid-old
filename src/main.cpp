@@ -111,70 +111,110 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool32 LoadFloorVertices(const ThreadContext* thread,
-	FloorCollider* floorCollider, const char* filePath,
+internal bool32 LoadLevelCollision(const ThreadContext* thread,
+	FloorCollider* floor, FixedArray<LineCollider, LINE_COLLIDERS_MAX>* lineColliders,
+	const char* filePath,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
 {
-	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
-	if (!levelFile.data) {
+	DEBUGReadFileResult collisionFile = DEBUGPlatformReadFile(thread, filePath);
+	if (!collisionFile.data) {
 		LOG_ERROR("Failed to load level file %s\n", filePath);
 		return false;
 	}
 
-	floorCollider->line.array.size = 0;
-	floorCollider->line.Init();
-	Array<char> element;
-	element.size = levelFile.size;
-	element.data = (char*)levelFile.data;
+	Array<char> fileString;
+	fileString.size = collisionFile.size;
+	fileString.data = (char*)collisionFile.data;
 	while (true) {
-		Array<char> next;
-		ReadElementInSplitString(&element, &next, '\n');
-
-		Array<char> trimmed;
-		TrimWhitespace(element, &trimmed);
-		if (trimmed.size == 0) {
+		FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+		keyword.Init();
+		FixedArray<char, VALUE_MAX_LENGTH> value;
+		value.Init();
+		int read = ReadNextKeywordValue(fileString, &keyword, &value);
+		if (read < 0) {
+			LOG_ERROR("Collision file keyword/value error (%s)\n", filePath);
+			return false;
+		}
+		else if (read == 0) {
 			break;
 		}
+		fileString.size -= read;
+		fileString.data += read;
 
-		Vec2 pos;
-		int parsedElements;
-		if (!StringToElementArray(trimmed, ',', true,
-		StringToFloat32, 2, pos.e, &parsedElements)) {
-			LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
-				trimmed.size, trimmed.data, filePath);
+		if (StringCompare(keyword.array, "floor")) {
+			floor->line.array.size = 0;
+			floor->line.Init();
+
+			Array<char> element = value.array;
+			while (true) {
+				Array<char> next;
+				ReadElementInSplitString(&element, &next, '\n');
+
+				Array<char> trimmed;
+				TrimWhitespace(element, &trimmed);
+				if (trimmed.size == 0) {
+					break;
+				}
+
+				Vec2 pos;
+				int parsedElements;
+				if (!StringToElementArray(trimmed, ',', true,
+				StringToFloat32, 2, pos.e, &parsedElements)) {
+					LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
+				if (parsedElements != 2) {
+					LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
+
+				floor->line.Append(pos);
+
+				element = next;
+			}
+
+			floor->PrecomputeSampleVerticesFromLine();
+		}
+		else {
+			LOG_ERROR("Collision file unsupported keyword %.*s (%s)\n",
+				keyword.array.size, &keyword[0], filePath);
 			return false;
 		}
-		if (parsedElements != 2) {
-			LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
-				trimmed.size, trimmed.data, filePath);
-			return false;
-		}
-
-		floorCollider->line.Append(pos);
-
-		element = next;
 	}
 
-	DEBUGPlatformFreeFileMemory(thread, &levelFile);
+	lineColliders->Init();
+	lineColliders->array.size = 0;
+	LineCollider* lineCollider;
 
-	floorCollider->PrecomputeSampleVerticesFromLine();
+	// reserved for rock
+	lineCollider = &lineColliders->array.data[lineColliders->array.size++];
+	lineCollider->line.array.size = 0;
+	lineCollider->line.Init();
+	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+
+	DEBUG_ASSERT(lineColliders->array.size <= LINE_COLLIDERS_MAX);
+
+	DEBUGPlatformFreeFileMemory(thread, &collisionFile);
 
 	return true;
 }
 
 internal bool32 SaveFloorVertices(const ThreadContext* thread,
-	const FloorCollider* floorCollider, const char* filePath,
+	const FloorCollider* floor, const char* filePath,
 	MemoryBlock transient,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
 	uint64 stringSize = 0;
 	uint64 stringCapacity = transient.size;
 	char* string = (char*)transient.memory;
-	for (uint64 i = 0; i < floorCollider->line.array.size; i++) {
+	for (uint64 i = 0; i < floor->line.array.size; i++) {
 		uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
 			"%.2f, %.2f\r\n",
-			floorCollider->line[i].x, floorCollider->line[i].y);
+			floor->line[i].x, floor->line[i].y);
 		stringSize += n;
 		DEBUG_ASSERT(stringSize < stringCapacity);
 	}
@@ -381,30 +421,32 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
+	LevelData* levelData = &gameState->levels[level];
+
 	char levelFilePath[64];
 	snprintf(levelFilePath, 64, "data/levels/level%llu/collision.kml", level);
-	if (!LoadFloorVertices(thread, &gameState->floor, levelFilePath,
+	if (!LoadLevelCollision(thread, &levelData->floor, &levelData->lineColliders, levelFilePath,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 		LOG_ERROR("Failed to load floor vertices for level %llu\n", level);
 		return false;
 	}
 
 	snprintf(levelFilePath, 64, "data/levels/level%llu/collision-bak.kml", level);
-	if (!SaveFloorVertices(thread, &gameState->floor, levelFilePath,
+	if (!SaveFloorVertices(thread, &levelData->floor, levelFilePath,
 		transient, DEBUGPlatformWriteFile)) {
 		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
 		return false;
 	}
 
 	snprintf(levelFilePath, 64, "data/levels/level%llu/sprites.kml", level);
-	if (!LoadLevelSprites(thread, levelFilePath, &gameState->sprites,
-		gameState->floor, transient,
+	if (!LoadLevelSprites(thread, levelFilePath, &levelData->sprites,
+		levelData->floor, transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 		LOG_ERROR("Failed to load sprite data for level %llu\n", level);
 		return false;
 	}
 
-	gameState->levelLoaded = level;
+	gameState->loadedLevel = level;
 	gameState->playerCoords = { 0.0f, 0.0f };
 
 	return true;
@@ -559,16 +601,18 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerState = PLAYER_STATE_FALLING;
 	}
 
+	const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
+	const FloorCollider& floor = loadedLevel.floor;
+
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
 
-	Vec2 playerPos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
-	Vec2 playerPosNew = gameState->floor.GetWorldPosFromCoords(
-		gameState->playerCoords + deltaCoords);
+	Vec2 playerPos = floor.GetWorldPosFromCoords(gameState->playerCoords);
+	Vec2 playerPosNew = floor.GetWorldPosFromCoords(gameState->playerCoords + deltaCoords);
 	Vec2 deltaPos = playerPosNew - playerPos;
 
 	FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
 	intersects.Init();
-	GetLineColliderIntersections(gameState->lineColliders.array,
+	GetLineColliderIntersections(loadedLevel.lineColliders.array,
 		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
 		&intersects.array);
 	for (uint64 i = 0; i < intersects.array.size; i++) {
@@ -579,7 +623,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
 		float32 newDeltaCoordX = deltaCoords.x * tX;
 		Vec2 newFloorPos, newFloorNormal;
-		gameState->floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
+		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
 			&newFloorPos, &newFloorNormal);
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
@@ -605,8 +649,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (gameState->currentPlatform != nullptr) {
 		float32 platformHeight;
 		bool32 playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
-			*gameState->currentPlatform,
-			gameState->floor, gameState->playerCoords.x + deltaCoords.x,
+			*gameState->currentPlatform, floor, gameState->playerCoords.x + deltaCoords.x,
 			&platformHeight);
 		if (playerOverPlatform) {
 			floorHeightCoord = platformHeight;
@@ -642,9 +685,10 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->rock.coords.y = radius;
 
 		Vec2 floorPos, floorNormal;
-		gameState->floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
+		floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
 		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
-		LineCollider* rockPlatform = &gameState->lineColliders[gameState->lineColliders.array.size - 1];
+		LineCollider* rockPlatform = &loadedLevel.lineColliders.array.data[
+			loadedLevel.lineColliders.array.size - 1];
 		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
 		float32 platformWidth = radius * 0.5f;
 		rockPlatform->line[0] = pos + radius * floorNormal
@@ -653,7 +697,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			+ floorTangent * platformWidth;
 	}
 
-	const float32 floorLength = gameState->floor.length;
+	const float32 floorLength = floor.length;
 	const float32 GRAB_RANGE = 0.2f;
 	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
@@ -683,10 +727,12 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	if (WasKeyPressed(input, KM_KEY_E)) {
 		if (gameState->liftedObject.spritePtr == nullptr) {
+			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites =
+				loadedLevel.sprites;
 			TextureWithPosition* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
-			for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
-				TextureWithPosition* sprite = &gameState->sprites[i];
+			for (uint64 i = 0; i < sprites.array.size; i++) {
+				TextureWithPosition* sprite = &sprites.array.data[i];
 				if (sprite->type != SPRITE_OBJECT) {
 					continue;
 				}
@@ -804,7 +850,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		cameraFollowLerpMag);
 
 	Vec2 camFloorPos, camFloorNormal;
-	gameState->floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
+	floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
 	float32 angle = acosf(Dot(Vec2::unitY, camFloorNormal));
 	if (camFloorNormal.x > 0.0f) {
 		angle = -angle;
@@ -813,14 +859,17 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 }
 
-internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
+internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	Mat4 projection, ScreenInfo screenInfo)
 {
+	const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
+	const FloorCollider& floor = loadedLevel.floor;
+
 	spriteDataGL->numSprites = 0;
 
 	//Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 	Vec2 playerFloorPos, playerFloorNormal;
-	gameState->floor.GetInfoFromCoordX(gameState->playerCoords.x,
+	floor.GetInfoFromCoordX(gameState->playerCoords.x,
 		&playerFloorPos, &playerFloorNormal);
 	Vec2 playerPos = playerFloorPos + playerFloorNormal * gameState->playerCoords.y;
 	float32 playerAngle = acosf(Dot(Vec2::unitY, playerFloorNormal));
@@ -834,8 +883,8 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 		1.0f, !gameState->facingRight);
 
 	{ // level sprites
-		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
-			TextureWithPosition* sprite = &gameState->sprites[i];
+		for (uint64 i = 0; i < loadedLevel.sprites.array.size; i++) {
+			TextureWithPosition* sprite = &loadedLevel.sprites.array.data[i];
 			Vec2 pos;
 			Quat baseRot;
 			Quat rot;
@@ -843,7 +892,7 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 				baseRot = QuatFromAngleUnitAxis(-sprite->restAngle, Vec3::unitZ);
 
 				Vec2 floorPos, floorNormal;
-				gameState->floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+				floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
 				pos = floorPos + floorNormal * sprite->coords.y;
 				if (sprite == gameState->liftedObject.spritePtr) {
 					rot = playerRot;
@@ -869,7 +918,7 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	{ // rock
-		Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->rock.coords);
+		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
 		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
 		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
@@ -879,7 +928,7 @@ internal void DrawWorld(GameState* gameState, SpriteDataGL* spriteDataGL,
 	{ // barrel
 		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
 		Vec2 barrelFloorPos, barrelFloorNormal;
-		gameState->floor.GetInfoFromCoordX(gameState->barrelCoords.x,
+		floor.GetInfoFromCoordX(gameState->barrelCoords.x,
 			&barrelFloorPos, &barrelFloorNormal);
 		Vec2 pos = barrelFloorPos + barrelFloorNormal * gameState->barrelCoords.y;
 		float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
@@ -965,7 +1014,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		//glFrontFace(GL_CCW);
 		//glCullFace(GL_BACK);
 
-		glLineWidth(2.0f);
+		glLineWidth(1.0f);
 
 		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
@@ -992,22 +1041,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory,
 			platformFuncs->DEBUGPlatformWriteFile)) {
 			DEBUG_PANIC("Failed to load level 0\n");
-		}
-
-		gameState->lineColliders.Init();
-		gameState->lineColliders.array.size = 0;
-		LineCollider* lineCollider;
-
-		// reserved for rock
-		lineCollider = &gameState->lineColliders[gameState->lineColliders.array.size++];
-		lineCollider->line.array.size = 0;
-		lineCollider->line.Init();
-		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-		lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-
-		DEBUG_ASSERT(gameState->lineColliders.array.size <= LINE_COLLIDERS_MAX);
-		for (uint64 i = 0; i < gameState->lineColliders.array.size; i++) {
-			DEBUG_ASSERT(gameState->lineColliders[i].line.array.size <= LINE_COLLIDER_MAX_VERTICES);
 		}
 
 		gameState->grainTime = 0.0f;
@@ -1130,7 +1163,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
-		gameState->rock.coords = { gameState->floor.length - 10.0f, 0.0f };
+		gameState->rock.coords = {
+			gameState->levels[gameState->loadedLevel].floor.length - 10.0f,
+			0.0f
+		};
 		gameState->rock.angle = 0.0f;
 		if (!LoadPNGOpenGL(thread,
 		"data/sprites/rock.png",
@@ -1381,6 +1417,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 
 	if (gameState->debugView) {
+		const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
+		const FloorCollider& floor = loadedLevel.floor;
+
 		FontFace& textFont = gameState->fontFaceSmall;
 		FontFace& textFontSmall = gameState->fontFaceSmall;
 		char textStr[128];
@@ -1436,7 +1475,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		Vec2 playerPosWorld = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
+		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
 		sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
@@ -1472,9 +1511,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
 		{ // mouse
-			Vec2 coords = gameState->floor.GetCoordsFromWorldPos(mouseWorld);
+			Vec2 coords = floor.GetCoordsFromWorldPos(mouseWorld);
 			Vec2 floorPos, floorNormal;
-			gameState->floor.GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
+			floor.GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
 			lineData->count = 2;
 			lineData->pos[0] = ToVec3(floorPos, 0.0f);
 			lineData->pos[1] = ToVec3(floorPos + floorNormal * coords.y, 0.0f);
@@ -1483,16 +1522,16 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		// sprites
-		for (uint64 i = 0; i < gameState->sprites.array.size; i++) {
-			if (gameState->sprites[i].type != SPRITE_OBJECT) {
+		for (uint64 i = 0; i < loadedLevel.sprites.array.size; i++) {
+			if (loadedLevel.sprites[i].type != SPRITE_OBJECT) {
 				continue;
 			}
 			const float32 POINT_CROSS_OFFSET = 0.05f;
 			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
 			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };
-			const TextureWithPosition& sprite = gameState->sprites[i];
+			const TextureWithPosition& sprite = loadedLevel.sprites[i];
 			lineData->count = 2;
-			Vec2 worldPos = gameState->floor.GetWorldPosFromCoords(sprite.pos);
+			Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
 			Vec3 pos = ToVec3(worldPos, 0.0f);
 			lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
 			lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
@@ -1518,9 +1557,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		{ // line colliders
+			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
+				loadedLevel.lineColliders;
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-			for (uint64 i = 0; i < gameState->lineColliders.array.size; i++) {
-				const LineCollider& lineCollider = gameState->lineColliders[i];
+			for (uint64 i = 0; i < lineColliders.array.size; i++) {
+				const LineCollider& lineCollider = lineColliders[i];
 				lineData->count = (int)lineCollider.line.array.size;
 				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
@@ -1536,13 +1577,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			const int FLOOR_HEIGHT_NUM_STEPS = 10;
 			const float32 FLOOR_HEIGHT_STEP = 0.5f;
 			const float32 FLOOR_NORMAL_LENGTH = FLOOR_HEIGHT_STEP;
-			const float32 FLOOR_LENGTH = gameState->floor.length;
+			const float32 FLOOR_LENGTH = floor.length;
 			for (int i = 0; i < FLOOR_HEIGHT_NUM_STEPS; i++) {
 				float32 height = i * FLOOR_HEIGHT_STEP;
 				lineData->count = 0;
 				for (float32 floorX = 0.0f; floorX < FLOOR_LENGTH; floorX += FLOOR_SMOOTH_STEPS) {
 					Vec2 fPos, fNormal;
-					gameState->floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
+					floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
 					Vec2 pos = fPos + fNormal * height;
 					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
 					lineData->pos[lineData->count++] = ToVec3(
@@ -1569,6 +1610,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 	}
 	if (gameState->editor) {
+		FloorCollider& floor = gameState->levels[gameState->loadedLevel].floor;
+
 		Vec2Int editorStrPos = {
 			pillarboxWidth + MARGIN.x,
 			MARGIN.y,
@@ -1590,8 +1633,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				(int)(BOX_SIZE.y * BOX_ANCHOR.y)
 			};
 			Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
-			for (uint64 i = 0; i < gameState->floor.line.array.size; i++) {
-				Vec2Int boxPos = WorldToScreen(gameState->floor.line[i], screenInfo,
+			for (uint64 i = 0; i < floor.line.array.size; i++) {
+				Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
 					gameState->cameraPos, gameState->cameraRot,
 					ScaleExponentToWorldScale(gameState->editorScaleExponent));
 
@@ -1637,37 +1680,37 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				gameState->cameraPos -= mouseWorldDelta;
 			}
 			else {
-				gameState->floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
-				gameState->floor.PrecomputeSampleVerticesFromLine();
+				floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
+				floor.PrecomputeSampleVerticesFromLine();
 			}
 		}
 
 		if (gameState->floorVertexSelected != -1) {
 			if (WasKeyPressed(input, KM_KEY_R)) {
-				gameState->floor.line.Remove(gameState->floorVertexSelected);
-				gameState->floor.PrecomputeSampleVerticesFromLine();
+				floor.line.Remove(gameState->floorVertexSelected);
+				floor.PrecomputeSampleVerticesFromLine();
 				gameState->floorVertexSelected = -1;
 			}
 		}
 
 		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
 			if (gameState->floorVertexSelected == -1) {
-				gameState->floor.line.Append(mouseWorldPosEnd);
-				gameState->floorVertexSelected = (int)(gameState->floor.line.array.size - 1);
+				floor.line.Append(mouseWorldPosEnd);
+				gameState->floorVertexSelected = (int)(floor.line.array.size - 1);
 			}
 			else {
-				gameState->floor.line.AppendAfter(mouseWorldPosEnd,
+				floor.line.AppendAfter(mouseWorldPosEnd,
 					gameState->floorVertexSelected);
 				gameState->floorVertexSelected += 1;
 			}
-			gameState->floor.PrecomputeSampleVerticesFromLine();
+			floor.PrecomputeSampleVerticesFromLine();
 		}
 
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char saveFilePath[PATH_MAX_LENGTH];
 			snprintf(saveFilePath, PATH_MAX_LENGTH,
-				"data/levels/level%llu/collision.kml", gameState->levelLoaded);
-			if (!SaveFloorVertices(thread, &gameState->floor, saveFilePath,
+				"data/levels/level%llu/collision.kml", gameState->loadedLevel);
+			if (!SaveFloorVertices(thread, &floor, saveFilePath,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
 				LOG_ERROR("Level save failed!\n");
 			}

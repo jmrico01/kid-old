@@ -23,6 +23,8 @@
 
 #define LINE_COLLIDERS_MAX 16
 
+#define LEVELS_MAX 4
+
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
 enum PlayerState
@@ -71,6 +73,14 @@ struct LiftedObjectInfo
     float32 coordYPrev;
 };
 
+struct LevelData
+{
+    FloorCollider floor;
+    FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
+
+    FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
+};
+
 struct GameState
 {
 	AudioState audioState;
@@ -93,12 +103,8 @@ struct GameState
 
 	Vec2 barrelCoords;
 
-    // Level data
-    uint64 levelLoaded;
-    FloorCollider floor;
-    FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
-
-    FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
+    uint64 loadedLevel;
+    LevelData levels[LEVELS_MAX];
 
 	float32 grainTime;
 

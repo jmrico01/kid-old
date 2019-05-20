@@ -36,6 +36,8 @@ Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
 	return floorPos + floorNormal * coords.y;
 }
 
+// TODO this is wrong. min dist to worldPos doesn't mean it is reachable
+// should be dist in the direction of the normal ( AKA coords.y ?? )
 Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
 {
     DEBUG_ASSERT(sampleVertices.array.size > 0);
