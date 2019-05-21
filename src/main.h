@@ -81,6 +81,7 @@ struct LevelData
     FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
 
     Vec2 startCoords;
+    bool32 resetCoords;
 
     bool32 lockedCamera;
     bool32 bounded;

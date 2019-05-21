@@ -142,11 +142,20 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
+	if (level != LEVELS_MAX) {
+		LevelData* currentLevelData = &gameState->levels[gameState->loadedLevel];
+		if (!currentLevelData->resetCoords) {
+			currentLevelData->startCoords = gameState->playerCoords;
+		}
+	}
 	gameState->loadedLevel = level;
 
 	LevelData* levelData = &gameState->levels[level];
 	if (levelData->loaded) {
 		gameState->playerCoords = levelData->startCoords;
+		if (levelData->lockedCamera) {
+			gameState->cameraCoords = levelData->startCoords;
+		}
 		return true;
 	}
 
@@ -163,6 +172,7 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	levelData->sprites.Init();
 	levelData->sprites.array.size = 0;
 
+	levelData->resetCoords = false;
 	levelData->lockedCamera = false;
 
 	Array<char> fileString;
@@ -259,6 +269,9 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 			}
 
 			levelData->startCoords = coords;
+		}
+		else if (StringCompare(keyword.array, "resetcoords")) {
+			levelData->resetCoords = true;
 		}
 		else if (StringCompare(keyword.array, "bounds")) {
 			Vec2 bounds;
@@ -420,7 +433,7 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 
 	gameState->playerCoords = levelData->startCoords;
 	if (levelData->lockedCamera) {
-		gameState->cameraCoords = gameState->playerCoords;
+		gameState->cameraCoords = levelData->startCoords;
 	}
 	levelData->loaded = true;
 
@@ -460,11 +473,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	HashKey ANIM_LAND;
 	ANIM_LAND.WriteString("Land");
 
-	const float32 PLAYER_WALK_SPEED = 3.5f;
+	const float32 PLAYER_WALK_SPEED = 3.6f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MAX = 0.3f;
-	const float32 PLAYER_JUMP_MAG_MAX = 1.3f;
+	const float32 PLAYER_JUMP_MAG_MAX = 1.2f;
 	const float32 PLAYER_JUMP_MAG_MIN = 0.4f;
+
+	float32 speedMultiplier = 1.0f;
 
 	gameState->playerVel.x = 0.0f;
 	bool skipPlayerInput = false;
@@ -475,7 +490,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 #endif
 
 	if (!skipPlayerInput) {
-		float32 speed = PLAYER_WALK_SPEED;
+		float32 speed = PLAYER_WALK_SPEED * speedMultiplier;
 		if (gameState->playerState == PLAYER_STATE_JUMPING) {
 			speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
 		}
@@ -563,6 +578,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	float32 animDeltaTime = deltaTime;
+	if (gameState->playerState == PLAYER_STATE_GROUNDED) {
+		animDeltaTime *= speedMultiplier;
+	}
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
 	}
@@ -576,8 +594,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerState = PLAYER_STATE_FALLING;
 	}
 
-	const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
-	const FloorCollider& floor = loadedLevel.floor;
+	const LevelData& levelData = gameState->levels[gameState->loadedLevel];
+	const FloorCollider& floor = levelData.floor;
 
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
 
@@ -587,7 +605,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
 	intersects.Init();
-	GetLineColliderIntersections(loadedLevel.lineColliders.array,
+	GetLineColliderIntersections(levelData.lineColliders.array,
 		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
 		&intersects.array);
 	for (uint64 i = 0; i < intersects.array.size; i++) {
@@ -662,8 +680,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		Vec2 floorPos, floorNormal;
 		floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
 		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
-		LineCollider* rockPlatform = &loadedLevel.lineColliders.array.data[
-			loadedLevel.lineColliders.array.size - 1];
+		LineCollider* rockPlatform = &levelData.lineColliders.array.data[
+			levelData.lineColliders.array.size - 1];
 		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
 		float32 platformWidth = radius * 0.5f;
 		rockPlatform->line[0] = pos + radius * floorNormal
@@ -674,9 +692,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	const float32 floorLength = floor.length;
 	const float32 GRAB_RANGE = 0.2f;
-	bool32 pushPullKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
+	bool32 wasObjectKeyPressed =
+		WasKeyPressed(input, KM_KEY_SHIFT) || WasKeyPressed(input, KM_KEY_E)
+		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown
+			&& input->controllers[0].b.transitions == 1);
+	bool32 isObjectKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
-	if (pushPullKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
+	if (isObjectKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
 		FixedArray<GrabbedObjectInfo, 10> candidates;
 		candidates.Init();
 		candidates.array.size = 0;
@@ -700,10 +722,10 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
-	if (WasKeyPressed(input, KM_KEY_E)) {
+	if (wasObjectKeyPressed) {
 		if (gameState->liftedObject.spritePtr == nullptr) {
 			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites =
-				loadedLevel.sprites;
+				levelData.sprites;
 			TextureWithPosition* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
 			for (uint64 i = 0; i < sprites.array.size; i++) {
@@ -741,21 +763,21 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
-	TextureWithPosition* grabbedSprite = gameState->liftedObject.spritePtr;
-	if (grabbedSprite != nullptr) {
-		grabbedSprite->coords = gameState->playerCoords;
-		grabbedSprite->flipped = !gameState->facingRight;
+	TextureWithPosition* liftedSprite = gameState->liftedObject.spritePtr;
+	if (liftedSprite != nullptr) {
+		liftedSprite->coords = gameState->playerCoords;
+		liftedSprite->flipped = !gameState->facingRight;
 		Vec2 offset = gameState->liftedObject.offset;
-		if (grabbedSprite->flipped) {
+		if (liftedSprite->flipped) {
 			offset.x = -offset.x;
 		}
-		grabbedSprite->coords += offset;
+		liftedSprite->coords += offset;
 	}
 
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
 		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject,
 			floorLength)
-		&& pushPullKeyPressed) {
+		&& isObjectKeyPressed) {
 			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
 			Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
 			coordsPtr->x += deltaX;
@@ -779,9 +801,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerCoords.x -= floorLength;
 	}
 
-	if (loadedLevel.bounded) {
+	if (levelData.bounded) {
 		gameState->playerCoords.x = ClampFloat32(gameState->playerCoords.x,
-			loadedLevel.bounds.x, loadedLevel.bounds.y);
+			levelData.bounds.x, levelData.bounds.y);
 	}
 
 	Array<HashKey> paperNextAnims;
@@ -794,7 +816,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 #endif
 
-	if (!loadedLevel.lockedCamera) {
+	if (!levelData.lockedCamera) {
 		const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
 		const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
 		float32 cameraFollowLerpMag = 0.08f;
@@ -844,8 +866,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	Mat4 projection, ScreenInfo screenInfo)
 {
-	const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
-	const FloorCollider& floor = loadedLevel.floor;
+	const LevelData& levelData = gameState->levels[gameState->loadedLevel];
+	const FloorCollider& floor = levelData.floor;
 
 	spriteDataGL->numSprites = 0;
 
@@ -865,8 +887,8 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 		1.0f, !gameState->facingRight);
 
 	{ // level sprites
-		for (uint64 i = 0; i < loadedLevel.sprites.array.size; i++) {
-			TextureWithPosition* sprite = &loadedLevel.sprites.array.data[i];
+		for (uint64 i = 0; i < levelData.sprites.array.size; i++) {
+			TextureWithPosition* sprite = &levelData.sprites.array.data[i];
 			Vec2 pos;
 			Quat baseRot;
 			Quat rot;
@@ -1384,27 +1406,9 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
 	const Vec2Int MARGIN = { 30, 45 };
 
-#if 0
-	{ // solid floor
-		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
-		LineGLData* lineData = (LineGLData*)memory->transient.memory;
-		lineData->count = 0;
-
-		Vec4 floorColor = Vec4 { 0.1f, 0.1f, 0.1f, 1.0f };
-		const float32 FLOOR_RENDER_STEP_LENGTH = 0.1f;
-		for (float32 floorX = 0.0f; floorX < gameState->floor.length;
-		floorX += FLOOR_RENDER_STEP_LENGTH) {
-			Vec2 fPos, fNormal;
-			gameState->floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
-			lineData->pos[lineData->count++] = ToVec3(fPos, 0.0f);
-		}
-		DrawLine(gameState->lineGL, projection, view, lineData, floorColor);
-	}
-#endif
-
 	if (gameState->debugView) {
-		const LevelData& loadedLevel = gameState->levels[gameState->loadedLevel];
-		const FloorCollider& floor = loadedLevel.floor;
+		const LevelData& levelData = gameState->levels[gameState->loadedLevel];
+		const FloorCollider& floor = levelData.floor;
 
 		FontFace& textFont = gameState->fontFaceSmall;
 		FontFace& textFontSmall = gameState->fontFaceSmall;
@@ -1508,14 +1512,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		// sprites
-		for (uint64 i = 0; i < loadedLevel.sprites.array.size; i++) {
-			if (loadedLevel.sprites[i].type != SPRITE_OBJECT) {
+		for (uint64 i = 0; i < levelData.sprites.array.size; i++) {
+			if (levelData.sprites[i].type != SPRITE_OBJECT) {
 				continue;
 			}
 			const float32 POINT_CROSS_OFFSET = 0.05f;
 			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
 			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };
-			const TextureWithPosition& sprite = loadedLevel.sprites[i];
+			const TextureWithPosition& sprite = levelData.sprites[i];
 			lineData->count = 2;
 			Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
 			Vec3 pos = ToVec3(worldPos, 0.0f);
@@ -1544,7 +1548,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		{ // line colliders
 			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
-				loadedLevel.lineColliders;
+				levelData.lineColliders;
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			for (uint64 i = 0; i < lineColliders.array.size; i++) {
 				const LineCollider& lineCollider = lineColliders[i];
@@ -1579,6 +1583,23 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				DrawLine(gameState->lineGL, projection, view, lineData,
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
+			}
+		}
+
+		{ // bounds
+			Vec4 boundsColor = { 1.0f, 0.2f, 0.3f, 1.0f };
+			if (levelData.bounded) {
+				lineData->count = 2;
+
+				Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
+				lineData->pos[0] = ToVec3(boundLeft, 0.0f);
+				lineData->pos[1] = ToVec3(boundLeft + Vec2::unitY * CAMERA_HEIGHT_UNITS, 0.0f);
+				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
+
+				Vec2 boundRight = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.y, 0.0f });
+				lineData->pos[0] = ToVec3(boundRight, 0.0f);
+				lineData->pos[1] = ToVec3(boundRight + Vec2::unitY * CAMERA_HEIGHT_UNITS, 0.0f);
+				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
 			}
 		}
 
