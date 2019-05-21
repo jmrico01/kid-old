@@ -79,6 +79,13 @@ struct LevelData
     FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
 
     FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
+
+    Vec2 startCoords;
+
+    bool32 bounded;
+    Vec2 bounds;
+
+    bool32 loaded;
 };
 
 struct GameState

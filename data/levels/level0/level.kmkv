@@ -1,3 +1,61 @@
+sprite floor
+type bg
+offset -645 -1334
+
+sprite cloud6
+type bg
+offset 1963 7206
+
+sprite cloud5
+type bg
+offset 2124 9478
+
+sprite cloud4
+type bg
+offset 1712 9262
+
+sprite cloud3
+type bg
+offset 1937 8673
+
+sprite cloud2
+type bg
+offset 1668 6684
+
+sprite cloud1
+type bg
+offset 2091 6504
+
+sprite sadcloud
+type bg
+offset 1286 7400
+
+sprite bg
+type bg
+offset 2121 2595
+
+sprite sun
+type bg
+offset 11277 7847
+
+sprite obj_gardener
+type obj
+offset 7627 4633
+
+sprite obj_gardenertest
+type obj
+offset 5898 11926
+
+sprite water2
+type bg
+offset 10091 693
+
+sprite water1
+type bg
+offset 3109 693
+
+startcoords 0.00 0.00
+
 floor {
 45.46, 99.42
 56.69, 99.43
