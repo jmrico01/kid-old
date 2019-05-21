@@ -163,6 +163,8 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	levelData->sprites.Init();
 	levelData->sprites.array.size = 0;
 
+	levelData->lockedCamera = false;
+
 	Array<char> fileString;
 	fileString.size = levelFile.size;
 	fileString.data = (char*)levelFile.data;
@@ -275,6 +277,9 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 
 			levelData->bounded = true;
 			levelData->bounds = bounds;
+		}
+		else if (StringCompare(keyword.array, "lockcamera")) {
+			levelData->lockedCamera = true;
 		}
 		else if (StringCompare(keyword.array, "floor")) {
 			levelData->floor.line.array.size = 0;
@@ -414,6 +419,9 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 	}
 
 	gameState->playerCoords = levelData->startCoords;
+	if (levelData->lockedCamera) {
+		gameState->cameraCoords = gameState->playerCoords;
+	}
 	levelData->loaded = true;
 
 	return true;
@@ -786,40 +794,42 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 #endif
 
-	const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
-	const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
-	float32 cameraFollowLerpMag = 0.08f;
-	Vec2 cameraCoordsTarget = gameState->playerCoords;
-	if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
-		cameraCoordsTarget.y = gameState->prevFloorCoordY;
-	}
+	if (!loadedLevel.lockedCamera) {
+		const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
+		const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
+		float32 cameraFollowLerpMag = 0.08f;
+		Vec2 cameraCoordsTarget = gameState->playerCoords;
+		if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
+			cameraCoordsTarget.y = gameState->prevFloorCoordY;
+		}
 
-	// Wrap camera if necessary
-	float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
-	Vec2 cameraCoordsWrap = gameState->cameraCoords;
-	cameraCoordsWrap.x += floorLength;
-	float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
-	if (altDist < dist) {
-		gameState->cameraCoords = cameraCoordsWrap;
-		dist = altDist;
-	}
-	else {
-		cameraCoordsWrap.x -= floorLength * 2.0f;
-		altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+		// Wrap camera if necessary
+		float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
+		Vec2 cameraCoordsWrap = gameState->cameraCoords;
+		cameraCoordsWrap.x += floorLength;
+		float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
 		if (altDist < dist) {
 			gameState->cameraCoords = cameraCoordsWrap;
 			dist = altDist;
 		}
-	}
+		else {
+			cameraCoordsWrap.x -= floorLength * 2.0f;
+			altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
+			if (altDist < dist) {
+				gameState->cameraCoords = cameraCoordsWrap;
+				dist = altDist;
+			}
+		}
 
-	if (dist > CAMERA_FOLLOW_ACCEL_DIST_MIN) {
-		float32 lerpMagAccelT = (dist - CAMERA_FOLLOW_ACCEL_DIST_MIN)
-			/ (CAMERA_FOLLOW_ACCEL_DIST_MAX - CAMERA_FOLLOW_ACCEL_DIST_MIN);
-		lerpMagAccelT = ClampFloat32(lerpMagAccelT, 0.0f, 1.0f);
-		cameraFollowLerpMag += (1.0f - cameraFollowLerpMag) * lerpMagAccelT;
+		if (dist > CAMERA_FOLLOW_ACCEL_DIST_MIN) {
+			float32 lerpMagAccelT = (dist - CAMERA_FOLLOW_ACCEL_DIST_MIN)
+				/ (CAMERA_FOLLOW_ACCEL_DIST_MAX - CAMERA_FOLLOW_ACCEL_DIST_MIN);
+			lerpMagAccelT = ClampFloat32(lerpMagAccelT, 0.0f, 1.0f);
+			cameraFollowLerpMag += (1.0f - cameraFollowLerpMag) * lerpMagAccelT;
+		}
+		gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
+			cameraFollowLerpMag);
 	}
-	gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
-		cameraFollowLerpMag);
 
 	Vec2 camFloorPos, camFloorNormal;
 	floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);

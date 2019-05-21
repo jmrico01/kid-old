@@ -82,6 +82,7 @@ struct LevelData
 
     Vec2 startCoords;
 
+    bool32 lockedCamera;
     bool32 bounded;
     Vec2 bounds;
 

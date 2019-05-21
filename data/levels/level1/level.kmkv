@@ -1,6 +1,8 @@
 startcoords 15.00 0.00
 
-bounds 5.00 25.00
+bounds 10.00 20.00
+
+lockcamera
 
 floor {
     -15.00, 0.00
