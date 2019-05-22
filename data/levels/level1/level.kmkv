@@ -3,8 +3,8 @@ bounds 10.0 20.0
 lockcamera
 
 transition {
-    coords   15.0 0.6
-    range    1.0 0.6
+    coords   15.0 0.8
+    range    0.8 1.0
     tolevel  0
     tocoords 216.2 0.0
 }

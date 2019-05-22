@@ -55,20 +55,20 @@ type   bg
 offset 3109 693
 
 transition {
-    coords   216.2 0.6
-    range    1.0 0.6
+    coords   216.2 0.8
+    range    0.8 1.0
     tolevel  1
     tocoords 15.0 0.0
 }
 transition {
-    coords   12.8 0.6
-    range    1.0 0.6
+    coords   12.8 0.8
+    range    0.8 1.0
     tolevel  2
     tocoords 15.0 0.0
 }
 transition {
-    coords   65.0 1.0
-    range    1.5 1.0
+    coords   65.0 0.8
+    range    1.2 1.0
     tolevel  3
     tocoords 15.0 0.0
 }

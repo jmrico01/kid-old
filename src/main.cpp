@@ -518,6 +518,26 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	return true;
 }
 
+internal Vec2 WrappedWorldOffset(Vec2 fromCoords, Vec2 toCoords, float32 floorLength)
+{
+	Vec2 offset = toCoords - fromCoords;
+	float32 distX = AbsFloat32(offset.x);
+
+	float32 distXAlt = AbsFloat32(offset.x + floorLength);
+	if (distXAlt < distX) {
+		offset.x += floorLength;
+		return offset;
+	}
+
+	distXAlt = AbsFloat32(offset.x - floorLength);
+	if (distXAlt < distX) {
+		offset.x -= floorLength;
+		return offset;
+	}
+
+	return offset;
+}
+
 internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object,
 	float32 floorLength)
 {
@@ -549,7 +569,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		for (uint64 i = 0; i < levelData.levelTransitions.array.size; i++) {
 			// TODO Oof... make these coords wrap around the world?
-			Vec2 toPlayer = levelData.levelTransitions[i].coords - gameState->playerCoords;
+			Vec2 toPlayer = WrappedWorldOffset(
+				gameState->playerCoords, levelData.levelTransitions[i].coords,
+				levelData.floor.length); 
 			if (AbsFloat32(toPlayer.x) <= levelData.levelTransitions[i].range.x
 			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
@@ -1656,20 +1678,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
 		}
 
-		{ // line colliders
-			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
-				levelData.lineColliders;
-			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-			for (uint64 i = 0; i < lineColliders.array.size; i++) {
-				const LineCollider& lineCollider = lineColliders[i];
-				lineData->count = (int)lineCollider.line.array.size;
-				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
-					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
-				}
-				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
-			}
-		}
-
 		{ // floor
 			Vec4 floorSmoothColorMax = { 0.4f, 0.4f, 0.5f, 1.0f };
 			Vec4 floorSmoothColorMin = { 0.4f, 0.4f, 0.5f, 0.2f };
@@ -1693,6 +1701,43 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				DrawLine(gameState->lineGL, projection, view, lineData,
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
+			}
+		}
+
+		{ // line colliders
+			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
+			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
+				levelData.lineColliders;
+			for (uint64 i = 0; i < lineColliders.array.size; i++) {
+				const LineCollider& lineCollider = lineColliders[i];
+				lineData->count = (int)lineCollider.line.array.size;
+				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
+					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
+				}
+				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
+			}
+		}
+
+		{ // level transitions
+			Vec4 levelTransitionColor = { 0.1f, 0.3f, 1.0f, 1.0f };
+			const FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX>& transitions =
+				levelData.levelTransitions;
+			lineData->count = 5;
+			for (uint64 i = 0; i < transitions.array.size; i++) {
+				Vec2 coords = transitions[i].coords;
+				Vec2 range = transitions[i].range;
+				lineData->pos[0] = ToVec3(coords - range, 0.0f);
+				lineData->pos[1] = lineData->pos[0];
+				lineData->pos[1].x += range.x * 2.0f;
+				lineData->pos[2] = ToVec3(coords + range, 0.0f);
+				lineData->pos[3] = lineData->pos[0];
+				lineData->pos[3].y += range.y * 2.0f;
+				lineData->pos[4] = lineData->pos[0];
+				for (int p = 0; p < 5; p++) {
+					Vec2 worldPos = floor.GetWorldPosFromCoords(ToVec2(lineData->pos[p]));
+					lineData->pos[p] = ToVec3(worldPos, 0.0f);
+				}
+				DrawLine(gameState->lineGL, projection, view, lineData, levelTransitionColor);
 			}
 		}
 
