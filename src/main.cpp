@@ -136,44 +136,41 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	return true;
 }
 
-internal bool32 LoadLevel(const ThreadContext* thread,
-	GameState* gameState, uint64 level, MemoryBlock transient,
+internal bool32 LoadLevelData(const ThreadContext* thread,
+	const char* filePath, LevelData* levelData, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
-	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
 {
-	if (level != LEVELS_MAX) {
-		LevelData* currentLevelData = &gameState->levels[gameState->loadedLevel];
-		if (!currentLevelData->resetCoords) {
-			currentLevelData->startCoords = gameState->playerCoords;
-		}
-	}
-	gameState->loadedLevel = level;
+	DEBUG_ASSERT(!levelData->loaded);
 
-	LevelData* levelData = &gameState->levels[level];
-	if (levelData->loaded) {
-		gameState->playerCoords = levelData->startCoords;
-		if (levelData->lockedCamera) {
-			gameState->cameraCoords = levelData->startCoords;
-		}
-		return true;
-	}
+	// TODO load this from file =========================================================
+	levelData->lineColliders.Init();
+	levelData->lineColliders.array.size = 0;
+	LineCollider* lineCollider;
 
-	// TODO probably factor out the actual heavy level loading
-	// Do like: if (not loaded) { call load function } set gameState things
-	char levelFilePath[PATH_MAX_LENGTH];
-	snprintf(levelFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/level.kmkv", level);
-	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, levelFilePath);
-	if (!levelFile.data) {
-		LOG_ERROR("Failed to load level file %s\n", levelFilePath);
-		return false;
-	}
+	// reserved for rock
+	lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
+	lineCollider->line.array.size = 0;
+	lineCollider->line.Init();
+	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+
+	DEBUG_ASSERT(levelData->lineColliders.array.size <= LINE_COLLIDERS_MAX);
+	// ==================================================================================
 
 	levelData->sprites.Init();
 	levelData->sprites.array.size = 0;
 
-	levelData->resetCoords = false;
+	levelData->levelTransitions.Init();
+	levelData->levelTransitions.array.size = 0;
+
 	levelData->lockedCamera = false;
+
+	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
+	if (!levelFile.data) {
+		LOG_ERROR("Failed to load level file %s\n", filePath);
+		return false;
+	}
 
 	Array<char> fileString;
 	fileString.size = levelFile.size;
@@ -185,7 +182,7 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 		value.Init();
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
-			LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", levelFilePath);
+			LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", filePath);
 			return false;
 		}
 		else if (read == 0) {
@@ -197,10 +194,10 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 		if (StringCompare(keyword.array, "sprite")) {
 			levelData->sprites.array.size++;
 
-			Array<char> filePath;
-			filePath.data = (char*)levelFilePath;
-			filePath.size = StringLength(levelFilePath);
-			uint64 lastSlash = GetLastOccurrence(filePath, '/');
+			Array<char> path;
+			path.data = (char*)filePath;
+			path.size = StringLength(filePath);
+			uint64 lastSlash = GetLastOccurrence(path, '/');
 
 			char pngFilePath[PATH_MAX_LENGTH];
 			MemCopy(pngFilePath, &filePath[0], lastSlash);
@@ -211,7 +208,7 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 				levelData->sprites[levelData->sprites.array.size - 1].texture, transient,
 				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 				LOG_ERROR("Failed to load sprite PNG file %s (%s)\n",
-					pngFilePath, levelFilePath);
+					pngFilePath, filePath);
 				return false;
 			}
 		}
@@ -225,7 +222,7 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 			}
 			else {
 				LOG_ERROR("Sprite metadata file unsupported type %.*s (%s)\n",
-					value.array.size, &value[0], levelFilePath);
+					value.array.size, &value[0], filePath);
 				return false;
 			}
 
@@ -238,12 +235,12 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 			if (!StringToElementArray(value.array, ' ', true,
 			StringToIntBase10, 2, offset.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse sprite offset %.*s (%s)\n",
-					value.array.size, &value[0], levelFilePath);
+					value.array.size, &value[0], filePath);
 				return false;
 			}
 			if (parsedElements != 2) {
 				LOG_ERROR("Not enough coordinates in sprite offset %.*s (%s)\n",
-					value.array.size, &value[0], levelFilePath);
+					value.array.size, &value[0], filePath);
 				return false;
 			}
 
@@ -253,38 +250,18 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 			sprite->restAngle = 0.0f;
 			sprite->flipped = false;
 		}
-		else if (StringCompare(keyword.array, "startcoords")) {
-			Vec2 coords;
-			int parsedElements;
-			if (!StringToElementArray(value.array, ' ', true,
-			StringToFloat32, 2, coords.e, &parsedElements)) {
-				LOG_ERROR("Failed to parse start coords %.*s (%s)\n",
-					value.array.size, value.array.data, levelFilePath);
-				return false;
-			}
-			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordinates in start coords %.*s (%s)\n",
-					value.array.size, value.array.data, levelFilePath);
-				return false;
-			}
-
-			levelData->startCoords = coords;
-		}
-		else if (StringCompare(keyword.array, "resetcoords")) {
-			levelData->resetCoords = true;
-		}
 		else if (StringCompare(keyword.array, "bounds")) {
 			Vec2 bounds;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
 			StringToFloat32, 2, bounds.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level bounds %.*s (%s)\n",
-					value.array.size, value.array.data, levelFilePath);
+					value.array.size, value.array.data, filePath);
 				return false;
 			}
 			if (parsedElements != 2) {
 				LOG_ERROR("Not enough coordinates in level bounds %.*s (%s)\n",
-					value.array.size, value.array.data, levelFilePath);
+					value.array.size, value.array.data, filePath);
 				return false;
 			}
 
@@ -293,6 +270,97 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 		}
 		else if (StringCompare(keyword.array, "lockcamera")) {
 			levelData->lockedCamera = true;
+		}
+		else if (StringCompare(keyword.array, "transition")) {
+			DEBUG_ASSERT(levelData->levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
+			LevelTransition* transition = &levelData->levelTransitions[
+				levelData->levelTransitions.array.size++];
+
+			Array<char> transitionString = value.array;
+			while (true) {
+				FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
+				keywordTransition.Init();
+				FixedArray<char, VALUE_MAX_LENGTH> valueTransition;
+				valueTransition.Init();
+				int readTransition = ReadNextKeywordValue(transitionString,
+					&keywordTransition, &valueTransition);
+				if (readTransition < 0) {
+					LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", filePath);
+					return false;
+				}
+				else if (readTransition == 0) {
+					break;
+				}
+				transitionString.size -= readTransition;
+				transitionString.data += readTransition;
+
+				if (StringCompare(keywordTransition.array, "coords")) {
+					Vec2 coords;
+					int parsedElements;
+					if (!StringToElementArray(valueTransition.array, ' ', true,
+					StringToFloat32, 2, coords.e, &parsedElements)) {
+						LOG_ERROR("Failed to parse transition coords %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+					if (parsedElements != 2) {
+						LOG_ERROR("Not enough coordinates in transition coords %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+
+					transition->coords = coords;
+				}
+				else if (StringCompare(keywordTransition.array, "range")) {
+					Vec2 range;
+					int parsedElements;
+					if (!StringToElementArray(valueTransition.array, ' ', true,
+					StringToFloat32, 2, range.e, &parsedElements)) {
+						LOG_ERROR("Failed to parse transition range %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+					if (parsedElements != 2) {
+						LOG_ERROR("Not enough coordinates in transition range %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+
+					transition->range = range;
+				}
+				else if (StringCompare(keywordTransition.array, "tolevel")) {
+					uint64 toLevel;
+					if (!StringToUInt64Base10(valueTransition.array, &toLevel)) {
+						LOG_ERROR("Failed to parse transition to-level %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+
+					transition->toLevel = toLevel;
+				}
+				else if (StringCompare(keywordTransition.array, "tocoords")) {
+					Vec2 toCoords;
+					int parsedElements;
+					if (!StringToElementArray(valueTransition.array, ' ', true,
+					StringToFloat32, 2, toCoords.e, &parsedElements)) {
+						LOG_ERROR("Failed to parse transition to-coords %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+					if (parsedElements != 2) {
+						LOG_ERROR("Not enough coordinates in transition to-coords %.*s (%s)\n",
+							valueTransition.array.size, valueTransition.array.data, filePath);
+						return false;
+					}
+
+					transition->toCoords = toCoords;
+				}
+				else {
+					LOG_ERROR("Level file unsupported transition keyword %.*s (%s)\n",
+						keywordTransition.array.size, &keywordTransition[0], filePath);
+					return false;
+				}
+			}
 		}
 		else if (StringCompare(keyword.array, "floor")) {
 			levelData->floor.line.array.size = 0;
@@ -314,12 +382,12 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 				if (!StringToElementArray(trimmed, ',', true,
 				StringToFloat32, 2, pos.e, &parsedElements)) {
 					LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, levelFilePath);
+						trimmed.size, trimmed.data, filePath);
 					return false;
 				}
 				if (parsedElements != 2) {
 					LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, levelFilePath);
+						trimmed.size, trimmed.data, filePath);
 					return false;
 				}
 
@@ -332,26 +400,12 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 		}
 		else {
 			LOG_ERROR("Level file unsupported keyword %.*s (%s)\n",
-				keyword.array.size, &keyword[0], levelFilePath);
+				keyword.array.size, &keyword[0], filePath);
 			return false;
 		}
 	}
 
 	DEBUGPlatformFreeFileMemory(thread, &levelFile);
-
-	levelData->lineColliders.Init();
-	levelData->lineColliders.array.size = 0;
-
-	LineCollider* lineCollider;
-
-	// reserved for rock
-	lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
-	lineCollider->line.array.size = 0;
-	lineCollider->line.Init();
-	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-
-	DEBUG_ASSERT(levelData->lineColliders.array.size <= LINE_COLLIDERS_MAX);
 
 	for (uint64 i = 0; i < levelData->sprites.array.size; i++) {
 		TextureWithPosition* sprite = &levelData->sprites[i];
@@ -424,18 +478,42 @@ internal bool32 LoadLevel(const ThreadContext* thread,
 		}
 	}
 
-	snprintf(levelFilePath, 64, "data/levels/level%llu/collision-bak.kml", level);
-	if (!SaveFloorVertices(thread, &levelData->floor, levelFilePath,
-		transient, DEBUGPlatformWriteFile)) {
+	levelData->loaded = true;
+
+	return true;
+}
+
+internal bool32 SetActiveLevel(const ThreadContext* thread,
+	GameState* gameState, uint64 level, Vec2 startCoords, MemoryBlock transient,
+	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
+	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+{
+	LevelData* levelData = &gameState->levels[level];
+	if (!levelData->loaded) {
+		char levelFilePath[PATH_MAX_LENGTH];
+		snprintf(levelFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/level.kmkv", level);
+		if (!LoadLevelData(thread, levelFilePath, levelData, transient,
+		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+			LOG_ERROR("Failed to load level data for level %llu\n", level);
+			return false;
+		}
+	}
+
+	gameState->activeLevel = level;
+
+	gameState->playerCoords = startCoords;
+	if (levelData->lockedCamera) {
+		gameState->cameraCoords = startCoords;
+	}
+
+	char bakFilePath[PATH_MAX_LENGTH];
+	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/collision-bak.kml", level);
+	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient,
+	DEBUGPlatformWriteFile)) {
 		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
 		return false;
 	}
-
-	gameState->playerCoords = levelData->startCoords;
-	if (levelData->lockedCamera) {
-		gameState->cameraCoords = levelData->startCoords;
-	}
-	levelData->loaded = true;
 
 	return true;
 }
@@ -460,8 +538,33 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
 
-internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput* input)
+internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput* input,
+	MemoryBlock transient,
+	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
+	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
+
+	if (WasKeyPressed(input, KM_KEY_E)) {
+		const LevelData& levelData = gameState->levels[gameState->activeLevel];
+		for (uint64 i = 0; i < levelData.levelTransitions.array.size; i++) {
+			// TODO Oof... make these coords wrap around the world?
+			Vec2 toPlayer = levelData.levelTransitions[i].coords - gameState->playerCoords;
+			if (AbsFloat32(toPlayer.x) <= levelData.levelTransitions[i].range.x
+			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
+				uint64 newLevel = levelData.levelTransitions[i].toLevel;
+				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
+				if (!SetActiveLevel(nullptr, gameState, newLevel, startCoords, transient,
+				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory, DEBUGPlatformWriteFile)) {
+					DEBUG_PANIC("Failed to load level %llu\n", i);
+				}
+				break;
+			}
+		}
+	}
+
+	const LevelData& levelData = gameState->levels[gameState->activeLevel];
+
 	HashKey ANIM_IDLE;
 	ANIM_IDLE.WriteString("Idle");
 	HashKey ANIM_WALK;
@@ -594,7 +697,6 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerState = PLAYER_STATE_FALLING;
 	}
 
-	const LevelData& levelData = gameState->levels[gameState->loadedLevel];
 	const FloorCollider& floor = levelData.floor;
 
 	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
@@ -866,7 +968,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	Mat4 projection, ScreenInfo screenInfo)
 {
-	const LevelData& levelData = gameState->levels[gameState->loadedLevel];
+	const LevelData& levelData = gameState->levels[gameState->activeLevel];
 	const FloorCollider& floor = levelData.floor;
 
 	spriteDataGL->numSprites = 0;
@@ -1044,7 +1146,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			gameState->levels[i].loaded = false;
 		}
 
-		if (!LoadLevel(thread, gameState, 0, memory->transient,
+		if (!SetActiveLevel(thread, gameState, 0, Vec2::zero, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory,
 			platformFuncs->DEBUGPlatformWriteFile)) {
@@ -1172,7 +1274,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			platformFuncs->DEBUGPlatformFreeFileMemory);
 
 		gameState->rock.coords = {
-			gameState->levels[gameState->loadedLevel].floor.length - 10.0f,
+			gameState->levels[gameState->activeLevel].floor.length - 10.0f,
 			0.0f
 		};
 		gameState->rock.angle = 0.0f;
@@ -1303,7 +1405,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	for (uint64 i = 0; i < 10; i++) {
 		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
-			if (!LoadLevel(thread, gameState, i, memory->transient,
+			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, memory->transient,
 				platformFuncs->DEBUGPlatformReadFile,
 				platformFuncs->DEBUGPlatformFreeFileMemory,
 				platformFuncs->DEBUGPlatformWriteFile)) {
@@ -1312,7 +1414,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 	}
 
-	UpdateWorld(gameState, deltaTime, input);
+	UpdateWorld(gameState, deltaTime, input, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory,
+		platformFuncs->DEBUGPlatformWriteFile);
 
 	// ---------------------------- Begin Rendering ---------------------------
 	glEnable(GL_DEPTH_TEST);
@@ -1407,7 +1512,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	const Vec2Int MARGIN = { 30, 45 };
 
 	if (gameState->debugView) {
-		const LevelData& levelData = gameState->levels[gameState->loadedLevel];
+		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
 
 		FontFace& textFont = gameState->fontFaceSmall;
@@ -1497,16 +1602,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
+		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
+		textPosRight.y -= textFont.height;
+		sprintf(textStr, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y);
+		DrawText(gameState->textGL, textFont, screenInfo,
+			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
 		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 		LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
 		{ // mouse
-			Vec2 coords = floor.GetCoordsFromWorldPos(mouseWorld);
 			Vec2 floorPos, floorNormal;
-			floor.GetInfoFromCoordX(coords.x, &floorPos, &floorNormal);
+			floor.GetInfoFromCoordX(mouseCoords.x, &floorPos, &floorNormal);
 			lineData->count = 2;
 			lineData->pos[0] = ToVec3(floorPos, 0.0f);
-			lineData->pos[1] = ToVec3(floorPos + floorNormal * coords.y, 0.0f);
+			lineData->pos[1] = ToVec3(floorPos + floorNormal * mouseCoords.y, 0.0f);
 			DrawLine(gameState->lineGL, projection, view, lineData,
 				Vec4 { 0.5f, 0.4f, 0.0f, 0.25f });
 		}
@@ -1617,7 +1727,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 	}
 	if (gameState->editor) {
-		FloorCollider& floor = gameState->levels[gameState->loadedLevel].floor;
+		FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
 
 		Vec2Int editorStrPos = {
 			pillarboxWidth + MARGIN.x,
@@ -1716,7 +1826,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char saveFilePath[PATH_MAX_LENGTH];
 			snprintf(saveFilePath, PATH_MAX_LENGTH,
-				"data/levels/level%llu/collision.kml", gameState->loadedLevel);
+				"data/levels/level%llu/collision.kml", gameState->activeLevel);
 			if (!SaveFloorVertices(thread, &floor, saveFilePath,
 				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
 				LOG_ERROR("Level save failed!\n");

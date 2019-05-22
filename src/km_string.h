@@ -22,6 +22,7 @@ void CatStrings(
 inline bool32 IsWhitespace(char c);
 void TrimWhitespace(const Array<char>& string, Array<char>* trimmed);
 bool32 StringToIntBase10(const Array<char>& string, int* intBase10);
+bool32 StringToUInt64Base10(const Array<char>& string, uint64* intBase10);
 bool32 StringToFloat32(const Array<char>& string, float32* f);
 uint64 GetLastOccurrence(const Array<char>& string, char c);
 void ReadElementInSplitString(Array<char>* element, Array<char>* next, char separator);

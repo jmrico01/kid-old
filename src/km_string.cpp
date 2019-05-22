@@ -101,6 +101,21 @@ bool32 StringToIntBase10(const Array<char>& string, int* intBase10)
 	return true;
 }
 
+bool32 StringToUInt64Base10(const Array<char>& string, uint64* intBase10)
+{
+    if (string.size == 0) {
+        return false;
+    }
+
+    *intBase10 = 0;
+    for (uint64 i = 0; i < string.size; i++) {
+        char c = string[i];
+        *intBase10 = (*intBase10) * 10 + (uint64)(c - '0');
+    }
+
+    return true;
+}
+
 bool32 StringToFloat32(const Array<char>& string, float32* f)
 {
 	uint64 dotIndex = 0;

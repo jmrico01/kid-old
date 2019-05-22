@@ -1,60 +1,77 @@
 sprite floor
-type bg
+type   bg
 offset -645 -1334
 
 sprite cloud6
-type bg
+type   bg
 offset 1963 7206
 
 sprite cloud5
-type bg
+type   bg
 offset 2124 9478
 
 sprite cloud4
-type bg
+type   bg
 offset 1712 9262
 
 sprite cloud3
-type bg
+type   bg
 offset 1937 8673
 
 sprite cloud2
-type bg
+type   bg
 offset 1668 6684
 
 sprite cloud1
-type bg
+type   bg
 offset 2091 6504
 
 sprite sadcloud
-type bg
+type   bg
 offset 1286 7400
 
 sprite bg
-type bg
+type   bg
 offset 2121 2595
 
 sprite sun
-type bg
+type   bg
 offset 11277 7847
 
 sprite obj_gardener
-type obj
+type   obj
 offset 7627 4633
 
 sprite obj_gardenertest
-type obj
+type   obj
 offset 5898 11926
 
 sprite water2
-type bg
+type   bg
 offset 10091 693
 
 sprite water1
-type bg
+type   bg
 offset 3109 693
 
-startcoords 0.00 0.00
+transition {
+    coords   216.2 0.6
+    range    1.0 0.6
+    tolevel  1
+    tocoords 15.0 0.0
+}
+transition {
+    coords   12.8 0.6
+    range    1.0 0.6
+    tolevel  2
+    tocoords 15.0 0.0
+}
+transition {
+    coords   65.0 1.0
+    range    1.5 1.0
+    tolevel  3
+    tocoords 15.0 0.0
+}
 
 floor {
 45.46, 99.42

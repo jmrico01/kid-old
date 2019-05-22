@@ -24,6 +24,7 @@
 #define LINE_COLLIDERS_MAX 16
 
 #define LEVELS_MAX 4
+#define LEVEL_TRANSITIONS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
@@ -53,6 +54,14 @@ struct TextureWithPosition
 	bool32 flipped;
 };
 
+struct LevelTransition
+{
+	Vec2 coords;
+	Vec2 range;
+	uint64 toLevel;
+	Vec2 toCoords;
+};
+
 struct Rock
 {
 	Vec2 coords;
@@ -80,8 +89,7 @@ struct LevelData
 
     FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
 
-    Vec2 startCoords;
-    bool32 resetCoords;
+    FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
 
     bool32 lockedCamera;
     bool32 bounded;
@@ -112,7 +120,7 @@ struct GameState
 
 	Vec2 barrelCoords;
 
-    uint64 loadedLevel;
+    uint64 activeLevel;
     LevelData levels[LEVELS_MAX];
 
 	float32 grainTime;
