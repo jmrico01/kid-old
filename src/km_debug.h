@@ -29,6 +29,8 @@
     LOG_ERROR(format, ##__VA_ARGS__); \
     flushLogs_(logState_);
 #else
+// TODO rethink these macros maybe, at least the panic
+#define DEBUG_ASSERTF(expression, format, ...)
 #define DEBUG_ASSERT(expression)
 #define DEBUG_PANIC(format, ...)
 #endif

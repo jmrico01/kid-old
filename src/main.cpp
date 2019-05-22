@@ -503,9 +503,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	gameState->activeLevel = level;
 
 	gameState->playerCoords = startCoords;
-	if (levelData->lockedCamera) {
-		gameState->cameraCoords = startCoords;
-	}
+	gameState->cameraCoords = startCoords;
 
 	char bakFilePath[PATH_MAX_LENGTH];
 	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/collision-bak.kml", level);
@@ -541,18 +539,10 @@ internal Vec2 WrappedWorldOffset(Vec2 fromCoords, Vec2 toCoords, float32 floorLe
 internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo object,
 	float32 floorLength)
 {
-	Vec2 toCoords = playerCoords - *object.coordsPtr;
+	DEBUG_ASSERT(object.coordsPtr != nullptr);
+
+	Vec2 toCoords = WrappedWorldOffset(playerCoords, *object.coordsPtr, floorLength);
 	float32 distX = AbsFloat32(toCoords.x);
-	float32 distXAlt = AbsFloat32(toCoords.x + floorLength);
-	if (distXAlt < distX) {
-		distX = distXAlt;
-	}
-	else {
-		distXAlt = AbsFloat32(toCoords.x - floorLength);
-		if (distXAlt < distX) {
-			distX = distXAlt;
-		}
-	}
 	float32 distY = AbsFloat32(toCoords.y);
 	return object.rangeX.x <= distX && distX <= object.rangeX.y
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
@@ -1650,7 +1640,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			}
 			const float32 POINT_CROSS_OFFSET = 0.05f;
 			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
-			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 0.25f };
+			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
 			const TextureWithPosition& sprite = levelData.sprites[i];
 			lineData->count = 2;
 			Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
@@ -1667,6 +1657,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				sprite.anchor.y * worldSize.y
 			};
 			Vec3 origin = ToVec3(worldPos - anchorOffset, 0.0f);
+			// TODO rotate sprite box
 			lineData->count = 5;
 			lineData->pos[0] = origin;
 			lineData->pos[1] = origin;
