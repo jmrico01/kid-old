@@ -58,7 +58,7 @@ transition {
     coords   216.2 0.8
     range    0.8 1.0
     tolevel  1
-    tocoords 15.0 0.0
+    tocoords 3.15 0.0
 }
 transition {
     coords   12.8 0.8

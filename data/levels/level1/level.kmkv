@@ -1,29 +1,53 @@
-bounds 10.0 20.0
+sprite frame
+type bg
+offset 41 54
 
-lockcamera
+sprite objects
+type bg
+offset 74 55
+
+sprite stairs
+type bg
+offset 465 56
+
+sprite label_play_tv
+type label
+offset 952 722
+
+sprite label_exit
+type label
+offset 230 247
+
+sprite label_go_upstairs
+type label
+offset 393 147
+
+sprite label_open_fridge
+type label
+offset 903 333
+
+sprite label_go_upstairs_attic
+type label
+offset 989 906
+
+bounds 2.0 12.0
+
+lockcamera 7.0 0.0
 
 transition {
-    coords   15.0 0.8
+    coords   3.15 0.8
     range    0.8 1.0
     tolevel  0
     tocoords 216.2 0.0
 }
 
 floor {
-    -15.00, 0.00
-    -14.00, 0.00
-    -13.00, 0.00
-    -12.00, 0.00
-    -11.00, 0.00
-    -10.00, 0.00
-    -5.00, 0.00
-    0.00, 0.00
-    5.00, 0.00
-    10.00, 0.00
-    11.00, 0.00
-    12.00, 0.00
-    13.00, 0.00
-    14.00, 0.00
-    15.00, 0.00
-    0.00, -10.00
+    -1.01, 0.54
+    -0.47, 0.54
+    0.43, 0.54
+    5.63, 0.54
+    11.53, 0.54
+    11.95, 0.54
+    12.35, 0.54
+    5.83, -6.29
 }

@@ -19,9 +19,11 @@ def ConvertPSD(filePath, outputDir):
 		layerType = "bg"
 		if len(layerName) > 5 and layerName[:4] == "obj_":
 			layerType = "obj"
+		elif len(layerName) > 7 and layerName[:6] == "label_":
+			layerType = "label"
 		layerOffset = layer.offset
 		layerSize = layer.size
-		layerImagePath = os.path.join(outputDir, layerName + ".png")
+		layerImagePath = os.path.join(outputDir, "sprites", layerName + ".png")
 		image = layer.compose()
 		assert layerSize == image.size
 		image.save(layerImagePath)
@@ -29,7 +31,7 @@ def ConvertPSD(filePath, outputDir):
 		print("    {}".format(layerImagePath))
 
 		metadata += "\n"
-		metadata += "name {}\n".format(layerName)
+		metadata += "sprite {}\n".format(layerName)
 		metadata += "type {}\n".format(layerType)
 		offsetY = psd.height - layerSize[1] - layerOffset[1]
 		metadata += "offset {} {}\n".format(layerOffset[0], offsetY)

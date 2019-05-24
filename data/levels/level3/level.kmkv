@@ -1,6 +1,6 @@
 bounds 10.0 20.0
 
-lockcamera
+lockcamera 15.0 0.0
 
 transition {
     coords   15.0 0.8

@@ -148,6 +148,18 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 	levelData->lineColliders.array.size = 0;
 	LineCollider* lineCollider;
 
+    lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
+    lineCollider->line.array.size = 0;
+    lineCollider->line.Init();
+    lineCollider->line.Append(Vec2 { 5.70f, 2.7f });
+    lineCollider->line.Append(Vec2 { 6.60f, 2.7f });
+
+    lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
+    lineCollider->line.array.size = 0;
+    lineCollider->line.Init();
+    lineCollider->line.Append(Vec2 { 0.0f, 4.55f });
+    lineCollider->line.Append(Vec2 { 12.0f, 4.55f });
+
 	// reserved for rock
 	lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
 	lineCollider->line.array.size = 0;
@@ -217,9 +229,12 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			if (StringCompare(value.array, "bg")) {
 				type = SPRITE_BACKGROUND;
 			}
-			else if (StringCompare(value.array, "obj")) {
-				type = SPRITE_OBJECT;
-			}
+            else if (StringCompare(value.array, "obj")) {
+                type = SPRITE_OBJECT;
+            }
+            else if (StringCompare(value.array, "label")) {
+                type = SPRITE_LABEL;
+            }
 			else {
 				LOG_ERROR("Sprite metadata file unsupported type %.*s (%s)\n",
 					value.array.size, &value[0], filePath);
@@ -269,7 +284,22 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			levelData->bounds = bounds;
 		}
 		else if (StringCompare(keyword.array, "lockcamera")) {
+            Vec2 coords;
+            int parsedElements;
+            if (!StringToElementArray(value.array, ' ', true,
+            StringToFloat32, 2, coords.e, &parsedElements)) {
+                LOG_ERROR("Failed to parse level lock camera coords %.*s (%s)\n",
+                    value.array.size, value.array.data, filePath);
+                return false;
+            }
+            if (parsedElements != 2) {
+                LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%s)\n",
+                    value.array.size, value.array.data, filePath);
+                return false;
+            }
+
 			levelData->lockedCamera = true;
+            levelData->cameraCoords = coords;
 		}
 		else if (StringCompare(keyword.array, "transition")) {
 			DEBUG_ASSERT(levelData->levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
@@ -503,7 +533,12 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	gameState->activeLevel = level;
 
 	gameState->playerCoords = startCoords;
-	gameState->cameraCoords = startCoords;
+    if (levelData->lockedCamera) {
+        gameState->cameraCoords = levelData->cameraCoords;
+    }
+    else {
+        gameState->cameraCoords = startCoords;
+    }
 
 	char bakFilePath[PATH_MAX_LENGTH];
 	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/collision-bak.kml", level);
@@ -775,33 +810,37 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	{ // barrel
-		FixedArray<HashKey, 1> barrelNextAnimations;
-		barrelNextAnimations.Init();
-		barrelNextAnimations.array.size = 0;
-		if (WasKeyPressed(input, KM_KEY_X)) {
-			barrelNextAnimations.array.size = 1;
-			barrelNextAnimations[0].WriteString("Explode");
-		}
-		gameState->barrel.Update(deltaTime, barrelNextAnimations.array);
+        if (gameState->activeLevel == 0) {
+    		FixedArray<HashKey, 1> barrelNextAnimations;
+    		barrelNextAnimations.Init();
+    		barrelNextAnimations.array.size = 0;
+    		if (WasKeyPressed(input, KM_KEY_X)) {
+    			barrelNextAnimations.array.size = 1;
+    			barrelNextAnimations[0].WriteString("Explode");
+    		}
+    		gameState->barrel.Update(deltaTime, barrelNextAnimations.array);
+        }
 	}
 
 	{ // rock
-		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
-		float32 radius = size.y / 2.0f * 0.8f;
-		gameState->rock.angle = -gameState->rock.coords.x / radius;
-		gameState->rock.coords.y = radius;
+        if (gameState->activeLevel == 0) {
+    		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+    		float32 radius = size.y / 2.0f * 0.8f;
+    		gameState->rock.angle = -gameState->rock.coords.x / radius;
+    		gameState->rock.coords.y = radius;
 
-		Vec2 floorPos, floorNormal;
-		floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
-		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
-		LineCollider* rockPlatform = &levelData.lineColliders.array.data[
-			levelData.lineColliders.array.size - 1];
-		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
-		float32 platformWidth = radius * 0.5f;
-		rockPlatform->line[0] = pos + radius * floorNormal
-			- floorTangent * platformWidth;
-		rockPlatform->line[1] = pos + radius * floorNormal
-			+ floorTangent * platformWidth;
+    		Vec2 floorPos, floorNormal;
+    		floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
+    		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
+    		LineCollider* rockPlatform = &levelData.lineColliders.array.data[
+    			levelData.lineColliders.array.size - 1];
+    		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
+    		float32 platformWidth = radius * 0.5f;
+    		rockPlatform->line[0] = pos + radius * floorNormal
+    			- floorTangent * platformWidth;
+    		rockPlatform->line[1] = pos + radius * floorNormal
+    			+ floorTangent * platformWidth;
+        }
 	}
 
 	const float32 floorLength = floor.length;
@@ -1028,6 +1067,12 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 				baseRot = Quat::one;
 				rot = Quat::one;
 			}
+            if (sprite->type == SPRITE_LABEL) {
+                Vec2 offset = WrappedWorldOffset(playerPos, pos, floor.length);
+                if (AbsFloat32(offset.x) > 1.0f || offset.y < 0.0f || offset.y > 2.5f) {
+                    continue;
+                }
+            }
 			Vec2 size = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
 			Mat4 transform = CalculateTransform(pos, size, sprite->anchor,
 				baseRot, rot, sprite->flipped);

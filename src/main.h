@@ -38,7 +38,8 @@ enum PlayerState
 enum SpriteType
 {
 	SPRITE_BACKGROUND,
-	SPRITE_OBJECT
+    SPRITE_OBJECT,
+    SPRITE_LABEL
 };
 
 struct TextureWithPosition
@@ -92,6 +93,7 @@ struct LevelData
     FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
 
     bool32 lockedCamera;
+    Vec2 cameraCoords;
     bool32 bounded;
     Vec2 bounds;
 
