@@ -143,38 +143,14 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 {
 	DEBUG_ASSERT(!levelData->loaded);
 
-	// TODO load this from file =========================================================
-	levelData->lineColliders.Init();
-	levelData->lineColliders.array.size = 0;
-	LineCollider* lineCollider;
-
-    lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
-    lineCollider->line.array.size = 0;
-    lineCollider->line.Init();
-    lineCollider->line.Append(Vec2 { 5.70f, 2.7f });
-    lineCollider->line.Append(Vec2 { 6.60f, 2.7f });
-
-    lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
-    lineCollider->line.array.size = 0;
-    lineCollider->line.Init();
-    lineCollider->line.Append(Vec2 { 0.0f, 4.55f });
-    lineCollider->line.Append(Vec2 { 12.0f, 4.55f });
-
-	// reserved for rock
-	lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
-	lineCollider->line.array.size = 0;
-	lineCollider->line.Init();
-	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-	lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-
-	DEBUG_ASSERT(levelData->lineColliders.array.size <= LINE_COLLIDERS_MAX);
-	// ==================================================================================
-
 	levelData->sprites.Init();
 	levelData->sprites.array.size = 0;
 
 	levelData->levelTransitions.Init();
 	levelData->levelTransitions.array.size = 0;
+
+    levelData->lineColliders.Init();
+    levelData->lineColliders.array.size = 0;
 
 	levelData->lockedCamera = false;
 
@@ -392,6 +368,44 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 				}
 			}
 		}
+        else if (StringCompare(keyword.array, "line")) {
+            DEBUG_ASSERT(levelData->lineColliders.array.size < LINE_COLLIDERS_MAX);
+
+            LineCollider* lineCollider = &levelData->lineColliders[
+                levelData->lineColliders.array.size++];
+            lineCollider->line.array.size = 0;
+            lineCollider->line.Init();
+
+            Array<char> element = value.array;
+            while (true) {
+                Array<char> next;
+                ReadElementInSplitString(&element, &next, '\n');
+
+                Array<char> trimmed;
+                TrimWhitespace(element, &trimmed);
+                if (trimmed.size == 0) {
+                    break;
+                }
+
+                Vec2 pos;
+                int parsedElements;
+                if (!StringToElementArray(trimmed, ',', true,
+                StringToFloat32, 2, pos.e, &parsedElements)) {
+                    LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
+                        trimmed.size, trimmed.data, filePath);
+                    return false;
+                }
+                if (parsedElements != 2) {
+                    LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
+                        trimmed.size, trimmed.data, filePath);
+                    return false;
+                }
+
+                lineCollider->line.Append(pos);
+
+                element = next;
+            }
+        }
 		else if (StringCompare(keyword.array, "floor")) {
 			levelData->floor.line.array.size = 0;
 			levelData->floor.line.Init();
@@ -428,6 +442,9 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 
 			levelData->floor.PrecomputeSampleVerticesFromLine();
 		}
+        else if (StringCompare(keyword.array, "//")) {
+            // comment, ignore
+        }
 		else {
 			LOG_ERROR("Level file unsupported keyword %.*s (%s)\n",
 				keyword.array.size, &keyword[0], filePath);
@@ -507,6 +524,15 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 #endif
 		}
 	}
+
+    // TODO reserved for rock, handle this some specific
+    /*LineCollider* lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
+    lineCollider->line.array.size = 0;
+    lineCollider->line.Init();
+    lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+    lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
+
+    DEBUG_ASSERT(levelData->lineColliders.array.size <= LINE_COLLIDERS_MAX);*/
 
 	levelData->loaded = true;
 
@@ -589,8 +615,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
+    bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
+        || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
+    bool32 wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
+        || (input->controllers[0].isConnected && input->controllers[0].b.isDown
+        && input->controllers[0].b.transitions == 1);
 
-	if (WasKeyPressed(input, KM_KEY_E)) {
+	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		for (uint64 i = 0; i < levelData.levelTransitions.array.size; i++) {
 			// TODO Oof... make these coords wrap around the world?
@@ -762,18 +793,26 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			continue;
 		}
 
-		float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
-		float32 newDeltaCoordX = deltaCoords.x * tX;
-		Vec2 newFloorPos, newFloorNormal;
-		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
-			&newFloorPos, &newFloorNormal);
+        float32 newDeltaCoordX = deltaCoords.x;
+        if (deltaPos.x != 0.0f) {
+            float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
+            newDeltaCoordX = deltaCoords.x * tX;
+        }
+        Vec2 newFloorPos, newFloorNormal;
+        floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
+            &newFloorPos, &newFloorNormal);
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
-		LOG_INFO("dot %.3f\n", dotCollisionFloorNormal);
+		LOG_INFO("at index %llu, dot %.3f\n", i, dotCollisionFloorNormal);
 		LOG_INFO("normals: floor %.3f, %.3f ; collision %.3f, %.3f\n",
 			newFloorNormal.x, newFloorNormal.y,
 			intersects[i].normal.x, intersects[i].normal.y);
+        for (uint64 j = 0; j < intersects[i].collider->line.array.size; j++) {
+            LOG_INFO("(%.2f, %.2f) ",
+                intersects[i].collider->line[j].x, intersects[i].collider->line[j].y);
+        }
+        LOG_INFO("\n");
 		if (AbsFloat32(dotCollisionFloorNormal) >= COS_WALK_ANGLE) {
 			// Walkable floor
 			if (gameState->playerState == PLAYER_STATE_FALLING) {
@@ -843,15 +882,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
         }
 	}
 
-	const float32 floorLength = floor.length;
 	const float32 GRAB_RANGE = 0.2f;
-	bool32 wasObjectKeyPressed =
-		WasKeyPressed(input, KM_KEY_SHIFT) || WasKeyPressed(input, KM_KEY_E)
-		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown
-			&& input->controllers[0].b.transitions == 1);
-	bool32 isObjectKeyPressed = IsKeyPressed(input, KM_KEY_SHIFT)
-		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
-	if (isObjectKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
+
+	if (isInteractKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
 		FixedArray<GrabbedObjectInfo, 10> candidates;
 		candidates.Init();
 		candidates.array.size = 0;
@@ -868,14 +901,14 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			Vec2 { 0.0f, 1.0f }
 		});
 		for (uint64 i = 0; i < candidates.array.size; i++) {
-			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floorLength)) {
+			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floor.length)) {
 				gameState->grabbedObject = candidates[i];
 				break;
 			}
 		}
 	}
 
-	if (wasObjectKeyPressed) {
+	if (wasInteractKeyPressed) {
 		if (gameState->liftedObject.spritePtr == nullptr) {
 			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites =
 				levelData.sprites;
@@ -929,16 +962,16 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
 		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject,
-			floorLength)
-		&& isObjectKeyPressed) {
+			floor.length)
+		&& isInteractKeyPressed) {
 			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
 			Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
 			coordsPtr->x += deltaX;
 			if (coordsPtr->x < 0.0f) {
-				coordsPtr->x += floorLength;
+				coordsPtr->x += floor.length;
 			}
-			else if (coordsPtr->x > floorLength) {
-				coordsPtr->x -= floorLength;
+			else if (coordsPtr->x > floor.length) {
+				coordsPtr->x -= floor.length;
 			}
 		}
 		else {
@@ -948,10 +981,10 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	gameState->playerCoords = playerCoordsNew;
 	if (gameState->playerCoords.x < 0.0f) {
-		gameState->playerCoords.x += floorLength;
+		gameState->playerCoords.x += floor.length;
 	}
-	if (gameState->playerCoords.x > floorLength) {
-		gameState->playerCoords.x -= floorLength;
+	if (gameState->playerCoords.x > floor.length) {
+		gameState->playerCoords.x -= floor.length;
 	}
 
 	if (levelData.bounded) {
@@ -981,14 +1014,14 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		// Wrap camera if necessary
 		float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
 		Vec2 cameraCoordsWrap = gameState->cameraCoords;
-		cameraCoordsWrap.x += floorLength;
+		cameraCoordsWrap.x += floor.length;
 		float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
 		if (altDist < dist) {
 			gameState->cameraCoords = cameraCoordsWrap;
 			dist = altDist;
 		}
 		else {
-			cameraCoordsWrap.x -= floorLength * 2.0f;
+			cameraCoordsWrap.x -= floor.length * 2.0f;
 			altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
 			if (altDist < dist) {
 				gameState->cameraCoords = cameraCoordsWrap;
@@ -1081,26 +1114,31 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	{ // rock
-		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
-		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
-		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
-		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
-		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
+        if (gameState->activeLevel == 0) {
+    		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
+    		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+    		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
+    		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
+    		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
+        }
 	}
 
 	{ // barrel
-		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
-		Vec2 barrelFloorPos, barrelFloorNormal;
-		floor.GetInfoFromCoordX(gameState->barrelCoords.x,
-			&barrelFloorPos, &barrelFloorNormal);
-		Vec2 pos = barrelFloorPos + barrelFloorNormal * gameState->barrelCoords.y;
-		float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
-		if (barrelFloorNormal.x > 0.0f) {
-			angle = -angle;
-		}
-		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
-		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, rot,
-			1.0f, false);
+        if (gameState->activeLevel == 0) {
+    		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize)
+                / REF_PIXELS_PER_UNIT;
+    		Vec2 barrelFloorPos, barrelFloorNormal;
+    		floor.GetInfoFromCoordX(gameState->barrelCoords.x,
+    			&barrelFloorPos, &barrelFloorNormal);
+    		Vec2 pos = barrelFloorPos + barrelFloorNormal * gameState->barrelCoords.y;
+    		float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
+    		if (barrelFloorNormal.x > 0.0f) {
+    			angle = -angle;
+    		}
+    		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+    		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, rot,
+    			1.0f, false);
+        }
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);

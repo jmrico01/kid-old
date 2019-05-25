@@ -73,6 +73,12 @@ transition {
     tocoords 15.0 0.0
 }
 
+// reserved for rock
+line {
+    0.0, 0.0
+    0.0, 0.0
+}
+
 floor {
 45.46, 99.42
 56.69, 99.43
