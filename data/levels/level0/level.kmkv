@@ -63,20 +63,14 @@ transition {
 transition {
     coords   12.8 0.8
     range    0.8 1.0
-    tolevel  2
+    tolevel  3
     tocoords 15.0 0.0
 }
 transition {
     coords   65.0 0.8
     range    1.2 1.0
-    tolevel  3
+    tolevel  4
     tocoords 15.0 0.0
-}
-
-// reserved for rock
-line {
-    0.0, 0.0
-    0.0, 0.0
 }
 
 floor {

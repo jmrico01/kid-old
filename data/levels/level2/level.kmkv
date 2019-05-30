@@ -1,29 +1,79 @@
-bounds 10.0 20.0
+sprite flies
+type bg
+offset 582 706
 
-lockcamera 15.0 0.0
+sprite elevation
+type bg
+offset 104 58
+
+sprite boxes
+type bg
+offset 154 52
+
+sprite window
+type bg
+offset 588 535
+
+sprite label_computer
+type label
+offset 450 504
+
+sprite label_downstairs
+type label
+offset 806 161
+
+sprite ventilation
+type bg
+offset 875 417
+
+sprite lamp
+type bg
+offset 623 786
+
+sprite computer
+type bg
+offset 279 361
+
+sprite chair
+type bg
+offset 562 361
+
+sprite ladder
+type bg
+offset 813 58
+
+sprite clouds
+type bg
+offset 0 170
+
+sprite frame
+type bg
+offset 41 54
+
+bounds 2.45 10.45
+
+lockcamera 6.35 0.0
 
 transition {
-    coords   15.0 0.8
+    coords   7.85 0.8
     range    0.8 1.0
-    tolevel  0
-    tocoords 12.8 0.0
+    tolevel  1
+    tocoords 9.00 7.25
+}
+
+line {
+    2.18, 3.06
+    4.17, 3.06
+    6.50, 3.03
 }
 
 floor {
-    -15.00, 0.00
-    -14.00, 0.00
-    -13.00, 0.00
-    -12.00, 0.00
-    -11.00, 0.00
-    -10.00, 0.00
-    -5.00, 0.00
-    0.00, 0.00
-    5.00, 0.00
-    10.00, 0.00
-    11.00, 0.00
-    12.00, 0.00
-    13.00, 0.00
-    14.00, 0.00
-    15.00, 0.00
-    0.00, -10.00
+    -0.46, 0.49
+    -0.01, 0.52
+    0.41, 0.52
+    5.74, 0.51
+    11.57, 0.55
+    11.91, 0.53
+    12.18, 0.51
+    5.97, -3.40
 }

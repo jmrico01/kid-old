@@ -4,7 +4,6 @@
 #include "audio.h"
 #include "collision.h"
 #include "framebuffer.h"
-#include "gui.h"
 #include "km_math.h"
 #include "load_png.h"
 #include "opengl.h"
@@ -23,7 +22,7 @@
 
 #define LINE_COLLIDERS_MAX 16
 
-#define LEVELS_MAX 4
+#define LEVELS_MAX 8
 #define LEVEL_TRANSITIONS_MAX 4
 
 int GetPillarboxWidth(ScreenInfo screenInfo);
@@ -120,8 +119,6 @@ struct GameState
     GrabbedObjectInfo grabbedObject;
     LiftedObjectInfo liftedObject;
 
-	Vec2 barrelCoords;
-
     uint64 activeLevel;
     LevelData levels[LEVELS_MAX];
 
@@ -146,13 +143,8 @@ struct GameState
     AnimatedSprite spriteKid;
     AnimatedSprite spritePaper;
 
-    AnimatedSprite spriteBarrel;
-    AnimatedSprite spriteCrystal;
-
     AnimatedSpriteInstance kid;
     AnimatedSpriteInstance paper;
-
-    AnimatedSpriteInstance barrel;
 
     Rock rock;
     TextureGL rockTexture;

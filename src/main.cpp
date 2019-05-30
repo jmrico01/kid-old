@@ -20,7 +20,7 @@
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)
-#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 3.5f)
+#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 2.8f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
@@ -152,7 +152,8 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
     levelData->lineColliders.Init();
     levelData->lineColliders.array.size = 0;
 
-	levelData->lockedCamera = false;
+    levelData->lockedCamera = false;
+    levelData->bounded = false;
 
 	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!levelFile.data) {
@@ -525,16 +526,9 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 		}
 	}
 
-    // TODO reserved for rock, handle this some specific
-    /*LineCollider* lineCollider = &levelData->lineColliders[levelData->lineColliders.array.size++];
-    lineCollider->line.array.size = 0;
-    lineCollider->line.Init();
-    lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-    lineCollider->line.Append(Vec2 { 0.0f, 0.0f });
-
-    DEBUG_ASSERT(levelData->lineColliders.array.size <= LINE_COLLIDERS_MAX);*/
-
 	levelData->loaded = true;
+
+    LOG_INFO("Loaded level data from file %s\n", filePath);
 
 	return true;
 }
@@ -559,6 +553,17 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	gameState->activeLevel = level;
 
 	gameState->playerCoords = startCoords;
+    gameState->playerVel = Vec2::zero;
+    if (startCoords.y > 0.0f) {
+        gameState->playerState = PLAYER_STATE_FALLING;
+    }
+    else {
+        gameState->playerState = PLAYER_STATE_GROUNDED;
+        gameState->kid.activeAnimation.WriteString("Idle");
+        gameState->kid.activeFrame = 0;
+        gameState->kid.activeFrameRepeat = 0;
+        gameState->kid.activeFrameTime = 0.0f;
+    }
     if (levelData->lockedCamera) {
         gameState->cameraCoords = levelData->cameraCoords;
     }
@@ -624,7 +629,6 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		for (uint64 i = 0; i < levelData.levelTransitions.array.size; i++) {
-			// TODO Oof... make these coords wrap around the world?
 			Vec2 toPlayer = WrappedWorldOffset(
 				gameState->playerCoords, levelData.levelTransitions[i].coords,
 				levelData.floor.length); 
@@ -804,15 +808,6 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
-		LOG_INFO("at index %llu, dot %.3f\n", i, dotCollisionFloorNormal);
-		LOG_INFO("normals: floor %.3f, %.3f ; collision %.3f, %.3f\n",
-			newFloorNormal.x, newFloorNormal.y,
-			intersects[i].normal.x, intersects[i].normal.y);
-        for (uint64 j = 0; j < intersects[i].collider->line.array.size; j++) {
-            LOG_INFO("(%.2f, %.2f) ",
-                intersects[i].collider->line[j].x, intersects[i].collider->line[j].y);
-        }
-        LOG_INFO("\n");
 		if (AbsFloat32(dotCollisionFloorNormal) >= COS_WALK_ANGLE) {
 			// Walkable floor
 			if (gameState->playerState == PLAYER_STATE_FALLING) {
@@ -848,38 +843,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerState = PLAYER_STATE_GROUNDED;
 	}
 
-	{ // barrel
-        if (gameState->activeLevel == 0) {
-    		FixedArray<HashKey, 1> barrelNextAnimations;
-    		barrelNextAnimations.Init();
-    		barrelNextAnimations.array.size = 0;
-    		if (WasKeyPressed(input, KM_KEY_X)) {
-    			barrelNextAnimations.array.size = 1;
-    			barrelNextAnimations[0].WriteString("Explode");
-    		}
-    		gameState->barrel.Update(deltaTime, barrelNextAnimations.array);
-        }
-	}
-
 	{ // rock
-        if (gameState->activeLevel == 0) {
-    		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
-    		float32 radius = size.y / 2.0f * 0.8f;
-    		gameState->rock.angle = -gameState->rock.coords.x / radius;
-    		gameState->rock.coords.y = radius;
-
-    		Vec2 floorPos, floorNormal;
-    		floor.GetInfoFromCoordX(gameState->rock.coords.x, &floorPos, &floorNormal);
-    		Vec2 floorTangent = { floorNormal.y, -floorNormal.x };
-    		LineCollider* rockPlatform = &levelData.lineColliders.array.data[
-    			levelData.lineColliders.array.size - 1];
-    		Vec2 pos = floorPos + gameState->rock.coords.y * floorNormal;
-    		float32 platformWidth = radius * 0.5f;
-    		rockPlatform->line[0] = pos + radius * floorNormal
-    			- floorTangent * platformWidth;
-    		rockPlatform->line[1] = pos + radius * floorNormal
-    			+ floorTangent * platformWidth;
-        }
+		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		float32 radius = size.y / 2.0f * 0.8f;
+		gameState->rock.angle = -gameState->rock.coords.x / radius;
+		gameState->rock.coords.y = radius;
 	}
 
 	const float32 GRAB_RANGE = 0.2f;
@@ -894,11 +862,6 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			&gameState->rock.coords,
 			Vec2 { rockRadius * 1.2f, rockRadius * 1.7f },
 			Vec2 { 0.0f, rockRadius * 2.0f }
-		});
-		candidates.Append({
-			&gameState->barrelCoords,
-			Vec2 { PLAYER_RADIUS * 2.7f, PLAYER_RADIUS * 3.2f },
-			Vec2 { 0.0f, 1.0f }
 		});
 		for (uint64 i = 0; i < candidates.array.size; i++) {
 			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floor.length)) {
@@ -983,7 +946,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (gameState->playerCoords.x < 0.0f) {
 		gameState->playerCoords.x += floor.length;
 	}
-	if (gameState->playerCoords.x > floor.length) {
+	else if (gameState->playerCoords.x > floor.length) {
 		gameState->playerCoords.x -= floor.length;
 	}
 
@@ -1114,31 +1077,11 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	{ // rock
-        if (gameState->activeLevel == 0) {
-    		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
-    		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
-    		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
-    		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
-    		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
-        }
-	}
-
-	{ // barrel
-        if (gameState->activeLevel == 0) {
-    		Vec2 size = ToVec2(gameState->barrel.animatedSprite->textureSize)
-                / REF_PIXELS_PER_UNIT;
-    		Vec2 barrelFloorPos, barrelFloorNormal;
-    		floor.GetInfoFromCoordX(gameState->barrelCoords.x,
-    			&barrelFloorPos, &barrelFloorNormal);
-    		Vec2 pos = barrelFloorPos + barrelFloorNormal * gameState->barrelCoords.y;
-    		float32 angle = acosf(Dot(Vec2::unitY, barrelFloorNormal));
-    		if (barrelFloorNormal.x > 0.0f) {
-    			angle = -angle;
-    		}
-    		Quat rot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
-    		gameState->barrel.Draw(spriteDataGL, pos, size, Vec2 { 0.5f, 0.25f }, rot,
-    			1.0f, false);
-        }
+		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
+		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
+		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
+		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
@@ -1225,17 +1168,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		// Game data
-		gameState->playerCoords = Vec2 { 0.0f, 0.0f };
 		gameState->playerVel = Vec2::zero;
-		gameState->cameraCoords = gameState->playerCoords;
-		gameState->playerState = PLAYER_STATE_FALLING;
 		gameState->facingRight = true;
 		gameState->currentPlatform = nullptr;
 
 		gameState->grabbedObject.coordsPtr = nullptr;
 		gameState->liftedObject.spritePtr = nullptr;
-
-		gameState->barrelCoords = { 100.0f, 0.0f };
 
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
@@ -1390,14 +1328,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 
-		if (!LoadAnimatedSprite(thread,
-		"data/animations/barrel/barrel.kma",
-		gameState->spriteBarrel, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load barrel animation sprite\n");
-		}
-
 		/*bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
 			"data/animations/crystal/crystal.kma",
 			gameState->spriteCrystal, memory->transient,
@@ -1412,12 +1342,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->kid.activeFrame = 0;
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
-
-		gameState->barrel.animatedSprite = &gameState->spriteBarrel;
-		gameState->barrel.activeAnimation = gameState->spriteBarrel.startAnimation;
-		gameState->barrel.activeFrame = 0;
-		gameState->barrel.activeFrameRepeat = 0;
-		gameState->barrel.activeFrameTime = 0.0f;
 
 		if (!LoadAnimatedSprite(thread,
 		"data/animations/paper/paper.kma",
@@ -1498,6 +1422,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
+#if GAME_SLOW
 	for (uint64 i = 0; i < 10; i++) {
 		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
 			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, memory->transient,
@@ -1508,6 +1433,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			}
 		}
 	}
+#endif
 
 	UpdateWorld(gameState, deltaTime, input, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
@@ -1973,7 +1899,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "audio.cpp"
 #include "collision.cpp"
 #include "framebuffer.cpp"
-#include "gui.cpp"
+#include "km_debug.cpp"
 #include "km_input.cpp"
 #include "km_lib.cpp"
 #include "km_log.cpp"

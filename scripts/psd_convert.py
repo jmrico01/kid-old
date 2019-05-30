@@ -11,7 +11,7 @@ def ConvertPSD(filePath, outputDir):
 
 	print("Processing layers...")
 	for layer in psd:
-		layerName = layer.name
+		layerName = layer.name.strip()
 		print("Layer: {}".format(layerName))
 		if not layer.visible:
 			print("Skipping hidden layer")

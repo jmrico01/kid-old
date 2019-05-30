@@ -41,6 +41,13 @@ transition {
     tocoords 216.2 0.0
 }
 
+transition {
+    coords   9.00 7.25
+    range    0.8 1.0
+    tolevel  2
+    tocoords 7.85 0.0
+}
+
 line {
     5.70, 2.7
     6.60, 2.7
