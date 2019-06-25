@@ -1,0 +1,19 @@
+sprite ground
+type bg
+offset 4700 2773
+
+sprite bg
+type bg
+offset 4208 3660
+
+sprite obj_truck
+type obj
+offset 3717 5356
+
+floor {
+45.46, 99.42
+56.69, 99.43
+68.11, 99.42
+72.79, 99.42
+76.40, 99.41
+}

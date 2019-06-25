@@ -1179,11 +1179,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			gameState->levels[i].loaded = false;
 		}
 
-		if (!SetActiveLevel(thread, gameState, 0, Vec2::zero, memory->transient,
+        const int FIRST_LEVEL = 5;
+		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory,
 			platformFuncs->DEBUGPlatformWriteFile)) {
-			DEBUG_PANIC("Failed to load level 0\n");
+			DEBUG_PANIC("Failed to load level %d\n", FIRST_LEVEL);
 		}
 
 		gameState->grainTime = 0.0f;
@@ -1470,10 +1471,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	//     gameState->screenQuadVertexArray,
 	//     gameState->grainShader, gameState->grainTime);
 
-	PostProcessLUT(gameState->framebuffersColorDepth[0],
-		gameState->framebuffersColor[0],
-		gameState->screenQuadVertexArray,
-		gameState->lutShader, gameState->lutBase);
+	// PostProcessLUT(gameState->framebuffersColorDepth[0],
+	// 	gameState->framebuffersColor[0],
+	// 	gameState->screenQuadVertexArray,
+	// 	gameState->lutShader, gameState->lutBase);
 
 	// Render to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1482,31 +1483,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	glBindVertexArray(gameState->screenQuadVertexArray);
 	glUseProgram(gameState->screenShader);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColor[0].color);
+	glBindTexture(GL_TEXTURE_2D, gameState->framebuffersColorDepth[0].color);
 	GLint loc = glGetUniformLocation(gameState->screenShader, "framebufferTexture");
 	glUniform1i(loc, 0);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-
-	#if 0
-	// Render pillarbox
-	int pillarboxWidth = GetPillarboxWidth(screenInfo);
-	const Vec4 PILLARBOX_COLOR = { 0.965f, 0.957f, 0.91f, 1.0f };
-	Vec2Int pillarboxPos1 = Vec2Int::zero;
-	Vec2Int pillarboxPos2 = { screenInfo.size.x - pillarboxWidth, 0 };
-	Vec2 pillarboxAnchor = Vec2 { 0.0f, 0.0f };
-	Vec2Int pillarboxSize = { pillarboxWidth, screenInfo.size.y };
-	if (pillarboxWidth > 0) {
-		DrawRect(gameState->rectGL, screenInfo,
-			pillarboxPos1, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
-		DrawRect(gameState->rectGL, screenInfo,
-			pillarboxPos2, pillarboxAnchor, pillarboxSize, PILLARBOX_COLOR);
-	}
-	#endif
-
-	// DrawRect(gameState->rectGL, screenInfo,
-	// 	input->mousePos, Vec2 { 0.5f, 0.5f }, Vec2Int { 5, 5 },
-	// 	Vec4 { 0.1f, 0.1f, 0.1f, 1.0f });
 
 	// ---------------------------- End Rendering -----------------------------
 	glEnable(GL_BLEND);
