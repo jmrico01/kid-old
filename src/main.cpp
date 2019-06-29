@@ -942,18 +942,23 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
+    if (levelData.bounded) {
+        if (gameState->playerCoords.x >= levelData.bounds.x
+        && playerCoordsNew.x < levelData.bounds.x) {
+            playerCoordsNew.x = levelData.bounds.x;
+        }
+        if (gameState->playerCoords.x <= levelData.bounds.y
+        && playerCoordsNew.x > levelData.bounds.y) {
+            playerCoordsNew.x = levelData.bounds.y;
+        }
+    }
+    if (playerCoordsNew.x < 0.0f) {
+        playerCoordsNew.x += floor.length;
+    }
+    else if (playerCoordsNew.x > floor.length) {
+        playerCoordsNew.x -= floor.length;
+    }
 	gameState->playerCoords = playerCoordsNew;
-	if (gameState->playerCoords.x < 0.0f) {
-		gameState->playerCoords.x += floor.length;
-	}
-	else if (gameState->playerCoords.x > floor.length) {
-		gameState->playerCoords.x -= floor.length;
-	}
-
-	if (levelData.bounded) {
-		gameState->playerCoords.x = ClampFloat32(gameState->playerCoords.x,
-			levelData.bounds.x, levelData.bounds.y);
-	}
 
 	Array<HashKey> paperNextAnims;
 	paperNextAnims.size = 0;
@@ -1727,14 +1732,17 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			if (levelData.bounded) {
 				lineData->count = 2;
 
+                Vec2 boundLeftPos, boundLeftNormal;
+                floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
 				Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
-				lineData->pos[0] = ToVec3(boundLeft, 0.0f);
-				lineData->pos[1] = ToVec3(boundLeft + Vec2::unitY * CAMERA_HEIGHT_UNITS, 0.0f);
+				lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
+				lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
 				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
 
-				Vec2 boundRight = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.y, 0.0f });
-				lineData->pos[0] = ToVec3(boundRight, 0.0f);
-				lineData->pos[1] = ToVec3(boundRight + Vec2::unitY * CAMERA_HEIGHT_UNITS, 0.0f);
+				Vec2 boundRightPos, boundRightNormal;
+                floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
+				lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
+				lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
 				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
 			}
 		}
