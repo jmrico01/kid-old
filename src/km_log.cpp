@@ -2,18 +2,26 @@
 
 #include "km_debug.h"
 
+// int LogEvent::PrintPrefix(char* buffer)
+// {
+// #if GAME_SLOW
+//     const char* PREFIX_FORMAT = "";
+// #elif GAME_INTERNAL
+//     const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
+// #else
+//     const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
+// #endif
+
+//     return snprintf(buffer, )
+//     int i = 0;
+
+//     return i;
+// }
+
 void LogState::PrintFormat(LogCategory logCategory,
 	const char* file, int line, const char* function,
 	const char* format, ...)
 {
-#if GAME_SLOW
-    const char* PREFIX_FORMAT = "";
-#elif GAME_INTERNAL
-    const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
-#else
-	const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
-#endif
-
 	uint64 freeSpace1, freeSpace2;
 	if (writeIndex >= readIndex) {
 		freeSpace1 = LOG_BUFFER_SIZE - writeIndex;
@@ -26,27 +34,36 @@ void LogState::PrintFormat(LogCategory logCategory,
 
 	DEBUG_ASSERT(freeSpace1 != 0 || freeSpace2 != 0);
 
-	int n;
+    va_list args;
+    va_start(args, format);
+    int logSize = vsnprintf(buffer + writeIndex, freeSpace1, format, args);
+    if (logSize < 0 || (uint64)logSize >= freeSpace1) {
+        logSize = vsnprintf(buffer, freeSpace2, format, args);
+        if (logSize < 0 || (uint64)logSize >= freeSpace2) {
+            // Not necessarily too big to write, freeSpace1 + freeSpace2 might be big enough
+            // But this is easier and probably fine
+            DEBUG_PANIC("Log too big!\n");
+            return;
+        }
+        MemCopy(buffer + writeIndex, buffer, freeSpace1);
+        MemMove(buffer, buffer + freeSpace1, freeSpace2);
+    }
+    va_end(args);
 
-	va_list args;
-	va_start(args, format);
-	n = snprintf(buffer + writeIndex, freeSpace1, PREFIX_FORMAT,
-		LOG_CATEGORY_NAMES[logCategory], file, line, function);
-	n += vsnprintf(buffer + writeIndex + n, freeSpace1 - n, format, args);
-	if (n < 0 || (uint64)n >= freeSpace1) {
-		MemSet(buffer + writeIndex, ' ', freeSpace1);
-		buffer[LOG_BUFFER_SIZE - 1] = '\n';
-		n = snprintf(buffer, freeSpace2, PREFIX_FORMAT,
-			LOG_CATEGORY_NAMES[logCategory], file, line, function);
-		n += vsnprintf(buffer + n, freeSpace2 - n, format, args);
-		if (n < 0 || (uint64)n >= freeSpace2) {
-			DEBUG_PANIC("log too big!\n");
-			return;
-		}
-	}
-	va_end(args);
+    LogEvent& event = logEvents[eventLast++];
+    if (eventLast >= LOG_EVENTS_MAX) {
+        eventLast = 0;
+    }
+    event.category = logCategory;
+    uint64 fileLength = StringLength(file);
+    MemCopy(event.file.fixedArray, file, MinUInt64(fileLength, PATH_MAX_LENGTH));
+    event.line = line;
+    uint64 functionLength = StringLength(function);
+    MemCopy(event.function.fixedArray, function, MinUInt64(functionLength, FUNCTION_NAME_MAX_LENGTH));
+    event.logStart = writeIndex;
+    event.logSize = logSize;
 
-	writeIndex += (uint64)n;
+	writeIndex += (uint64)logSize;
 	if (writeIndex >= LOG_BUFFER_SIZE) {
 		writeIndex -= LOG_BUFFER_SIZE;
 	}

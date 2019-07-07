@@ -1334,15 +1334,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 
-		/*bool32 loadCrystalAnim = LoadAnimatedSprite(thread,
-			"data/animations/crystal/crystal.kma",
-			gameState->spriteCrystal, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		if (!loadCrystalAnim) {
-			DEBUG_PANIC("Failed to load crystal animation sprite\n");
-		}*/
-
 		gameState->kid.animatedSprite = &gameState->spriteKid;
 		gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
 		gameState->kid.activeFrame = 0;
@@ -1856,6 +1847,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			}
 			floor.PrecomputeSampleVerticesFromLine();
 		}
+
+        if (input->mouseButtons[2].isDown) {
+            Vec2Int screenCenterToMouse = input->mousePos - screenInfo.size / 2;
+            // TODO rotate camera
+        }
 
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char saveFilePath[PATH_MAX_LENGTH];

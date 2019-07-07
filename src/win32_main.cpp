@@ -905,6 +905,12 @@ int CALLBACK WinMain(
         FlushLogs(logState);
         return 1;
     }
+    logState->eventFirst = 0;
+    logState->eventLast = 0;
+    for (uint64 i = 0; i < LOG_EVENTS_MAX; i++) {
+        logState->logEvents[i].file.Init();
+        logState->logEvents[i].function.Init();
+    }
 	logState->readIndex = 0;
 	logState->writeIndex = 0;
 	logState_ = logState;
