@@ -12,29 +12,19 @@
 #include "km_log.h"
 #include "km_string.h"
 
-/*
-	TODO
 
-	- WINDOWS 7 VIRTUAL MACHINE
+// TODO
+// - WINDOWS 7 VIRTUAL MACHINE
+// 
+// - Getting a handle to our own exe file
+// - Asset loading path
+// - Threading (launch a thread)
+// - Sleep/timeBeginPeriod (don't melt the processor)
+// - ClipCursor() (multimonitor support)
+// - WM_SETCURSOR (control cursor visibility)
+// - QueryCancelAutoplay
+// - WM_ACTIVATEAPP (for when we are not the active app)
 
-	- Saved game locations
-	- Getting a handle to our own exe file
-	- Asset loading path
-	- Threading (launch a thread)
-	- Sleep/timeBeginPeriod (don't melt the processor)
-	- ClipCursor() (multimonitor support)
-	- WM_SETCURSOR (control cursor visibility)
-	- QueryCancelAutoplay
-	- WM_ACTIVATEAPP (for when we are not the active app)
-*/
-
-/*
-.clang_complete, can it make do without this?
--IC:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include
--IC:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/ucrt
--IC:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/um
--IC:/Program Files (x86)/Windows Kits/10/Include/10.0.15063.0/shared
-*/
 
 #define START_WIDTH 1280
 #define START_HEIGHT 720

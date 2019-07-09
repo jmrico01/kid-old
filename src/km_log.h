@@ -20,7 +20,8 @@ enum LogCategory
 const char* LOG_CATEGORY_NAMES[] = {
 	"ERROR",
 	"WARN",
-	"INFO"
+	"INFO",
+    "DEBUG"
 };
 
 struct LogEvent
@@ -31,8 +32,6 @@ struct LogEvent
     FixedArray<char, FUNCTION_NAME_MAX_LENGTH> function;
     uint64 logStart;
     uint64 logSize;
-
-    // int PrintPrefix(char* buffer);
 };
 
 struct LogState
