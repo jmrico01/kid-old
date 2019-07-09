@@ -2,35 +2,35 @@
 
 #include "km_debug.h"
 
-// int LogEvent::PrintPrefix(char* buffer)
-// {
-// #if GAME_SLOW
-//     const char* PREFIX_FORMAT = "";
-// #elif GAME_INTERNAL
-//     const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
-// #else
-//     const char* PREFIX_FORMAT = "%s - %s:%d (%s)\n";
-// #endif
-
-//     return snprintf(buffer, )
-//     int i = 0;
-
-//     return i;
-// }
-
 void LogState::PrintFormat(LogCategory logCategory,
 	const char* file, int line, const char* function,
 	const char* format, ...)
 {
+    uint64 eventIndex = eventFirst + eventCount;
+
+    uint64 writeIndex;
+    if (eventCount == 0) {
+        writeIndex = 0;
+    }
+    else {
+        uint64 prevEventIndex;
+        if (eventIndex == 0) {
+            prevEventIndex = LOG_EVENTS_MAX - 1;
+        }
+        else {
+            prevEventIndex = eventIndex - 1;
+        }
+
+        const LogEvent& prevEvent = logEvents[eventIndex];
+        writeIndex = prevEvent.logStart + prevEvent.logSize;
+        if (writeIndex >= LOG_BUFFER_SIZE) {
+            writeIndex -= LOG_BUFFER_SIZE;
+        }
+    }
+
 	uint64 freeSpace1, freeSpace2;
-	if (writeIndex >= readIndex) {
-		freeSpace1 = LOG_BUFFER_SIZE - writeIndex;
-		freeSpace2 = readIndex;
-	}
-	else {
-		freeSpace1 = readIndex - writeIndex;
-		freeSpace2 = 0;
-	}
+    freeSpace1 = LOG_BUFFER_SIZE - writeIndex;
+    freeSpace2 = writeIndex;
 
 	DEBUG_ASSERT(freeSpace1 != 0 || freeSpace2 != 0);
 
@@ -50,21 +50,16 @@ void LogState::PrintFormat(LogCategory logCategory,
     }
     va_end(args);
 
-    LogEvent& event = logEvents[eventLast++];
-    if (eventLast >= LOG_EVENTS_MAX) {
-        eventLast = 0;
-    }
+    LogEvent& event = logEvents[eventIndex];
+    eventCount += 1;
     event.category = logCategory;
-    uint64 fileLength = StringLength(file);
-    MemCopy(event.file.fixedArray, file, MinUInt64(fileLength, PATH_MAX_LENGTH));
+    uint64 fileStringLength = MinUInt64(StringLength(file), PATH_MAX_LENGTH - 1);
+    MemCopy(event.file.fixedArray, file, fileStringLength);
+    event.file[fileStringLength] = '\0';
     event.line = line;
-    uint64 functionLength = StringLength(function);
-    MemCopy(event.function.fixedArray, function, MinUInt64(functionLength, FUNCTION_NAME_MAX_LENGTH));
+    uint64 functionStringLength = MinUInt64(StringLength(function), FUNCTION_NAME_MAX_LENGTH - 1);
+    MemCopy(event.function.fixedArray, function, functionStringLength);
+    event.function[functionStringLength] = '\0';
     event.logStart = writeIndex;
-    event.logSize = logSize;
-
-	writeIndex += (uint64)logSize;
-	if (writeIndex >= LOG_BUFFER_SIZE) {
-		writeIndex -= LOG_BUFFER_SIZE;
-	}
+    event.logSize = (uint64)logSize;
 }

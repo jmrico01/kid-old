@@ -36,11 +36,8 @@ struct LogEvent
 
 struct LogState
 {
-    uint64 eventFirst, eventLast;
+    uint64 eventFirst, eventCount;
     LogEvent logEvents[LOG_EVENTS_MAX];
-
-	uint64 readIndex;
-	uint64 writeIndex;
 	char buffer[LOG_BUFFER_SIZE];
 
 	void PrintFormat(LogCategory logCategory,

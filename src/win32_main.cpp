@@ -322,25 +322,26 @@ void LogString(const char* string, uint64 n)
 
 PLATFORM_FLUSH_LOGS_FUNC(FlushLogs)
 {
-	uint64 toRead1, toRead2;
-	if (logState->readIndex <= logState->writeIndex) {
-		toRead1 = logState->writeIndex - logState->readIndex;
-		toRead2 = 0;
-	}
-	else {
-		toRead1 = LOG_BUFFER_SIZE - logState->readIndex;
-		toRead2 = logState->writeIndex;
-	}
-	if (toRead1 != 0) {
-		LogString(logState->buffer + logState->readIndex, toRead1);
-	}
-	if (toRead2 != 0) {
-		LogString(logState->buffer, toRead2);
-	}
-	logState->readIndex += toRead1 + toRead2;
-	if (logState->readIndex >= LOG_BUFFER_SIZE) {
-		logState->readIndex -= LOG_BUFFER_SIZE;
-	}
+    // TODO fix this
+	// uint64 toRead1, toRead2;
+	// if (logState->readIndex <= logState->writeIndex) {
+	// 	toRead1 = logState->writeIndex - logState->readIndex;
+	// 	toRead2 = 0;
+	// }
+	// else {
+	// 	toRead1 = LOG_BUFFER_SIZE - logState->readIndex;
+	// 	toRead2 = logState->writeIndex;
+	// }
+	// if (toRead1 != 0) {
+	// 	LogString(logState->buffer + logState->readIndex, toRead1);
+	// }
+	// if (toRead2 != 0) {
+	// 	LogString(logState->buffer, toRead2);
+	// }
+	// logState->readIndex += toRead1 + toRead2;
+	// if (logState->readIndex >= LOG_BUFFER_SIZE) {
+	// 	logState->readIndex -= LOG_BUFFER_SIZE;
+	// }
 }
 
 internal void Win32LoadXInput()
@@ -896,13 +897,11 @@ int CALLBACK WinMain(
         return 1;
     }
     logState->eventFirst = 0;
-    logState->eventLast = 0;
+    logState->eventCount = 0;
     for (uint64 i = 0; i < LOG_EVENTS_MAX; i++) {
         logState->logEvents[i].file.Init();
         logState->logEvents[i].function.Init();
     }
-	logState->readIndex = 0;
-	logState->writeIndex = 0;
 	logState_ = logState;
 
 	Win32State state = {};
