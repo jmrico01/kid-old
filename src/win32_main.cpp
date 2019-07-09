@@ -281,9 +281,9 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 		return false;
 	}
 
-    if (!overwrite) {
-        DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
-    }
+	if (!overwrite) {
+		DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
+	}
 
 	DWORD bytesWritten;
 	if (!WriteFile(hFile, memory, (DWORD)memorySize, &bytesWritten, NULL)) {
@@ -322,7 +322,11 @@ void LogString(const char* string, uint64 n)
 
 PLATFORM_FLUSH_LOGS_FUNC(FlushLogs)
 {
-    // TODO fix this
+	// TODO fix this
+	for (uint64 i = 0; i < logState->eventCount; i++) {
+		uint64 eventIndex = (logState->eventFirst + i) % LOG_EVENTS_MAX;
+		const LogEvent& event = logState->logEvents[eventIndex];
+	}
 	// uint64 toRead1, toRead2;
 	// if (logState->readIndex <= logState->writeIndex) {
 	// 	toRead1 = logState->writeIndex - logState->readIndex;
@@ -889,19 +893,19 @@ int CALLBACK WinMain(
 		systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
 	logFilePath_.array.size += n;
 
-    LogState* logState = (LogState*)VirtualAlloc(0, sizeof(LogState),
-        MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (!logState) {
-        LOG_ERROR("Log state memory allocation failed\n");
-        FlushLogs(logState);
-        return 1;
-    }
-    logState->eventFirst = 0;
-    logState->eventCount = 0;
-    for (uint64 i = 0; i < LOG_EVENTS_MAX; i++) {
-        logState->logEvents[i].file.Init();
-        logState->logEvents[i].function.Init();
-    }
+	LogState* logState = (LogState*)VirtualAlloc(0, sizeof(LogState),
+		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	if (!logState) {
+		LOG_ERROR("Log state memory allocation failed\n");
+		FlushLogs(logState);
+		return 1;
+	}
+	logState->eventFirst = 0;
+	logState->eventCount = 0;
+	for (uint64 i = 0; i < LOG_EVENTS_MAX; i++) {
+		logState->logEvents[i].file.Init();
+		logState->logEvents[i].function.Init();
+	}
 	logState_ = logState;
 
 	Win32State state = {};
@@ -916,7 +920,7 @@ int CALLBACK WinMain(
 		"OpenGLWindowClass", "kid",
 		100, 100, START_WIDTH, START_HEIGHT);
 	if (!hWnd) {
-        LOG_ERROR("Win32 create window failed\n");
+		LOG_ERROR("Win32 create window failed\n");
 		FlushLogs(logState);
 		return 1;
 	}
@@ -938,7 +942,7 @@ int CALLBACK WinMain(
 	// Create and attach rendering context for OpenGL
 	if (!Win32CreateRC(hWnd, screenInfo.colorBits, screenInfo.alphaBits,
 	screenInfo.depthBits, screenInfo.stencilBits)) {
-        LOG_ERROR("Win32 create RC failed\n");
+		LOG_ERROR("Win32 create RC failed\n");
 		FlushLogs(logState);
 		return 1;
 	}
@@ -953,7 +957,7 @@ int CALLBACK WinMain(
 	// Initialize OpenGL
 	if (!Win32InitOpenGL(&platformFuncs.glFunctions,
 	screenInfo.size.x, screenInfo.size.y)) {
-        LOG_ERROR("Win32 OpenGL init failed\n");
+		LOG_ERROR("Win32 OpenGL init failed\n");
 		FlushLogs(logState);
 		return 1;
 	}
@@ -971,7 +975,7 @@ int CALLBACK WinMain(
 	// Initialize audio
 	Win32Audio winAudio = {};
 	if (!Win32InitAudio(&winAudio, AUDIO_DEFAULT_BUFFER_SIZE_MILLISECONDS)) {
-        LOG_ERROR("Win32 audio init failed\n");
+		LOG_ERROR("Win32 audio init failed\n");
 		FlushLogs(logState);
 		return 1;
 	}
@@ -986,11 +990,11 @@ int CALLBACK WinMain(
 		* gameAudio.channels * sizeof(float32);
 	gameAudio.buffer = (float32*)VirtualAlloc(0, (size_t)bufferSizeBytes,
 		MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (!gameAudio.buffer) {
-        LOG_ERROR("Win32 audio memory allocation failed\n");
-        FlushLogs(logState);
-        return 1;
-    }
+	if (!gameAudio.buffer) {
+		LOG_ERROR("Win32 audio memory allocation failed\n");
+		FlushLogs(logState);
+		return 1;
+	}
 	gameAudio.sampleDelta = 0; // TODO revise this
 	LOG_INFO("Initialized Win32 audio\n");
 
