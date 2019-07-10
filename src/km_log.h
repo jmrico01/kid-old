@@ -27,9 +27,9 @@ const char* LOG_CATEGORY_NAMES[] = {
 struct LogEvent
 {
     LogCategory category;
-    FixedArray<char, PATH_MAX_LENGTH> file;
+    char file[PATH_MAX_LENGTH];
     int line;
-    FixedArray<char, FUNCTION_NAME_MAX_LENGTH> function;
+    char function[FUNCTION_NAME_MAX_LENGTH];
     uint64 logStart;
     uint64 logSize;
 };

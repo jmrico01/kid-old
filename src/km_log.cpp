@@ -21,7 +21,7 @@ void LogState::PrintFormat(LogCategory logCategory,
             prevEventIndex = eventIndex - 1;
         }
 
-        const LogEvent& prevEvent = logEvents[eventIndex];
+        const LogEvent& prevEvent = logEvents[prevEventIndex];
         writeIndex = prevEvent.logStart + prevEvent.logSize;
         if (writeIndex >= LOG_BUFFER_SIZE) {
             writeIndex -= LOG_BUFFER_SIZE;
@@ -54,11 +54,11 @@ void LogState::PrintFormat(LogCategory logCategory,
     eventCount += 1;
     event.category = logCategory;
     uint64 fileStringLength = MinUInt64(StringLength(file), PATH_MAX_LENGTH - 1);
-    MemCopy(event.file.fixedArray, file, fileStringLength);
+    MemCopy(event.file, file, fileStringLength);
     event.file[fileStringLength] = '\0';
     event.line = line;
     uint64 functionStringLength = MinUInt64(StringLength(function), FUNCTION_NAME_MAX_LENGTH - 1);
-    MemCopy(event.function.fixedArray, function, functionStringLength);
+    MemCopy(event.function, function, functionStringLength);
     event.function[functionStringLength] = '\0';
     event.logStart = writeIndex;
     event.logSize = (uint64)logSize;

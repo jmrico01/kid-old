@@ -11,6 +11,7 @@
 #include "km_log.h"
 #include "km_math.h"
 #include "km_string.h"
+#include "load_psd.h"
 #include "opengl.h"
 #include "opengl_funcs.h"
 #include "opengl_base.h"
@@ -1165,6 +1166,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(1.0f);
 
+        if (!LoadPSD(thread, "data/dream.psd",
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load test PSD\n");
+        }
+
 		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -1380,14 +1387,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-		if (!LoadPNGOpenGL(thread,
-		"data/luts/kodak5205.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->lut1, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load base LUT\n");
-		}
+        if (!LoadPNGOpenGL(thread,
+        "data/luts/kodak5205.png",
+        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+        gameState->lut1, memory->transient,
+        platformFuncs->DEBUGPlatformReadFile,
+        platformFuncs->DEBUGPlatformFreeFileMemory)) {
+            DEBUG_PANIC("Failed to load base LUT\n");
+        }
 
 		memory->isInitialized = true;
 	}
@@ -1890,6 +1897,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "km_log.cpp"
 #include "km_string.cpp"
 #include "load_png.cpp"
+#include "load_psd.cpp"
 #include "load_wav.cpp"
 #include "opengl_base.cpp"
 #include "particles.cpp"
