@@ -10,7 +10,7 @@ struct Win32GameCode
 	HMODULE gameCodeDLL;
 	FILETIME lastDLLWriteTime;
 
-	// These game functions can be NULL, you must check before calling them
+	// Game functions can be nullptr, you must check before calling
 	GameUpdateAndRenderFunc* gameUpdateAndRender;
 
 	bool32 isValid;
