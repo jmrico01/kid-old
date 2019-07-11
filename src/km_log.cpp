@@ -50,8 +50,8 @@ void LogState::PrintFormat(LogCategory logCategory,
     }
     va_end(args);
 
-    LogEvent& event = logEvents[eventIndex];
     eventCount += 1;
+    LogEvent& event = logEvents[eventIndex];
     event.category = logCategory;
     uint64 fileStringLength = MinUInt64(StringLength(file), PATH_MAX_LENGTH - 1);
     MemCopy(event.file, file, fileStringLength);
