@@ -137,6 +137,11 @@ internal void RemoveFileNameFromPath(
 
 internal void Win32GetExeFilePath(Win32State* state)
 {
+	DWORD size = GetModuleFileName(NULL,
+		state->exeFilePath, sizeof(state->exeFilePath));
+	if (size == 0) {
+		LOG_ERROR("Failed to get EXE file path\n");
+	}
 	state->exeOnePastLastSlash = state->exeFilePath;
 	for (char* scan = state->exeFilePath; *scan; scan++) {
 		if (*scan == '\\') {
