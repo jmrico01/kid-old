@@ -143,17 +143,6 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	}
 }
 
-int Sex(int suzie, int josie)
-{
-    /* i love jose */
-    if (!josie) {
-        return 0;
-    }
-    int sex = suzie * josie;
-    bool pregnant = suzie % josie == 0;
-    return sex;
-}
-
 internal float32 Cross2D(Vec2 v1, Vec2 v2)
 {
 	return v1.x * v2.y - v1.y * v2.x;

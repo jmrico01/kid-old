@@ -17,7 +17,6 @@
 #include "opengl_base.h"
 #include "post.h"
 #include "render.h"
-#include "temp_data.h"
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
 #define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)

@@ -155,6 +155,7 @@ def WinCompile(compileMode, debugger):
 			"/DGAME_INTERNAL=0",
 			"/DGAME_SLOW=0"
 		])
+
 	compilerFlags = " ".join([
 		"/nologo",  # disable the "Microsoft C/C++ Optimizing Compiler" message
 		"/Gm-",     # disable incremental build things
@@ -177,16 +178,17 @@ def WinCompile(compileMode, debugger):
 			"/Ox", # full optimization
 			"/Z7"  # minimal "old school" debug information
 		])
+
 	compilerWarningFlags = " ".join([
 		"/WX",      # treat warnings as errors
 		"/W4",      # level 4 warnings
 
 		# disable the following warnings:
 		"/wd4100",  # unused function arguments
-		"/wd4189",  # unused initialized local variable
 		"/wd4201",  # nonstandard extension used: nameless struct/union
 		"/wd4505",  # unreferenced local function has been removed
 	])
+
 	includePaths = " ".join([
 		"/I" + paths["include-freetype-win"],
 		"/I" + paths["include-libpng-win"]
@@ -196,8 +198,10 @@ def WinCompile(compileMode, debugger):
 		"/incremental:no",  # disable incremental linking
 		"/opt:ref"          # get rid of extraneous linkages
 	])
+
 	libPathsPlatform = " ".join([
 	])
+
 	libsPlatform = " ".join([
 		"user32.lib",
 		"gdi32.lib",
@@ -205,6 +209,7 @@ def WinCompile(compileMode, debugger):
 		"ole32.lib",
 		"winmm.lib"
 	])
+
 	libPathsGame = " ".join([
 		"/LIBPATH:" + paths["lib-freetype-win-d"],
 		"/LIBPATH:" + paths["lib-libpng-win-d"]
@@ -214,6 +219,7 @@ def WinCompile(compileMode, debugger):
 			"/LIBPATH:" + paths["lib-freetype-win-r"],
 			"/LIBPATH:" + paths["lib-libpng-win-r"]
 		])
+
 	libsGame = " ".join([
 		"freetype281MTd.lib",
 		"libpng16.lib",

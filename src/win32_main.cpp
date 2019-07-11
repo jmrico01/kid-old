@@ -137,11 +137,6 @@ internal void RemoveFileNameFromPath(
 
 internal void Win32GetExeFilePath(Win32State* state)
 {
-	// NOTE
-	// Never use MAX_PATH in code that is user-facing, because it is
-	// dangerous and can lead to bad results
-	DWORD size = GetModuleFileName(NULL,
-		state->exeFilePath, sizeof(state->exeFilePath));
 	state->exeOnePastLastSlash = state->exeFilePath;
 	for (char* scan = state->exeFilePath; *scan; scan++) {
 		if (*scan == '\\') {
@@ -283,6 +278,9 @@ DEBUG_PLATFORM_WRITE_FILE_FUNC(DEBUGPlatformWriteFile)
 
 	if (!overwrite) {
 		DWORD dwPos = SetFilePointer(hFile, 0, NULL, FILE_END);
+		if (dwPos == INVALID_SET_FILE_POINTER) {
+			// TODO GetLastError to make sure it's an error... ugh
+		}
 	}
 
 	DWORD bytesWritten;
@@ -814,29 +812,29 @@ internal bool Win32CreateRC(HWND hWnd,
 	desiredPFD.iLayerType = PFD_MAIN_PLANE;
 	int pixelFormat = ChoosePixelFormat(hDC, &desiredPFD);
 	if (!pixelFormat) {
-		// TODO log
 		DWORD error = GetLastError();
+		LOG_ERROR("ChoosePixelFormat error, code %d\n", error);
 		return false;
 	}
 
 	PIXELFORMATDESCRIPTOR suggestedPFD = {};
 	DescribePixelFormat(hDC, pixelFormat, sizeof(suggestedPFD), &suggestedPFD);
 	if (!SetPixelFormat(hDC, pixelFormat, &suggestedPFD)) {
-		// TODO log
 		DWORD error = GetLastError();
+		LOG_ERROR("SetPixelFormat error, code %d\n", error);
 		return false;
 	}
 
 	// Create and attach OpenGL rendering context to this thread
 	HGLRC hGLRC = wglCreateContext(hDC);
 	if (!hGLRC) {
-		// TODO log
 		DWORD error = GetLastError();
+		LOG_ERROR("wglCreateContext error, code %d\n", error);
 		return false;
 	}
 	if (!wglMakeCurrent(hDC, hGLRC)) {
-		// TODO log
 		DWORD error = GetLastError();
+		LOG_ERROR("wglMakeCurrent error, code %d\n", error);
 		return false;
 	}
 
@@ -1329,7 +1327,7 @@ int CALLBACK WinMain(
 
 #include "win32_audio.cpp"
 
-// TODO temporary! this is a bad idea! probably already compiled in main.cpp
+// TODO temporary! this is a bad idea! already compiled in main.cpp
 #include "km_input.cpp"
 #include "km_string.cpp"
 #include "km_lib.cpp"
