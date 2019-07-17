@@ -151,8 +151,6 @@ internal void DrawAudioBuffer(
     DEBUG_ASSERT(bufferSizeSamples <= MAX_LINE_POINTS);
 
     LineGLData* lineData = (LineGLData*)transient.memory;
-    Mat4 proj = Mat4::one;
-    Mat4 view = Mat4::one;
     
     lineData->count = bufferSizeSamples;
     for (int i = 0; i < bufferSizeSamples; i++) {
@@ -164,7 +162,7 @@ internal void DrawAudioBuffer(
             origin.z
         };
     }
-    DrawLine(gameState->lineGL, proj, view, lineData, color);
+    DrawLine(gameState->lineGL, Mat4::one, lineData, color);
 
     lineData->count = 2;
     for (int i = 0; i < numMarks; i++) {
@@ -179,7 +177,7 @@ internal void DrawAudioBuffer(
             origin.y + size.y,
             origin.z
         };
-        DrawLine(gameState->lineGL, proj, view, lineData, markColors[i]);
+        DrawLine(gameState->lineGL, Mat4::one, lineData, markColors[i]);
     }
 }
 

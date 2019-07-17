@@ -1516,6 +1516,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	const Vec2Int MARGIN = { 30, 45 };
 
 	if (gameState->debugView) {
+		const Mat4 viewProjection = projection * view;
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
 
@@ -1621,7 +1622,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->count = 2;
 			lineData->pos[0] = ToVec3(floorPos, 0.0f);
 			lineData->pos[1] = ToVec3(floorPos + floorNormal * mouseCoords.y, 0.0f);
-			DrawLine(gameState->lineGL, projection, view, lineData,
+			DrawLine(gameState->lineGL, viewProjection, lineData,
 				Vec4 { 0.5f, 0.4f, 0.0f, 0.25f });
 		}
 
@@ -1639,10 +1640,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			Vec3 pos = ToVec3(worldPos, 0.0f);
 			lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
 			lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
-			DrawLine(gameState->lineGL, projection, view, lineData, centerColor);
+			DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
 			lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
 			lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
-			DrawLine(gameState->lineGL, projection, view, lineData, centerColor);
+			DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
 			Vec2 worldSize = ToVec2(sprite.texture.size) / REF_PIXELS_PER_UNIT;
 			Vec2 anchorOffset = Vec2 {
 				sprite.anchor.x * worldSize.x,
@@ -1658,7 +1659,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->pos[3] = origin;
 			lineData->pos[3].y += worldSize.y;
 			lineData->pos[4] = lineData->pos[0];
-			DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
+			DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 		}
 
 		{ // floor
@@ -1681,7 +1682,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 						pos + fNormal * FLOOR_NORMAL_LENGTH, 0.0f);
 					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
 				}
-				DrawLine(gameState->lineGL, projection, view, lineData,
+				DrawLine(gameState->lineGL, viewProjection, lineData,
 					Lerp(floorSmoothColorMax, floorSmoothColorMin,
 						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
 			}
@@ -1697,7 +1698,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
 				}
-				DrawLine(gameState->lineGL, projection, view, lineData, lineColliderColor);
+				DrawLine(gameState->lineGL, viewProjection, lineData, lineColliderColor);
 			}
 		}
 
@@ -1720,7 +1721,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 					Vec2 worldPos = floor.GetWorldPosFromCoords(ToVec2(lineData->pos[p]));
 					lineData->pos[p] = ToVec3(worldPos, 0.0f);
 				}
-				DrawLine(gameState->lineGL, projection, view, lineData, levelTransitionColor);
+				DrawLine(gameState->lineGL, viewProjection, lineData, levelTransitionColor);
 			}
 		}
 
@@ -1734,13 +1735,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 				Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
 				lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
 				lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
-				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
+				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 
 				Vec2 boundRightPos, boundRightNormal;
                 floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
 				lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
 				lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
-				DrawLine(gameState->lineGL, projection, view, lineData, boundsColor);
+				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 			}
 		}
 
@@ -1751,10 +1752,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			lineData->count = 2;
 			lineData->pos[0] = playerPosWorld3 - Vec3::unitX * CROSS_RADIUS;
 			lineData->pos[1] = playerPosWorld3 + Vec3::unitX * CROSS_RADIUS;
-			DrawLine(gameState->lineGL, projection, view, lineData, playerColor);
+			DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
 			lineData->pos[0] = playerPosWorld3 - Vec3::unitY * CROSS_RADIUS;
 			lineData->pos[1] = playerPosWorld3 + Vec3::unitY * CROSS_RADIUS;
-			DrawLine(gameState->lineGL, projection, view, lineData, playerColor);
+			DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
 		}
 	}
 	if (gameState->editor) {
