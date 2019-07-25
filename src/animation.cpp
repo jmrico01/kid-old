@@ -1,7 +1,8 @@
 #include "animation.h"
 
-#include "km_debug.h"
-#include "km_string.h"
+#include <km_debug.h>
+#include <km_string.h>
+
 #include "main.h"
 
 const char KEYWORD_ANIM             [KEYWORD_MAX_LENGTH] = "anim";

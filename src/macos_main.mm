@@ -13,10 +13,11 @@
 #include <fcntl.h>          // file open/close functions
 #include <dlfcn.h>          // dynamic linking functions
 
+#include <km_defines.h>
+#include <km_debug.h>
+#include <km_string.h>
+
 #include "macos_audio.h"
-#include "km_defines.h"
-#include "km_debug.h"
-#include "km_string.h"
 
 // Let the command line override
 //#ifndef HANDMADE_USE_VSYNC

@@ -4,10 +4,10 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #define internal static
+#include <km_math.h>
 
 #include "opengl.h"
 #include "opengl_funcs.h"
-#include "km_math.h"
 #include "main_platform.h"
 
 #define MAX_GLYPHS 128

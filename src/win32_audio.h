@@ -1,9 +1,9 @@
 #pragma once
 
 #include <audioclient.h>
+#include <km_defines.h>
 #include <mmdeviceapi.h>
 
-#include "km_defines.h"
 #include "main_platform.h"
 
 #define AUDIO_DEFAULT_BUFFER_SIZE_MILLISECONDS 1000

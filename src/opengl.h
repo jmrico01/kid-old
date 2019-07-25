@@ -1,6 +1,6 @@
 #pragma once
 
-#include "km_defines.h"
+#include <km_defines.h>
 
 #if defined(GAME_MACOS) && defined(GAME_PLATFORM_CODE)
 #include <OpenGL/gl.h>

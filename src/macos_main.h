@@ -1,8 +1,8 @@
 #pragma once
 
+#include <km_defines.h>
 #include <sys/types.h>
 
-#include "km_defines.h"
 #include "main_platform.h"
 
 #define MACOS_STATE_FILE_NAME_COUNT  512

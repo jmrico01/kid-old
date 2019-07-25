@@ -1,7 +1,8 @@
 #pragma once
 
+#include <km_debug.h>
+
 #include "main_platform.h"
-#include "km_debug.h"
 
 #define AUDIO_MAX_SAMPLERATE 48000
 #define AUDIO_MAX_CHANNELS 2

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <AudioUnit/AudioUnit.h>
+#include <km_defines.h>
 
-#include "km_defines.h"
 #include "main_platform.h"
 
 #define AUDIO_SAMPLERATE 48000

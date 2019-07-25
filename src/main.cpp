@@ -1,16 +1,16 @@
 #include "main.h"
 
+#include <km_debug.h>
+#include <km_defines.h>
+#include <km_input.h>
+#include <km_log.h>
+#include <km_math.h>
+#include <km_string.h>
 #undef internal
 #include <random>
 #define internal static
 
 #include "main_platform.h"
-#include "km_debug.h"
-#include "km_defines.h"
-#include "km_input.h"
-#include "km_log.h"
-#include "km_math.h"
-#include "km_string.h"
 #include "load_psd.h"
 #include "opengl.h"
 #include "opengl_funcs.h"

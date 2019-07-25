@@ -1,7 +1,8 @@
 #include "audio.h"
 
+#include <km_debug.h>
+
 #include "main.h"
-#include "km_debug.h"
 
 internal bool32 SoundInit(const ThreadContext* thread,
     const GameAudio* audio, Sound* sound,

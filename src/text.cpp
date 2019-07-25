@@ -1,7 +1,8 @@
 #include "text.h"
 
-#include "km_debug.h"
-#include "km_string.h"
+#include <km_debug.h>
+#include <km_string.h>
+
 #include "main.h"
 
 #define ATLAS_DIM_MIN 128

@@ -84,6 +84,8 @@ NormalizePathSlashes(paths)
 LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
+paths["include-km-common"] = paths["root"] + "/km_common"
+
 # External dependencies
 if platform.system() == "Windows":
 	paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
@@ -190,6 +192,7 @@ def WinCompile(compileMode, debugger):
 	])
 
 	includePaths = " ".join([
+		"/I" + paths["include-km-common"],
 		"/I" + paths["include-freetype-win"],
 		"/I" + paths["include-libpng-win"]
 	])

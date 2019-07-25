@@ -1,0 +1,3 @@
+[submodule "km_common"]
+	path = km_common
+	url = https://github.com/jmrico01/km_common.git

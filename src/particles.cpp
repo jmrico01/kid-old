@@ -1,8 +1,8 @@
 #include "particles.h"
 
+#include <km_debug.h>
 #include <stdlib.h>
 
-#include "km_debug.h"
 #include "opengl_base.h"
 #include "opengl_funcs.h"
 

@@ -1,9 +1,8 @@
 #include "linux_audio.h"
 
+#include <km_debug.h>
 #include <sys/mman.h>
 #include <pthread.h>
-
-#include "km_debug.h"
 
 internal void CopyAudioBuffer(int numSamples, int channels, const int16* src, int16* dst)
 {
