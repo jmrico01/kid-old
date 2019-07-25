@@ -93,5 +93,4 @@ void DrawBox(BoxGL boxGL,
     Mat4 vp, Vec3 min, Vec3 max, Vec4 color);
 
 // Batch functions
-void DrawLine(LineGL lineGL,
-    Mat4 proj, Mat4 view, const LineGLData* lineData, Vec4 color);
+void DrawLine(LineGL lineGL, Mat4 transform, const LineGLData* lineData, Vec4 color);
