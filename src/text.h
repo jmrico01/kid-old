@@ -4,7 +4,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #define internal static
-#include <km_math.h>
+#include <km_common/km_math.h>
 
 #include "opengl.h"
 #include "opengl_funcs.h"

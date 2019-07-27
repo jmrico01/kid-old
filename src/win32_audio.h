@@ -1,7 +1,7 @@
 #pragma once
 
 #include <audioclient.h>
-#include <km_defines.h>
+#include <km_common/km_defines.h>
 #include <mmdeviceapi.h>
 
 #include "main_platform.h"

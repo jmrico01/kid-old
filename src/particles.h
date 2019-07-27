@@ -1,6 +1,6 @@
 #pragma once
 
-#include <km_math.h>
+#include <km_common/km_math.h>
 
 #include "opengl.h"
 #include "opengl_base.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <km_defines.h>
+#include <km_common/km_defines.h>
 #include <sys/types.h>
 
 #include "main_platform.h"

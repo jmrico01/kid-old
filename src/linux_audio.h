@@ -1,7 +1,7 @@
 #pragma once
 
 #include <alsa/asoundlib.h>
-#include <km_defines.h>
+#include <km_common/km_defines.h>
 
 #define AUDIO_CHANNELS 2
 #define AUDIO_SAMPLERATE 44100

@@ -1,6 +1,6 @@
 #include "collision.h"
 
-#include <km_debug.h>
+#include <km_common/km_debug.h>
 
 #define FLOOR_PRECOMPUTED_STEP_LENGTH 0.05f
 

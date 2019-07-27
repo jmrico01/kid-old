@@ -1,6 +1,6 @@
 #include "linux_audio.h"
 
-#include <km_debug.h>
+#include <km_common/km_debug.h>
 #include <sys/mman.h>
 #include <pthread.h>
 

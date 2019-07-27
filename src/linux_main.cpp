@@ -25,10 +25,10 @@
 
 #include <alsa/asoundlib.h>
 
-#include <km_debug.h>
-#include <km_math.h>
-#include <km_input.h>
-#include <km_string.h>
+#include <km_common/km_debug.h>
+#include <km_common/km_math.h>
+#include <km_common/km_input.h>
+#include <km_common/km_string.h>
 
 #include "linux_audio.h"
 
@@ -1287,4 +1287,4 @@ int main(int argc, char **argv)
 #include "linux_audio.cpp"
 
 // TODO temporary! this is a bad idea! already compiled in main.cpp
-#include "km_input.cpp"
+#include <km_common/km_input.cpp>

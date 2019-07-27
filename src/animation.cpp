@@ -1,7 +1,7 @@
 #include "animation.h"
 
-#include <km_debug.h>
-#include <km_string.h>
+#include <km_common/km_debug.h>
+#include <km_common/km_string.h>
 
 #include "main.h"
 

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <km_defines.h>
-#include <km_input.h>
-#include <km_log.h>
-#include <km_math.h>
+#include <km_common/km_defines.h>
+#include <km_common/km_input.h>
+#include <km_common/km_log.h>
+#include <km_common/km_math.h>
 
 #include "opengl.h"
 

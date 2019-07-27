@@ -1,6 +1,6 @@
 #include "particles.h"
 
-#include <km_debug.h>
+#include <km_common/km_debug.h>
 #include <stdlib.h>
 
 #include "opengl_base.h"

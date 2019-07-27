@@ -1,7 +1,7 @@
 #include "load_png.h"
 
-#include <km_debug.h>
-#include <km_log.h>
+#include <km_common/km_debug.h>
+#include <km_common/km_log.h>
 #include <png.h>
 
 #include "opengl_funcs.h"

@@ -61,6 +61,8 @@ paths = { "root": GetEnclosingDir(GetScriptPath()) }
 paths["build"]          = paths["root"]  + "/build"
 paths["data"]           = paths["root"]  + "/data"
 paths["deploy"]         = paths["root"]  + "/deploy"
+paths["libs-external"]  = paths["root"]  + "/libs/external"
+paths["libs-internal"]  = paths["root"]  + "/libs/internal"
 paths["src"]            = paths["root"]  + "/src"
 
 paths["build-data"]     = paths["build"] + "/data"
@@ -84,31 +86,26 @@ NormalizePathSlashes(paths)
 LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
-paths["include-km-common"] = paths["root"] + "/km_common"
-
 # External dependencies
+paths["lib-freetype"] = paths["libs-external"] + "/freetype-2.8.1"
+paths["lib-libpng"]   = paths["libs-external"] + "/libpng-1.6.34"
+
+paths["include-freetype"] = paths["lib-freetype"] + "/include"
+paths["include-libpng"]   = paths["lib-libpng"]   + "/include"
+
 if platform.system() == "Windows":
-	paths["include-freetype-win"] = paths["win32-libs"] + "/freetype-2.8.1/include"
-	paths["lib-freetype-win-d"] = paths["win32-libs"] + "/freetype-2.8.1/lib-d"
-	paths["lib-freetype-win-r"] = paths["win32-libs"] + "/freetype-2.8.1/lib-r"
+	paths["libdir-freetype-win32-d"] = paths["lib-freetype"] + "/win32/debug"
+	paths["libdir-freetype-win32-r"] = paths["lib-freetype"] + "/win32/release"
+	paths["libdir-libpng-win32-d"]   = paths["lib-libpng"]   + "/win32/debug"
+	paths["libdir-libpng-win32-r"]   = paths["lib-libpng"]   + "/win32/release"
 
-	paths["include-libpng-win"] = paths["win32-libs"] + "/lpng1634/include"
-	paths["lib-libpng-win-d"] = paths["win32-libs"] + "/lpng1634/lib-d"
-	paths["lib-libpng-win-r"] = paths["win32-libs"] + "/lpng1634/lib-r"
+# if platform.system() == "Darwin":
+# 	paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
+# 	paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
 
-if platform.system() == "Darwin":
-	paths["include-freetype-mac"] = paths["macos-libs"] + "/include/freetype2"
-	paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
-
-	paths["include-libpng-mac"] = paths["macos-libs"] + "/include/libpng16"
-	paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
-
-if platform.system() == "Linux":
-	paths["include-freetype-linux"] = "/usr/local/include/freetype2"
-	paths["lib-freetype-linux"] = "/usr/local/lib"
-
-	paths["include-libpng-linux"] = "/usr/local/include/libpng16"
-	paths["lib-libpng-linux"] = "/usr/local/lib"
+# if platform.system() == "Linux":
+# 	paths["lib-freetype-linux"] = "/usr/local/lib"
+# 	paths["lib-libpng-linux"] = "/usr/local/lib"
 
 NormalizePathSlashes(paths)
 
@@ -192,9 +189,9 @@ def WinCompile(compileMode, debugger):
 	])
 
 	includePaths = " ".join([
-		"/I" + paths["include-km-common"],
-		"/I" + paths["include-freetype-win"],
-		"/I" + paths["include-libpng-win"]
+		"/I" + paths["libs-internal"],
+		"/I" + paths["include-freetype"],
+		"/I" + paths["include-libpng"]
 	])
 
 	linkerFlags = " ".join([
@@ -214,13 +211,13 @@ def WinCompile(compileMode, debugger):
 	])
 
 	libPathsGame = " ".join([
-		"/LIBPATH:" + paths["lib-freetype-win-d"],
-		"/LIBPATH:" + paths["lib-libpng-win-d"]
+		"/LIBPATH:" + paths["libdir-freetype-win32-d"],
+		"/LIBPATH:" + paths["libdir-libpng-win32-d"]
 	])
 	if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
 		libPathsGame = " ".join([
-			"/LIBPATH:" + paths["lib-freetype-win-r"],
-			"/LIBPATH:" + paths["lib-libpng-win-r"]
+			"/LIBPATH:" + paths["libdir-freetype-win32-r"],
+			"/LIBPATH:" + paths["libdir-libpng-win32-r"]
 		])
 
 	libsGame = " ".join([
