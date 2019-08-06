@@ -1165,12 +1165,13 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(1.0f);
 
-		if (!LoadPSD(thread, "data/dream.psd", &memory->transient,
+		if (!LoadPSD(thread, "data/dream.psd",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		&memory->transient, &gameState->levels[0].psdData,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory)) {
 			DEBUG_PANIC("Failed to load test PSD\n");
 		}
-		flushLogs_(logState);
 
 		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,

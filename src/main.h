@@ -7,6 +7,7 @@
 #include "collision.h"
 #include "framebuffer.h"
 #include "load_png.h"
+#include "load_psd.h"
 #include "opengl.h"
 #include "opengl_base.h"
 #include "text.h"
@@ -96,6 +97,8 @@ struct LevelData
     Vec2 cameraCoords;
     bool32 bounded;
     Vec2 bounds;
+
+    PsdData psdData;
 
     bool32 loaded;
 };
