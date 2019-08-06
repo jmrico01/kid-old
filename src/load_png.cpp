@@ -35,7 +35,7 @@ void LoadPNGError(png_structp pngPtr, png_const_charp msg)
 }
 void LoadPNGWarning(png_structp pngPtr, png_const_charp msg)
 {
-	LOG_WARN("Load PNG warning: %s\n", msg);
+	// LOG_WARN("Load PNG warning: %s\n", msg);
 }
 
 void LoadPNGReadData(png_structp pngPtr,
@@ -57,14 +57,14 @@ void LoadPNGReadData(png_structp pngPtr,
 	}
 	png_bytep read = inputStream->data + readInd;
 	png_bytep write = outBuffer;
-    MemCopy(write, read, readLen);
+	MemCopy(write, read, readLen);
 	inputStream->readInd += readLen;
 }
 
 // TODO pass a custom allocator to libPNG
-bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
-    GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-    TextureGL& outTextureGL, MemoryBlock transient,
+bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
+	TextureGL& outTextureGL, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
 {

@@ -12,8 +12,8 @@ struct TextureGL
 };
 
 // TODO change ref out to pointer
-bool32 LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
-    GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-    TextureGL& outTextureGL, MemoryBlock transient,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
+	TextureGL& outTextureGL, MemoryBlock transient,
+	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
+	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);

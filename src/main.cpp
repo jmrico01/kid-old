@@ -149,11 +149,11 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 	levelData->levelTransitions.Init();
 	levelData->levelTransitions.array.size = 0;
 
-    levelData->lineColliders.Init();
-    levelData->lineColliders.array.size = 0;
+	levelData->lineColliders.Init();
+	levelData->lineColliders.array.size = 0;
 
-    levelData->lockedCamera = false;
-    levelData->bounded = false;
+	levelData->lockedCamera = false;
+	levelData->bounded = false;
 
 	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!levelFile.data) {
@@ -206,12 +206,12 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			if (StringCompare(value.array, "bg")) {
 				type = SPRITE_BACKGROUND;
 			}
-            else if (StringCompare(value.array, "obj")) {
-                type = SPRITE_OBJECT;
-            }
-            else if (StringCompare(value.array, "label")) {
-                type = SPRITE_LABEL;
-            }
+			else if (StringCompare(value.array, "obj")) {
+				type = SPRITE_OBJECT;
+			}
+			else if (StringCompare(value.array, "label")) {
+				type = SPRITE_LABEL;
+			}
 			else {
 				LOG_ERROR("Sprite metadata file unsupported type %.*s (%s)\n",
 					value.array.size, &value[0], filePath);
@@ -261,22 +261,22 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			levelData->bounds = bounds;
 		}
 		else if (StringCompare(keyword.array, "lockcamera")) {
-            Vec2 coords;
-            int parsedElements;
-            if (!StringToElementArray(value.array, ' ', true,
-            StringToFloat32, 2, coords.e, &parsedElements)) {
-                LOG_ERROR("Failed to parse level lock camera coords %.*s (%s)\n",
-                    value.array.size, value.array.data, filePath);
-                return false;
-            }
-            if (parsedElements != 2) {
-                LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%s)\n",
-                    value.array.size, value.array.data, filePath);
-                return false;
-            }
+			Vec2 coords;
+			int parsedElements;
+			if (!StringToElementArray(value.array, ' ', true,
+			StringToFloat32, 2, coords.e, &parsedElements)) {
+				LOG_ERROR("Failed to parse level lock camera coords %.*s (%s)\n",
+					value.array.size, value.array.data, filePath);
+				return false;
+			}
+			if (parsedElements != 2) {
+				LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%s)\n",
+					value.array.size, value.array.data, filePath);
+				return false;
+			}
 
 			levelData->lockedCamera = true;
-            levelData->cameraCoords = coords;
+			levelData->cameraCoords = coords;
 		}
 		else if (StringCompare(keyword.array, "transition")) {
 			DEBUG_ASSERT(levelData->levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
@@ -369,44 +369,44 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 				}
 			}
 		}
-        else if (StringCompare(keyword.array, "line")) {
-            DEBUG_ASSERT(levelData->lineColliders.array.size < LINE_COLLIDERS_MAX);
+		else if (StringCompare(keyword.array, "line")) {
+			DEBUG_ASSERT(levelData->lineColliders.array.size < LINE_COLLIDERS_MAX);
 
-            LineCollider* lineCollider = &levelData->lineColliders[
-                levelData->lineColliders.array.size++];
-            lineCollider->line.array.size = 0;
-            lineCollider->line.Init();
+			LineCollider* lineCollider = &levelData->lineColliders[
+				levelData->lineColliders.array.size++];
+			lineCollider->line.array.size = 0;
+			lineCollider->line.Init();
 
-            Array<char> element = value.array;
-            while (true) {
-                Array<char> next;
-                ReadElementInSplitString(&element, &next, '\n');
+			Array<char> element = value.array;
+			while (true) {
+				Array<char> next;
+				ReadElementInSplitString(&element, &next, '\n');
 
-                Array<char> trimmed;
-                TrimWhitespace(element, &trimmed);
-                if (trimmed.size == 0) {
-                    break;
-                }
+				Array<char> trimmed;
+				TrimWhitespace(element, &trimmed);
+				if (trimmed.size == 0) {
+					break;
+				}
 
-                Vec2 pos;
-                int parsedElements;
-                if (!StringToElementArray(trimmed, ',', true,
-                StringToFloat32, 2, pos.e, &parsedElements)) {
-                    LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
-                        trimmed.size, trimmed.data, filePath);
-                    return false;
-                }
-                if (parsedElements != 2) {
-                    LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
-                        trimmed.size, trimmed.data, filePath);
-                    return false;
-                }
+				Vec2 pos;
+				int parsedElements;
+				if (!StringToElementArray(trimmed, ',', true,
+				StringToFloat32, 2, pos.e, &parsedElements)) {
+					LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
+				if (parsedElements != 2) {
+					LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
 
-                lineCollider->line.Append(pos);
+				lineCollider->line.Append(pos);
 
-                element = next;
-            }
-        }
+				element = next;
+			}
+		}
 		else if (StringCompare(keyword.array, "floor")) {
 			levelData->floor.line.array.size = 0;
 			levelData->floor.line.Init();
@@ -443,9 +443,9 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 
 			levelData->floor.PrecomputeSampleVerticesFromLine();
 		}
-        else if (StringCompare(keyword.array, "//")) {
-            // comment, ignore
-        }
+		else if (StringCompare(keyword.array, "//")) {
+			// comment, ignore
+		}
 		else {
 			LOG_ERROR("Level file unsupported keyword %.*s (%s)\n",
 				keyword.array.size, &keyword[0], filePath);
@@ -528,7 +528,7 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 
 	levelData->loaded = true;
 
-    LOG_INFO("Loaded level data from file %s\n", filePath);
+	LOG_INFO("Loaded level data from file %s\n", filePath);
 
 	return true;
 }
@@ -553,23 +553,23 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	gameState->activeLevel = level;
 
 	gameState->playerCoords = startCoords;
-    gameState->playerVel = Vec2::zero;
-    if (startCoords.y > 0.0f) {
-        gameState->playerState = PLAYER_STATE_FALLING;
-    }
-    else {
-        gameState->playerState = PLAYER_STATE_GROUNDED;
-        gameState->kid.activeAnimation.WriteString("Idle");
-        gameState->kid.activeFrame = 0;
-        gameState->kid.activeFrameRepeat = 0;
-        gameState->kid.activeFrameTime = 0.0f;
-    }
-    if (levelData->lockedCamera) {
-        gameState->cameraCoords = levelData->cameraCoords;
-    }
-    else {
-        gameState->cameraCoords = startCoords;
-    }
+	gameState->playerVel = Vec2::zero;
+	if (startCoords.y > 0.0f) {
+		gameState->playerState = PLAYER_STATE_FALLING;
+	}
+	else {
+		gameState->playerState = PLAYER_STATE_GROUNDED;
+		gameState->kid.activeAnimation.WriteString("Idle");
+		gameState->kid.activeFrame = 0;
+		gameState->kid.activeFrameRepeat = 0;
+		gameState->kid.activeFrameTime = 0.0f;
+	}
+	if (levelData->lockedCamera) {
+		gameState->cameraCoords = levelData->cameraCoords;
+	}
+	else {
+		gameState->cameraCoords = startCoords;
+	}
 
 	char bakFilePath[PATH_MAX_LENGTH];
 	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/collision-bak.kml", level);
@@ -620,11 +620,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
-    bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
-        || (input->controllers[0].isConnected && input->controllers[0].b.isDown);
-    bool32 wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
-        || (input->controllers[0].isConnected && input->controllers[0].b.isDown
-        && input->controllers[0].b.transitions == 1);
+	bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
+		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
+	bool32 wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
+		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown
+		&& input->controllers[0].b.transitions == 1);
 
 	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
@@ -797,14 +797,14 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			continue;
 		}
 
-        float32 newDeltaCoordX = deltaCoords.x;
-        if (deltaPos.x != 0.0f) {
-            float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
-            newDeltaCoordX = deltaCoords.x * tX;
-        }
-        Vec2 newFloorPos, newFloorNormal;
-        floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
-            &newFloorPos, &newFloorNormal);
+		float32 newDeltaCoordX = deltaCoords.x;
+		if (deltaPos.x != 0.0f) {
+			float32 tX = (intersects[i].pos.x - playerPos.x) / deltaPos.x;
+			newDeltaCoordX = deltaCoords.x * tX;
+		}
+		Vec2 newFloorPos, newFloorNormal;
+		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
+			&newFloorPos, &newFloorNormal);
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
@@ -942,22 +942,22 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
-    if (levelData.bounded) {
-        if (gameState->playerCoords.x >= levelData.bounds.x
-        && playerCoordsNew.x < levelData.bounds.x) {
-            playerCoordsNew.x = levelData.bounds.x;
-        }
-        if (gameState->playerCoords.x <= levelData.bounds.y
-        && playerCoordsNew.x > levelData.bounds.y) {
-            playerCoordsNew.x = levelData.bounds.y;
-        }
-    }
-    if (playerCoordsNew.x < 0.0f) {
-        playerCoordsNew.x += floor.length;
-    }
-    else if (playerCoordsNew.x > floor.length) {
-        playerCoordsNew.x -= floor.length;
-    }
+	if (levelData.bounded) {
+		if (gameState->playerCoords.x >= levelData.bounds.x
+		&& playerCoordsNew.x < levelData.bounds.x) {
+			playerCoordsNew.x = levelData.bounds.x;
+		}
+		if (gameState->playerCoords.x <= levelData.bounds.y
+		&& playerCoordsNew.x > levelData.bounds.y) {
+			playerCoordsNew.x = levelData.bounds.y;
+		}
+	}
+	if (playerCoordsNew.x < 0.0f) {
+		playerCoordsNew.x += floor.length;
+	}
+	else if (playerCoordsNew.x > floor.length) {
+		playerCoordsNew.x -= floor.length;
+	}
 	gameState->playerCoords = playerCoordsNew;
 
 	Array<HashKey> paperNextAnims;
@@ -1068,12 +1068,12 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 				baseRot = Quat::one;
 				rot = Quat::one;
 			}
-            if (sprite->type == SPRITE_LABEL) {
-                Vec2 offset = WrappedWorldOffset(playerPos, pos, floor.length);
-                if (AbsFloat32(offset.x) > 1.0f || offset.y < 0.0f || offset.y > 2.5f) {
-                    continue;
-                }
-            }
+			if (sprite->type == SPRITE_LABEL) {
+				Vec2 offset = WrappedWorldOffset(playerPos, pos, floor.length);
+				if (AbsFloat32(offset.x) > 1.0f || offset.y < 0.0f || offset.y > 2.5f) {
+					continue;
+				}
+			}
 			Vec2 size = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
 			Mat4 transform = CalculateTransform(pos, size, sprite->anchor,
 				baseRot, rot, sprite->flipped);
@@ -1165,11 +1165,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(1.0f);
 
-        if (!LoadPSD(thread, "data/dream.psd",
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load test PSD\n");
-        }
+		if (!LoadPSD(thread, "data/dream.psd", &memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load test PSD\n");
+		}
+		flushLogs_(logState);
 
 		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
@@ -1190,7 +1191,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			gameState->levels[i].loaded = false;
 		}
 
-        const int FIRST_LEVEL = 5;
+		const int FIRST_LEVEL = 1;
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
 			platformFuncs->DEBUGPlatformFreeFileMemory,
@@ -1386,14 +1387,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-        if (!LoadPNGOpenGL(thread,
-        "data/luts/kodak5205.png",
-        GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-        gameState->lut1, memory->transient,
-        platformFuncs->DEBUGPlatformReadFile,
-        platformFuncs->DEBUGPlatformFreeFileMemory)) {
-            DEBUG_PANIC("Failed to load base LUT\n");
-        }
+		if (!LoadPNGOpenGL(thread,
+		"data/luts/kodak5205.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+		gameState->lut1, memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+			DEBUG_PANIC("Failed to load base LUT\n");
+		}
 
 		memory->isInitialized = true;
 	}
@@ -1730,15 +1731,15 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			if (levelData.bounded) {
 				lineData->count = 2;
 
-                Vec2 boundLeftPos, boundLeftNormal;
-                floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
+				Vec2 boundLeftPos, boundLeftNormal;
+				floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
 				Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
 				lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
 				lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
 				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 
 				Vec2 boundRightPos, boundRightNormal;
-                floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
+				floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
 				lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
 				lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
 				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
@@ -1855,10 +1856,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			floor.PrecomputeSampleVerticesFromLine();
 		}
 
-        if (input->mouseButtons[2].isDown) {
-            Vec2Int screenCenterToMouse = input->mousePos - screenInfo.size / 2;
-            // TODO rotate camera
-        }
+		if (input->mouseButtons[2].isDown) {
+			Vec2Int screenCenterToMouse = input->mousePos - screenInfo.size / 2;
+			// TODO rotate camera
+		}
 
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char saveFilePath[PATH_MAX_LENGTH];
