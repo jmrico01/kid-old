@@ -113,12 +113,12 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 
 internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	const FloorCollider* floor, const char* filePath,
-	MemoryBlock transient,
+	MemoryBlock* transient,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
 	uint64 stringSize = 0;
-	uint64 stringCapacity = transient.size;
-	char* string = (char*)transient.memory;
+	uint64 stringCapacity = transient->size;
+	char* string = (char*)transient->memory;
 	for (uint64 i = 0; i < floor->line.array.size; i++) {
 		uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
 			"%.2f, %.2f\r\n",
@@ -137,7 +137,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 }
 
 internal bool32 LoadLevelData(const ThreadContext* thread,
-	const char* filePath, LevelData* levelData, MemoryBlock transient,
+	const char* levelPath, LevelData* levelData, MemoryBlock* transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
 {
@@ -155,9 +155,42 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 	levelData->lockedCamera = false;
 	levelData->bounded = false;
 
+	char filePath[PATH_MAX_LENGTH];
+
+	StringCat(levelPath, "/level.psd", filePath, PATH_MAX_LENGTH);
+	if (!LoadPSD(thread, filePath,
+	GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+	transient, &levelData->psdData,
+	DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+		LOG_ERROR("Failed to load level PSD file %s\n", filePath);
+		return false;
+	}
+
+	for (uint64 i = 0; i < levelData->psdData.layers.array.size; i++) {
+		LayerInfo& layer = levelData->psdData.layers[i];
+		if ((layer.flags & 0x02) != 0) {
+			// skip hidden layer
+			continue;
+		}
+		levelData->sprites.array.size++;
+		TextureWithPosition& sprite = levelData->sprites[levelData->sprites.array.size - 1];
+		sprite.texture = layer.textureGL;
+		sprite.type = SPRITE_BACKGROUND;
+		Vec2Int offset = Vec2Int {
+			layer.left,
+			levelData->psdData.size.y - layer.bottom
+		};
+		sprite.pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
+		sprite.anchor = Vec2::zero;
+		sprite.restAngle = 0.0f;
+		sprite.flipped = false;
+
+	}
+
+	StringCat(levelPath, "/level.kmkv", filePath, PATH_MAX_LENGTH);
 	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
 	if (!levelFile.data) {
-		LOG_ERROR("Failed to load level file %s\n", filePath);
+		LOG_ERROR("Failed to load level data file %s\n", filePath);
 		return false;
 	}
 
@@ -181,7 +214,7 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 		fileString.data += read;
 
 		if (StringCompare(keyword.array, "sprite")) {
-			levelData->sprites.array.size++;
+			/*levelData->sprites.array.size++;
 
 			Array<char> path;
 			path.data = (char*)filePath;
@@ -193,16 +226,16 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			snprintf(pngFilePath + lastSlash, PATH_MAX_LENGTH - lastSlash,
 				"/sprites/%.*s.png", (int)value.array.size, &value[0]);
 			if (!LoadPNGOpenGL(thread, pngFilePath,
-				GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-				levelData->sprites[levelData->sprites.array.size - 1].texture, transient,
-				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			levelData->sprites[levelData->sprites.array.size - 1].texture, *transient,
+			DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 				LOG_ERROR("Failed to load sprite PNG file %s (%s)\n",
 					pngFilePath, filePath);
 				return false;
-			}
+			}*/
 		}
 		else if (StringCompare(keyword.array, "type")) {
-			SpriteType type;
+			/*SpriteType type;
 			if (StringCompare(value.array, "bg")) {
 				type = SPRITE_BACKGROUND;
 			}
@@ -219,10 +252,10 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			}
 
 			TextureWithPosition* sprite = &levelData->sprites[levelData->sprites.array.size - 1];
-			sprite->type = type;
+			sprite->type = type;*/
 		}
 		else if (StringCompare(keyword.array, "offset")) {
-			Vec2Int offset;
+			/*Vec2Int offset;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
 			StringToIntBase10, 2, offset.e, &parsedElements)) {
@@ -240,7 +273,7 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			sprite->pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
 			sprite->anchor = Vec2::zero;
 			sprite->restAngle = 0.0f;
-			sprite->flipped = false;
+			sprite->flipped = false;*/
 		}
 		else if (StringCompare(keyword.array, "bounds")) {
 			Vec2 bounds;
@@ -534,16 +567,16 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 }
 
 internal bool32 SetActiveLevel(const ThreadContext* thread,
-	GameState* gameState, uint64 level, Vec2 startCoords, MemoryBlock transient,
+	GameState* gameState, uint64 level, Vec2 startCoords, MemoryBlock* transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
 	LevelData* levelData = &gameState->levels[level];
 	if (!levelData->loaded) {
-		char levelFilePath[PATH_MAX_LENGTH];
-		snprintf(levelFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/level.kmkv", level);
-		if (!LoadLevelData(thread, levelFilePath, levelData, transient,
+		char levelPath[PATH_MAX_LENGTH];
+		snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/level%llu", level);
+		if (!LoadLevelData(thread, levelPath, levelData, transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 			LOG_ERROR("Failed to load level data for level %llu\n", level);
 			return false;
@@ -636,7 +669,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
-				if (!SetActiveLevel(nullptr, gameState, newLevel, startCoords, transient,
+				if (!SetActiveLevel(nullptr, gameState, newLevel, startCoords, &transient,
 				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory, DEBUGPlatformWriteFile)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
@@ -1165,14 +1198,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(1.0f);
 
-		if (!LoadPSD(thread, "data/dream.psd",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		&memory->transient, &gameState->levels[0].psdData,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
-			DEBUG_PANIC("Failed to load test PSD\n");
-		}
-
 		if (!InitAudioState(thread, &gameState->audioState, audio,
 			&memory->transient,
 			platformFuncs->DEBUGPlatformReadFile,
@@ -1192,11 +1217,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			gameState->levels[i].loaded = false;
 		}
 
-		const int FIRST_LEVEL = 1;
-		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory,
-			platformFuncs->DEBUGPlatformWriteFile)) {
+		const int FIRST_LEVEL = 5;
+		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory,
+		platformFuncs->DEBUGPlatformWriteFile)) {
 			DEBUG_PANIC("Failed to load level %d\n", FIRST_LEVEL);
 		}
 
@@ -1430,10 +1455,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #if GAME_SLOW
 	for (uint64 i = 0; i < 10; i++) {
 		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
-			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, memory->transient,
-				platformFuncs->DEBUGPlatformReadFile,
-				platformFuncs->DEBUGPlatformFreeFileMemory,
-				platformFuncs->DEBUGPlatformWriteFile)) {
+			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, &memory->transient,
+			platformFuncs->DEBUGPlatformReadFile,
+			platformFuncs->DEBUGPlatformFreeFileMemory,
+			platformFuncs->DEBUGPlatformWriteFile)) {
 				DEBUG_PANIC("Failed to load level %llu\n", i);
 			}
 		}
@@ -1867,7 +1892,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			snprintf(saveFilePath, PATH_MAX_LENGTH,
 				"data/levels/level%llu/collision.kml", gameState->activeLevel);
 			if (!SaveFloorVertices(thread, &floor, saveFilePath,
-				memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
+			&memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
 				LOG_ERROR("Level save failed!\n");
 			}
 		}

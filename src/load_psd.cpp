@@ -122,10 +122,10 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 			parsedBytes += 4;
 			int32 right = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
-			layerInfo.boundsMin.x = left;
-			layerInfo.boundsMin.y = height - bottom;
-			layerInfo.boundsMax.x = right;
-			layerInfo.boundsMax.y = height - top;
+			layerInfo.left = left;
+			layerInfo.right = right;
+			layerInfo.top = top;
+			layerInfo.bottom = bottom;
 
 			int16 layerChannels = ReadBigEndianInt16(&psdData[parsedBytes]);
 			parsedBytes += 2;
@@ -218,8 +218,8 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 		for (int16 l = 0; l < layerCount; l++) {
 			// TODO something about layer data being odd and pad byte at the end of row
 			LayerInfo& layerInfo = outPsdData->layers[l];
-			int layerWidth = layerInfo.boundsMax.x - layerInfo.boundsMin.x;
-			int layerHeight = layerInfo.boundsMax.y - layerInfo.boundsMin.y;
+			int layerWidth = layerInfo.right - layerInfo.left;
+			int layerHeight = layerInfo.bottom - layerInfo.top;
 			uint64 layerChannels = layerInfo.channels.array.size;
 			if (transient->size < layerHeight * sizeof(int16)
 			+ layerWidth * layerHeight * layerChannels) {
@@ -300,7 +300,7 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 				}
 			}
 
-			if ((layerInfo.flags & 0x2) != 0) {
+			if ((layerInfo.flags & 0x02) != 0) {
 				LOG_INFO("Skipping GL texture for hidden layer %.*s\n",
 					layerInfo.name.array.size, layerInfo.name.array.data);
 				continue;

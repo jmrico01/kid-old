@@ -30,7 +30,7 @@ struct LayerInfo
 {
     TextureGL textureGL;
     FixedArray<char, PSD_LAYER_NAME_MAX_LENGTH> name;
-    Vec2Int boundsMin, boundsMax;
+    int left, right, top, bottom;
     FixedArray<LayerChannelInfo, PSD_CHANNELS> channels;
     uint8 opacity;
     LayerBlendMode blendMode;
@@ -46,5 +46,5 @@ struct PsdData
 bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
     GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
     MemoryBlock* transient, PsdData* outPsdData,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
+    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
