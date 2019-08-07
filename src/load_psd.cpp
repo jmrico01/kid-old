@@ -30,8 +30,6 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 	const uint8* psdData = (uint8*)psdFile.data;
 	uint64 parsedBytes = 0;
 
-	//const PSDHeader* header = (const PSDHeader*)psdData;
-	//parsedBytes += sizeof(PSDHeader);
 	uint8 signature[4];
 	MemCopy(signature, &psdData[parsedBytes], 4);
 	parsedBytes += 4;
@@ -52,7 +50,7 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 	int16 channels = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
 	if (channels != 3 && channels != 4) {
-		LOG_ERROR("Expected %d color channels (RGBA), found %d\n", PSD_CHANNELS, channels);
+		LOG_ERROR("Expected 3 or 4 color channels (RGB or RGBA), found %d\n", channels);
 		return false;
 	}
 
@@ -90,6 +88,7 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 
 	int32 layerAndMaskInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
+	// uint64 layerAndMaskInfoStart = parsedBytes;
 	outPsdData->layers.Init();
 	outPsdData->layers.array.size = 0;
 	if (layerAndMaskInfoLength > 0) {
@@ -129,9 +128,9 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 
 			int16 layerChannels = ReadBigEndianInt16(&psdData[parsedBytes]);
 			parsedBytes += 2;
-			if (layerChannels != PSD_CHANNELS) {
-				LOG_ERROR("Layer expected %d color channels (RGBA), found %d\n",
-					PSD_CHANNELS, channels);
+			if (layerChannels != 3 && layerChannels != 4) {
+				LOG_ERROR("Layer expected 3 or 4 color channels (RGB or RGBA), found %d\n",
+					layerChannels);
 				return false;
 			}
 			layerInfo.channels.array.size = layerChannels;
@@ -191,7 +190,7 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 			layerInfo.opacity = opacity;
 			parsedBytes++; // uint8 clipping
 			uint8 flags = psdData[parsedBytes++];
-			layerInfo.flags = flags;
+			layerInfo.visible = (flags & 0x02) == 0;
 			parsedBytes++; // filler
 
 			int32 extraDataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
@@ -218,18 +217,30 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 		for (int16 l = 0; l < layerCount; l++) {
 			// TODO something about layer data being odd and pad byte at the end of row
 			LayerInfo& layerInfo = outPsdData->layers[l];
+			uint64 layerChannels = layerInfo.channels.array.size;
+			bool skipLayer = !layerInfo.visible;
+			if (skipLayer) {
+				LOG_INFO("Skipping hidden layer %.*s\n",
+					layerInfo.name.array.size, layerInfo.name.array.data);
+				for (int16 c = 0; c < layerChannels; c++) {
+					LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
+					parsedBytes += layerChannelInfo.dataSize;
+				}
+				continue;
+			}
+
 			int layerWidth = layerInfo.right - layerInfo.left;
 			int layerHeight = layerInfo.bottom - layerInfo.top;
-			uint64 layerChannels = layerInfo.channels.array.size;
-			if (transient->size < layerHeight * sizeof(int16)
-			+ layerWidth * layerHeight * layerChannels) {
-				LOG_ERROR("Not enough memory to read layer data\n");
+			uint64 sizeRowLengths = layerHeight * sizeof(int16);
+			uint64 sizeLayerDataGL = layerWidth * layerHeight * layerChannels;
+			if (transient->size < sizeRowLengths + sizeLayerDataGL) {
+				LOG_ERROR("Not enough memory to read layer %.*s data, need %zu but have %zu\n",
+					layerInfo.name.array.size, layerInfo.name.array.data,
+					sizeRowLengths + sizeLayerDataGL, transient->size);
 				return false;
 			}
 			uint16* layerRowLengths = (uint16*)transient->memory;
-			uint8* layerDataGL = (uint8*)transient->memory + layerHeight * sizeof(int16);
-			// TODO is this necessary?
-			MemSet(layerDataGL, 0, layerWidth * layerHeight * layerChannels);
+			uint8* layerDataGL = (uint8*)transient->memory + sizeRowLengths;
 
 			for (int16 c = 0; c < layerChannels; c++) {
 				LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
@@ -294,22 +305,31 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 						}
 					}
 
-					DEBUG_ASSERTF(pixelX == layerWidth, "row %d, bytes %d\n", r, layerRowLengths[r]);
+					if (pixelX != layerWidth) {
+						LOG_ERROR("PackBits row length mismatch: %d vs %d\n", pixelX, layerWidth);
+						return false;
+					}
 
 					parsedBytes += layerRowLengths[r];
 				}
 			}
 
-			if ((layerInfo.flags & 0x02) != 0) {
-				LOG_INFO("Skipping GL texture for hidden layer %.*s\n",
-					layerInfo.name.array.size, layerInfo.name.array.data);
-				continue;
+			GLenum formatGL;
+			if (layerChannels == 4) {
+				formatGL = GL_RGBA;
+			}
+			else if (layerChannels == 3) {
+				formatGL = GL_RGB;
+			}
+			else {
+				LOG_ERROR("Unsupported layer channel number for GL: %d\n", layerChannels);
+				return false;
 			}
 			GLuint textureID;
 			glGenTextures(1, &textureID);
 			glBindTexture(GL_TEXTURE_2D, textureID);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, layerWidth, layerHeight,
-				0, GL_RGBA, GL_UNSIGNED_BYTE, (const GLvoid*)layerDataGL);
+			glTexImage2D(GL_TEXTURE_2D, 0, formatGL, layerWidth, layerHeight,
+				0, formatGL, GL_UNSIGNED_BYTE, (const GLvoid*)layerDataGL);
 
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
@@ -349,9 +369,17 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 		parsedBytes += additionalLayerInfoLength;
 	}
 
-	/*const uint8* imageDataSection = layerAndMaskInfoSection + 4 + layerAndMaskInfoLength;
-	uint64 imageDataLength = psdFile.size - (uint64)(imageDataSection - psdData);
-	LOG_INFO("image data length %zu\n", imageDataLength);*/
+	/*parsedBytes = layerAndMaskInfoStart + layerAndMaskInfoLength;
+	uint64 imageDataLength = psdFile.size - parsedBytes;
+	int16 compression = ReadBigEndianInt16(&psdData[parsedBytes]);
+	parsedBytes += 2;
+
+	for (int r = 0; r < height; r++) {
+		int16 rowLengthBytes = ReadBigEndianInt16(&psdData[parsedBytes]);
+		parsedBytes += 2;
+		layerRowLengths[r] = rowLengthBytes;
+	}
+	LOG_INFO("image data length %d compression %d\n", imageDataLength, compression);*/
 
 	DEBUGPlatformFreeFileMemory(thread, &psdFile);
 

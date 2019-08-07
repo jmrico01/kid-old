@@ -1,35 +1,3 @@
-sprite frame
-type bg
-offset 41 54
-
-sprite objects
-type bg
-offset 74 55
-
-sprite stairs
-type bg
-offset 465 56
-
-sprite label_play_tv
-type label
-offset 952 722
-
-sprite label_exit
-type label
-offset 230 247
-
-sprite label_go_upstairs
-type label
-offset 393 147
-
-sprite label_open_fridge
-type label
-offset 903 333
-
-sprite label_go_upstairs_attic
-type label
-offset 989 906
-
 bounds 2.0 12.0
 
 lockcamera 7.0 0.0

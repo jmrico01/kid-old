@@ -34,7 +34,7 @@ struct LayerInfo
     FixedArray<LayerChannelInfo, PSD_CHANNELS> channels;
     uint8 opacity;
     LayerBlendMode blendMode;
-    uint8 flags;
+    bool visible;
 };
 
 struct PsdData

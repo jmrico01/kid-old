@@ -3,8 +3,5 @@ Issues:
 Make airborne horizontal control more realistic / physics-y
     - Preserve horizontal velocity during jump, with v limited break capability
 
-Delay of jump (do only 1 frame of buildup)
-Unresponsiveness of jump right after landing
-
 Jump height/speed is scaled by holding space bar. Do the same for falling
 

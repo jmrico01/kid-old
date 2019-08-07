@@ -168,14 +168,19 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 
 	for (uint64 i = 0; i < levelData->psdData.layers.array.size; i++) {
 		LayerInfo& layer = levelData->psdData.layers[i];
-		if ((layer.flags & 0x02) != 0) {
-			// skip hidden layer
+		if (!layer.visible) {
 			continue;
 		}
 		levelData->sprites.array.size++;
 		TextureWithPosition& sprite = levelData->sprites[levelData->sprites.array.size - 1];
 		sprite.texture = layer.textureGL;
 		sprite.type = SPRITE_BACKGROUND;
+		if (StringContains(layer.name.array, "obj_")) {
+			sprite.type = SPRITE_OBJECT;
+		}
+		else if (StringContains(layer.name.array, "label_")) {
+			sprite.type = SPRITE_LABEL;
+		}
 		Vec2Int offset = Vec2Int {
 			layer.left,
 			levelData->psdData.size.y - layer.bottom
@@ -213,69 +218,7 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 		fileString.size -= read;
 		fileString.data += read;
 
-		if (StringCompare(keyword.array, "sprite")) {
-			/*levelData->sprites.array.size++;
-
-			Array<char> path;
-			path.data = (char*)filePath;
-			path.size = StringLength(filePath);
-			uint64 lastSlash = GetLastOccurrence(path, '/');
-
-			char pngFilePath[PATH_MAX_LENGTH];
-			MemCopy(pngFilePath, &filePath[0], lastSlash);
-			snprintf(pngFilePath + lastSlash, PATH_MAX_LENGTH - lastSlash,
-				"/sprites/%.*s.png", (int)value.array.size, &value[0]);
-			if (!LoadPNGOpenGL(thread, pngFilePath,
-			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-			levelData->sprites[levelData->sprites.array.size - 1].texture, *transient,
-			DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
-				LOG_ERROR("Failed to load sprite PNG file %s (%s)\n",
-					pngFilePath, filePath);
-				return false;
-			}*/
-		}
-		else if (StringCompare(keyword.array, "type")) {
-			/*SpriteType type;
-			if (StringCompare(value.array, "bg")) {
-				type = SPRITE_BACKGROUND;
-			}
-			else if (StringCompare(value.array, "obj")) {
-				type = SPRITE_OBJECT;
-			}
-			else if (StringCompare(value.array, "label")) {
-				type = SPRITE_LABEL;
-			}
-			else {
-				LOG_ERROR("Sprite metadata file unsupported type %.*s (%s)\n",
-					value.array.size, &value[0], filePath);
-				return false;
-			}
-
-			TextureWithPosition* sprite = &levelData->sprites[levelData->sprites.array.size - 1];
-			sprite->type = type;*/
-		}
-		else if (StringCompare(keyword.array, "offset")) {
-			/*Vec2Int offset;
-			int parsedElements;
-			if (!StringToElementArray(value.array, ' ', true,
-			StringToIntBase10, 2, offset.e, &parsedElements)) {
-				LOG_ERROR("Failed to parse sprite offset %.*s (%s)\n",
-					value.array.size, &value[0], filePath);
-				return false;
-			}
-			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordinates in sprite offset %.*s (%s)\n",
-					value.array.size, &value[0], filePath);
-				return false;
-			}
-
-			TextureWithPosition* sprite = &levelData->sprites[levelData->sprites.array.size - 1];
-			sprite->pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
-			sprite->anchor = Vec2::zero;
-			sprite->restAngle = 0.0f;
-			sprite->flipped = false;*/
-		}
-		else if (StringCompare(keyword.array, "bounds")) {
+		if (StringCompare(keyword.array, "bounds")) {
 			Vec2 bounds;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
@@ -503,59 +446,6 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 			if (floorNormal.x > 0.0f) {
 				sprite->restAngle = -sprite->restAngle;
 			}
-#if 0
-			// TODO Code to calculate ground anchor for sprite (use it later)
-			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
-			Vec2 originBottom = {
-				sprite->pos.x + worldSize.x / 2.0f,
-				sprite->pos.y
-			};
-			Vec2 originLeft = {
-				sprite->pos.x,
-				sprite->pos.y + worldSize.y / 2.0f
-			};
-			Vec2 originTop = {
-				sprite->pos.x + worldSize.x / 2.0f,
-				sprite->pos.y + worldSize.y
-			};
-			Vec2 originRight = {
-				sprite->pos.x + worldSize.x,
-				sprite->pos.y + worldSize.y / 2.0f
-			};
-			Vec2 origins[4] = { originBottom, originLeft, originTop, originRight };
-			int ind = -1;
-			Vec2 selectedCoords = { 0.0f, 1e6 };
-			for (int o = 0; o < 4; o++) {
-				Vec2 coords = floor.GetCoordsFromWorldPos(origins[o]);
-				if (coords.y < selectedCoords.y) {
-					ind = o;
-					selectedCoords = coords;
-				}
-			}
-
-			sprite->coords = selectedCoords;
-			switch (ind) {
-				case 0: {
-					sprite->anchor = Vec2 { 0.5f, 0.0f };
-				} break;
-				case 1: {
-					sprite->anchor = Vec2 { 0.0f, 0.5f };
-				} break;
-				case 2: {
-					sprite->anchor = Vec2 { 0.5f, 1.0f };
-				} break;
-				case 3: {
-					sprite->anchor = Vec2 { 1.0f, 0.5f };
-				} break;
-				default: {
-					LOG_ERROR("No closest origin on sprite %llu (%s)\n", i, metadataFilePath);
-					return false;
-				}
-			}
-			Vec2 floorPos, floorNormal;
-			floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
-			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
-#endif
 		}
 	}
 
