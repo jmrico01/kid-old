@@ -16,7 +16,7 @@ int32 ReadBigEndianInt32(const uint8 bigEndian[4])
 
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
-bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
+bool LoadPSD(const ThreadContext* thread, const char* filePath,
 	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
 	MemoryBlock* transient, PsdData* outPsdData,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
@@ -384,4 +384,14 @@ bool32 LoadPSD(const ThreadContext* thread, const char* filePath,
 	DEBUGPlatformFreeFileMemory(thread, &psdFile);
 
 	return true;
+}
+
+void UnloadPSDOpenGL(const PsdData& psdData)
+{
+	for (uint64 i = 0; i < psdData.layers.array.size; i++) {
+		const LayerInfo& layerInfo = psdData.layers[i];
+		if (layerInfo.visible) {
+			UnloadTextureGL(layerInfo.textureGL);
+		}
+	}
 }

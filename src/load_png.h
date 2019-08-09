@@ -11,6 +11,8 @@ struct TextureGL
 	GLuint textureID;
 };
 
+void UnloadTextureGL(const TextureGL& textureGL);
+
 // TODO change ref out to pointer
 bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,

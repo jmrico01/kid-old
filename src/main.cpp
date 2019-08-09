@@ -1070,6 +1070,27 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		memory->shouldInitGlobalVariables = false;
 		LOG_INFO("Initialized global variables\n");
 	}
+
+	if (memory->isInitialized && WasKeyPressed(input, KM_KEY_R)) {
+		memory->isInitialized = false;
+		screenInfo.changed = true;
+
+		for (int i = 0; i < LEVELS_MAX; i++) {
+			if (gameState->levels[i].loaded) {
+				UnloadPSDOpenGL(gameState->levels[i].psdData);
+			}
+		}
+
+		UnloadAnimatedSpriteOpenGL(gameState->spriteKid);
+		UnloadAnimatedSpriteOpenGL(gameState->spritePaper);
+
+		UnloadTextureGL(gameState->rockTexture);
+		UnloadTextureGL(gameState->frame);
+		UnloadTextureGL(gameState->pixelTexture);
+		UnloadTextureGL(gameState->lutBase);
+		UnloadTextureGL(gameState->lut1);
+	}
+
 	if (!memory->isInitialized) {
 		// Very explicit depth testing setup (DEFAULT VALUES)
 		// NDC is left-handed with this setup
@@ -1106,7 +1127,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-
 		const int FIRST_LEVEL = 5;
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,

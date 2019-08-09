@@ -6,6 +6,11 @@
 
 #include "opengl_funcs.h"
 
+void UnloadTextureGL(const TextureGL& textureGL)
+{
+	glDeleteTextures(1, &textureGL.textureID);
+}
+
 struct PNGErrorData {
 	const ThreadContext* thread;
 	DEBUGReadFileResult* pngFile;

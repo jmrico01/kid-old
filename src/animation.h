@@ -52,3 +52,5 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
 	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+
+void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite);

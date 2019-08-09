@@ -394,3 +394,18 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	return true;
 }
+
+void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite)
+{
+	for (uint32 k = 0; k < animatedSprite.animations.capacity; k++) {
+		const HashKey& animationKey = animatedSprite.animations.pairs[k].key;
+		if (animationKey.string.array.size == 0) {
+			continue;
+		}
+
+		const Animation& animation = animatedSprite.animations.pairs[k].value;
+		for (int i = 0; i < animation.numFrames; i++) {
+			UnloadTextureGL(animation.frameTextures[i]);
+		}
+	}
+}
