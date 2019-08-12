@@ -5,14 +5,14 @@ lockcamera 7.0 0.0
 transition {
     coords   3.15 0.8
     range    0.8 1.0
-    tolevel  0
+    tolevel  overworld
     tocoords 216.2 0.0
 }
 
 transition {
     coords   9.00 7.25
     range    0.8 1.0
-    tolevel  2
+    tolevel  house-attic
     tocoords 7.85 0.0
 }
 

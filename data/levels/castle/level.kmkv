@@ -5,8 +5,8 @@ lockcamera 15.0 0.0
 transition {
     coords   15.0 0.8
     range    1.2 1.0
-    tolevel  0
-    tocoords 12.8 0.0
+    tolevel  dream
+    tocoords 78.85 0.0
 }
 
 floor {

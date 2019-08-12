@@ -28,6 +28,37 @@
 
 #define LINE_COLLIDER_MARGIN 0.05f
 
+global_var const char* LEVEL_NAMES[] = {
+	"overworld",
+	"house",
+	"house-attic",
+	"idk",
+	"shack",
+	"dream",
+	"castle"
+};
+
+internal uint64 LevelNameToId(const Array<char>& name)
+{
+	uint64 numNames = C_ARRAY_LENGTH(LEVEL_NAMES);
+	LOG_INFO("numNames: %llu\n", numNames);
+	for (uint64 i = 0; i < numNames; i++) {
+		if (StringCompare(name, LEVEL_NAMES[i])) {
+			return i;
+		}
+	}
+
+	return numNames;
+}
+
+internal uint64 LevelNameToId(const char* name)
+{
+	Array<char> nameArray;
+	nameArray.data = (char*)name;
+	nameArray.size = StringLength(name);
+	return LevelNameToId(nameArray);
+}
+
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -312,9 +343,9 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 					transition->range = range;
 				}
 				else if (StringCompare(keywordTransition.array, "tolevel")) {
-					uint64 toLevel;
-					if (!StringToUInt64Base10(valueTransition.array, &toLevel)) {
-						LOG_ERROR("Failed to parse transition to-level %.*s (%s)\n",
+					uint64 toLevel = LevelNameToId(valueTransition.array);
+					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
+						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%s)\n",
 							valueTransition.array.size, valueTransition.array.data, filePath);
 						return false;
 					}
@@ -457,15 +488,16 @@ internal bool32 LoadLevelData(const ThreadContext* thread,
 }
 
 internal bool32 SetActiveLevel(const ThreadContext* thread,
-	GameState* gameState, uint64 level, Vec2 startCoords, MemoryBlock* transient,
+	GameState* gameState, const char* level, Vec2 startCoords, MemoryBlock* transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
-	LevelData* levelData = &gameState->levels[level];
+	uint64 levelId = LevelNameToId(level);
+	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
 		char levelPath[PATH_MAX_LENGTH];
-		snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/level%llu", level);
+		snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/%s", level);
 		if (!LoadLevelData(thread, levelPath, levelData, transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 			LOG_ERROR("Failed to load level data for level %llu\n", level);
@@ -473,7 +505,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 		}
 	}
 
-	gameState->activeLevel = level;
+	gameState->activeLevel = levelId;
 
 	gameState->playerCoords = startCoords;
 	gameState->playerVel = Vec2::zero;
@@ -495,7 +527,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	}
 
 	char bakFilePath[PATH_MAX_LENGTH];
-	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/level%llu/collision-bak.kml", level);
+	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", level);
 	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient,
 	DEBUGPlatformWriteFile)) {
 		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
@@ -559,8 +591,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
-				if (!SetActiveLevel(nullptr, gameState, newLevel, startCoords, &transient,
-				DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory, DEBUGPlatformWriteFile)) {
+				if (!SetActiveLevel(nullptr, gameState, LEVEL_NAMES[newLevel], startCoords,
+				&transient, DEBUGPlatformReadFile,
+				DEBUGPlatformFreeFileMemory, DEBUGPlatformWriteFile)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
 				break;
@@ -1127,12 +1160,12 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const int FIRST_LEVEL = 5;
+		const char* FIRST_LEVEL = "dream";
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory,
 		platformFuncs->DEBUGPlatformWriteFile)) {
-			DEBUG_PANIC("Failed to load level %d\n", FIRST_LEVEL);
+			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
 
 		gameState->grainTime = 0.0f;
@@ -1362,7 +1395,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
-#if GAME_SLOW
+#if 0
 	for (uint64 i = 0; i < 10; i++) {
 		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
 			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, &memory->transient,

@@ -1,19 +1,19 @@
 transition {
     coords   216.2 0.8
     range    0.8 1.0
-    tolevel  1
+    tolevel  house
     tocoords 3.15 0.0
 }
 transition {
     coords   12.8 0.8
     range    0.8 1.0
-    tolevel  3
+    tolevel  idk
     tocoords 15.0 0.0
 }
 transition {
     coords   65.0 0.8
     range    1.2 1.0
-    tolevel  4
+    tolevel  shack
     tocoords 15.0 0.0
 }
 

@@ -3,7 +3,7 @@ bounds 114.60 102.75
 transition {
     coords   78.85 0.8
     range    0.9 1.0
-    tolevel  6
+    tolevel  castle
     tocoords 15.0 0.0
 }
 
