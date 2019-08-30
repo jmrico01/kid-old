@@ -1105,23 +1105,20 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	}
 
 	if (memory->isInitialized && WasKeyPressed(input, KM_KEY_R)) {
-		memory->isInitialized = false;
-		screenInfo.changed = true;
-
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			if (gameState->levels[i].loaded) {
 				UnloadPSDOpenGL(gameState->levels[i].psdData);
+				gameState->levels[i].loaded = false;
 			}
 		}
 
-		UnloadAnimatedSpriteOpenGL(gameState->spriteKid);
-		UnloadAnimatedSpriteOpenGL(gameState->spritePaper);
-
-		UnloadTextureGL(gameState->rockTexture);
-		UnloadTextureGL(gameState->frame);
-		UnloadTextureGL(gameState->pixelTexture);
-		UnloadTextureGL(gameState->lutBase);
-		UnloadTextureGL(gameState->lut1);
+		if (!SetActiveLevel(thread, gameState, LEVEL_NAMES[gameState->activeLevel],
+		gameState->playerCoords, &memory->transient,
+		platformFuncs->DEBUGPlatformReadFile,
+		platformFuncs->DEBUGPlatformFreeFileMemory,
+		platformFuncs->DEBUGPlatformWriteFile)) {
+			DEBUG_PANIC("Failed to reload level %s\n", LEVEL_NAMES[gameState->activeLevel]);
+		}
 	}
 
 	if (!memory->isInitialized) {
@@ -1394,19 +1391,6 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	if (WasKeyPressed(input, KM_KEY_M)) {
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
-
-#if 0
-	for (uint64 i = 0; i < 10; i++) {
-		if (WasKeyPressed(input, (KeyInputCode)(KM_KEY_0 + i))) {
-			if (!SetActiveLevel(thread, gameState, i, Vec2::zero, &memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory,
-			platformFuncs->DEBUGPlatformWriteFile)) {
-				DEBUG_PANIC("Failed to load level %llu\n", i);
-			}
-		}
-	}
-#endif
 
 	UpdateWorld(gameState, deltaTime, input, memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
