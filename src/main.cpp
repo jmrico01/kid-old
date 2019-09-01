@@ -1841,6 +1841,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 }
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
+#include <stb_image.h>
+
 #include <km_common/km_debug.cpp>
 #include <km_common/km_input.cpp>
 #include <km_common/km_lib.cpp>

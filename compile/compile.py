@@ -87,25 +87,15 @@ LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
 # External dependencies
+paths["lib-stbimage"] = paths["libs-external"] + "/stb_image-2.23"
 paths["lib-freetype"] = paths["libs-external"] + "/freetype-2.8.1"
-paths["lib-libpng"]   = paths["libs-external"] + "/libpng-1.6.34"
 
+paths["include-stbimage"] = paths["lib-stbimage"]
 paths["include-freetype"] = paths["lib-freetype"] + "/include"
-paths["include-libpng"]   = paths["lib-libpng"]   + "/include"
 
 if platform.system() == "Windows":
 	paths["libdir-freetype-win32-d"] = paths["lib-freetype"] + "/win32/debug"
 	paths["libdir-freetype-win32-r"] = paths["lib-freetype"] + "/win32/release"
-	paths["libdir-libpng-win32-d"]   = paths["lib-libpng"]   + "/win32/debug"
-	paths["libdir-libpng-win32-r"]   = paths["lib-libpng"]   + "/win32/release"
-
-# if platform.system() == "Darwin":
-# 	paths["lib-freetype-mac"] = paths["macos-libs"] + "/lib"
-# 	paths["lib-libpng-mac"] = paths["macos-libs"] + "/lib"
-
-# if platform.system() == "Linux":
-# 	paths["lib-freetype-linux"] = "/usr/local/lib"
-# 	paths["lib-libpng-linux"] = "/usr/local/lib"
 
 NormalizePathSlashes(paths)
 
@@ -190,8 +180,8 @@ def WinCompile(compileMode, debugger):
 
 	includePaths = " ".join([
 		"/I" + paths["libs-internal"],
-		"/I" + paths["include-freetype"],
-		"/I" + paths["include-libpng"]
+		"/I" + paths["include-stbimage"],
+		"/I" + paths["include-freetype"]
 	])
 
 	linkerFlags = " ".join([
@@ -211,25 +201,19 @@ def WinCompile(compileMode, debugger):
 	])
 
 	libPathsGame = " ".join([
-		"/LIBPATH:" + paths["libdir-freetype-win32-d"],
-		"/LIBPATH:" + paths["libdir-libpng-win32-d"]
+		"/LIBPATH:" + paths["libdir-freetype-win32-d"]
 	])
 	if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
 		libPathsGame = " ".join([
-			"/LIBPATH:" + paths["libdir-freetype-win32-r"],
-			"/LIBPATH:" + paths["libdir-libpng-win32-r"]
+			"/LIBPATH:" + paths["libdir-freetype-win32-r"]
 		])
 
 	libsGame = " ".join([
-		"freetype281MTd.lib",
-		"libpng16.lib",
-		"zlib.lib"
+		"freetype281MTd.lib"
 	])
 	if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
 		libsGame = " ".join([
-			"freetype281MT.lib",
-			"libpng16.lib",
-			"zlib.lib"
+			"freetype281MT.lib"
 		])
 
 	# Clear old PDB files
@@ -316,8 +300,7 @@ def LinuxCompile(compileMode):
 		"-Wno-char-subscripts" # using char as an array subscript
 	])
 	includePaths = " ".join([
-		"-I" + paths["include-freetype-linux"],
-		"-I" + paths["include-libpng-linux"]
+		"-I" + paths["include-freetype-linux"]
 	])
 
 	linkerFlags = " ".join([
@@ -334,14 +317,10 @@ def LinuxCompile(compileMode):
 		"-lpthread"
 	])
 	libPathsGame = " ".join([
-		"-L" + paths["lib-freetype-linux"],
-		"-L" + paths["lib-libpng-linux"]
+		"-L" + paths["lib-freetype-linux"]
 	])
 	libsGame = " ".join([
-		"-lfreetype",
-		"-lpng",
-
-		#"-lm",      # math
+		"-lfreetype"
 	])
 
 	#pdbName = PROJECT_NAME + "_game" + str(random.randrange(99999)) + ".pdb"
@@ -422,8 +401,7 @@ def MacCompile(compileMode):
 	])
 
 	includePaths = " ".join([
-		"-I" + paths["include-freetype-mac"],
-		"-I" + paths["include-libpng-mac"]
+		"-I" + paths["include-freetype-mac"]
 	])
 
 	frameworks = " ".join([
@@ -436,12 +414,10 @@ def MacCompile(compileMode):
 		#"-fvisibility=hidden"
 	])
 	libPaths = " ".join([
-		"-L" + paths["lib-freetype-mac"],
-		"-L" + paths["lib-libpng-mac"]
+		"-L" + paths["lib-freetype-mac"]
 	])
 	libs = " ".join([
-		"-lfreetype",
-		"-lpng"
+		"-lfreetype"
 	])
 
 	compileLibCommand = " ".join([
