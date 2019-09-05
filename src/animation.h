@@ -1,9 +1,9 @@
 #pragma once
 
 #include <km_common/km_lib.h>
+#include <km_platform/main_platform.h>
 
 #include "opengl.h"
-#include "main_platform.h"
 #include "load_png.h"
 #include "render.h"
 

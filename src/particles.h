@@ -1,10 +1,10 @@
 #pragma once
 
 #include <km_common/km_math.h>
+#include <km_platform/main_platform.h>
 
 #include "opengl.h"
 #include "opengl_base.h"
-#include "main_platform.h"
 
 #define MAX_PARTICLES 100000
 #define MAX_SPAWN (MAX_PARTICLES / 10)

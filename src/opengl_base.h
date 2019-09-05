@@ -1,8 +1,8 @@
 #pragma once
 
 #include <km_common/km_math.h>
+#include <km_platform/main_platform.h>
 
-#include "main_platform.h"
 #include "opengl.h"
 
 #define MAX_LINE_POINTS 100000

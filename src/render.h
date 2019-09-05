@@ -1,7 +1,8 @@
 #pragma once
 
+#include <km_platform/main_platform.h>
+
 #include "opengl.h"
-#include "main_platform.h"
 
 #define SPRITE_BATCH_SIZE 128
 

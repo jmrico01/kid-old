@@ -6,11 +6,11 @@
 #include <km_common/km_log.h>
 #include <km_common/km_math.h>
 #include <km_common/km_string.h>
+#include <km_platform/main_platform.h>
 #undef internal
 #include <random>
 #define internal static
 
-#include "main_platform.h"
 #include "load_psd.h"
 #include "opengl.h"
 #include "opengl_funcs.h"

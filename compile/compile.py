@@ -71,10 +71,10 @@ paths["build-shaders"]  = paths["build"] + "/shaders"
 paths["src-shaders"]    = paths["src"]   + "/shaders"
 
 # Main source files
-paths["main-cpp"]       = paths["src"]   + "/main.cpp"
-paths["linux-main-cpp"] = paths["src"]   + "/linux_main.cpp"
-paths["macos-main-mm"]  = paths["src"]   + "/macos_main.mm"
-paths["win32-main-cpp"] = paths["src"]   + "/win32_main.cpp"
+paths["main-cpp"]       = paths["src"]             + "/main.cpp"
+paths["linux-main-cpp"] = paths["libs-internal"]   + "/km_platform/linux_main.cpp"
+paths["macos-main-mm"]  = paths["libs-internal"]   + "/km_platform/macos_main.cpp"
+paths["win32-main-cpp"] = paths["libs-internal"]   + "/km_platform/win32_main.cpp"
 
 # Source hashes for if-changed compilation
 paths["src-hashes"]     = paths["build"] + "/src_hashes"
@@ -179,6 +179,7 @@ def WinCompile(compileMode, debugger):
 	])
 
 	includePaths = " ".join([
+		"/I" + paths["src"],
 		"/I" + paths["libs-internal"],
 		"/I" + paths["include-stbimage"],
 		"/I" + paths["include-freetype"]
