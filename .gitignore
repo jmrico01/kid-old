@@ -1,7 +1,8 @@
 build
 deploy
+compile/app_info.py
+compile/env_settings.json
 
 .DS_Store
 .clang_complete
 *~
-compile/env_settings.json
