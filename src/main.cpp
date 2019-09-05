@@ -852,7 +852,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 				gameState->liftedObject.placementOffsetX = 1.2f;
 				gameState->liftedObject.coordYPrev = newLiftedObject->coords.y;
 				gameState->liftedObject.spritePtr = newLiftedObject;
-				gameState->liftedObject.spritePtr->restAngle -= PI_F / 2.0f;
+				//gameState->liftedObject.spritePtr->restAngle -= PI_F / 2.0f;
 			}
 		}
 		else {
@@ -863,7 +863,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			}
 			spritePtr->coords.x += placementOffsetX;
 			spritePtr->coords.y = gameState->liftedObject.coordYPrev;
-			spritePtr->restAngle += PI_F / 2.0f;
+			//spritePtr->restAngle += PI_F / 2.0f;
 			gameState->liftedObject.spritePtr = nullptr;
 		}
 	}
