@@ -1,3 +1,6 @@
 [submodule "libs/internal/km_common"]
 	path = libs/internal/km_common
-	url = https://github.com/jmrico01/km_common
+	url = https://github.com/jmrico01/km_common.git
+[submodule "libs/internal/km_platform"]
+	path = lib/internal/km_platform
+	url = https://github.com/jmrico01/km_platform.git
