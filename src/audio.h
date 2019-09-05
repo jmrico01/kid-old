@@ -8,7 +8,7 @@ struct Sound
 {
 	bool32 play;
 	bool32 playing;
-	int sampleIndex;
+	uint64 sampleIndex;
 
 	AudioBuffer buffer;
 };

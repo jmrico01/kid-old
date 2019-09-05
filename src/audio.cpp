@@ -44,12 +44,12 @@ internal void SoundWriteSamples(const Sound* sound, float32 amplitude,
 	}
 
 	const AudioBuffer* buffer = &sound->buffer;
-	int samplesToWrite = audio->fillLength;
+	uint64 samplesToWrite = audio->fillLength;
 	if (sound->sampleIndex + samplesToWrite > buffer->bufferSizeSamples) {
 		samplesToWrite = buffer->bufferSizeSamples - sound->sampleIndex;
 	}
-	for (int i = 0; i < samplesToWrite; i++) {
-		int sampleInd = sound->sampleIndex + i;
+	for (uint64 i = 0; i < samplesToWrite; i++) {
+		uint64 sampleInd = sound->sampleIndex + i;
 		float32 sample1 = amplitude
 			* buffer->buffer[sampleInd * audio->channels];
 		float32 sample2 = amplitude
@@ -143,7 +143,7 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
 
 internal void DrawAudioBuffer(
 	const GameState* gameState, const GameAudio* audio,
-	const float32* buffer, int bufferSizeSamples, int channel,
+	const float32* buffer, uint64 bufferSizeSamples, uint8 channel,
 	const int marks[], const Vec4 markColors[], int numMarks,
 	Vec3 origin, Vec2 size, Vec4 color,
 	MemoryBlock transient)
@@ -153,7 +153,7 @@ internal void DrawAudioBuffer(
 
 	LineGLData* lineData = (LineGLData*)transient.memory;
 	
-	lineData->count = bufferSizeSamples;
+	lineData->count = (int)bufferSizeSamples;
 	for (int i = 0; i < bufferSizeSamples; i++) {
 		float32 val = buffer[i * audio->channels + channel];
 		float32 t = (float32)i / (bufferSizeSamples - 1);

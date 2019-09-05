@@ -10,9 +10,9 @@
 
 struct AudioBuffer
 {
-	int sampleRate;
-	int channels;
-	int bufferSizeSamples;
+	uint32 sampleRate;
+	uint8 channels;
+	uint64 bufferSizeSamples;
 	float32 buffer[AUDIO_MAX_SAMPLES * AUDIO_MAX_CHANNELS];
 };
 
