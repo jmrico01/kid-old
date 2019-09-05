@@ -6,8 +6,8 @@
 #include "audio.h"
 #include "collision.h"
 #include "framebuffer.h"
+#include "load_level.h"
 #include "load_png.h"
-#include "load_psd.h"
 #include "opengl.h"
 #include "opengl_base.h"
 #include "text.h"
@@ -20,13 +20,6 @@
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-#define LEVEL_SPRITES_MAX 16
-
-#define LINE_COLLIDERS_MAX 16
-
-#define LEVELS_MAX 8
-#define LEVEL_TRANSITIONS_MAX 4
-
 int GetPillarboxWidth(ScreenInfo screenInfo);
 
 enum PlayerState
@@ -34,34 +27,6 @@ enum PlayerState
 	PLAYER_STATE_GROUNDED,
 	PLAYER_STATE_JUMPING,
 	PLAYER_STATE_FALLING
-};
-
-enum SpriteType
-{
-	SPRITE_BACKGROUND,
-    SPRITE_OBJECT,
-    SPRITE_LABEL
-};
-
-struct TextureWithPosition
-{
-	union {
-		Vec2 pos;
-		Vec2 coords;
-	};
-	Vec2 anchor;
-	float32 restAngle;
-	TextureGL texture;
-	SpriteType type;
-	bool32 flipped;
-};
-
-struct LevelTransition
-{
-	Vec2 coords;
-	Vec2 range;
-	uint64 toLevel;
-	Vec2 toCoords;
 };
 
 struct Rock
@@ -82,25 +47,6 @@ struct LiftedObjectInfo
     Vec2 offset;
     float32 placementOffsetX;
     float32 coordYPrev;
-};
-
-struct LevelData
-{
-    FloorCollider floor;
-    FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
-
-    FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
-
-    FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
-
-    bool32 lockedCamera;
-    Vec2 cameraCoords;
-    bool32 bounded;
-    Vec2 bounds;
-
-    PsdData psdData;
-
-    bool32 loaded;
 };
 
 struct GameState

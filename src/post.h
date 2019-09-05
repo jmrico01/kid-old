@@ -1,7 +1,6 @@
 #pragma once
 
 #include "opengl.h"
-#include "main.h"
 
 // These must match the max sizes in blur.frag
 #define KERNEL_HALFSIZE_MAX 10
@@ -16,4 +15,4 @@ void PostProcessGrain(Framebuffer framebufferIn, Framebuffer framebufferOut,
 	GLuint screenQuadVertexArray, GLuint shader, float32 grainTime);
 
 void PostProcessLUT(Framebuffer framebufferIn, Framebuffer framebufferOut,
-    GLuint screenQuadVertexArray, GLuint shader, TextureGL lut);
+	GLuint screenQuadVertexArray, GLuint shader, TextureGL lut);
