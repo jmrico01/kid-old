@@ -75,8 +75,8 @@ struct GameState
 	float32 grainTime;
 
 #if GAME_INTERNAL
+	bool32 kmKey;
 	bool32 debugView;
-	bool32 editor;
     float32 editorScaleExponent;
 
     // Editor

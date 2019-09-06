@@ -153,7 +153,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 			spritePath[lastSlash] = '/';
 			while (true) {
-				int written = sprintf(&spritePath[lastSlash + 1], "%.*s/%d.png",
+				int written = stbsp_snprintf(&spritePath[lastSlash + 1],
+					(int)(PATH_MAX_LENGTH - lastSlash - 1),"%.*s/%d.png",
 					(int)value.array.size, value.array.data, frame);
 				if (written <= 0) {
 					LOG_ERROR("Failed to build animation sprite path for %s\n", filePath);

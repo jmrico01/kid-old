@@ -1,65 +1,64 @@
 #include "load_level.h"
 
-void UnloadLevelData(LevelData* levelData)
-{
-	UnloadPSDOpenGL(levelData->psdData);
-	levelData->loaded = false;
-}
-
-bool32 LoadLevelData(const ThreadContext* thread,
-	const char* levelPath, LevelData* levelData, MemoryBlock* transient,
+bool32 LevelData::Load(const ThreadContext* thread,
+	const char* levelPath, MemoryBlock* transient,
 	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
 	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
 {
-	DEBUG_ASSERT(!levelData->loaded);
+	DEBUG_ASSERT(!loaded);
 
-	levelData->sprites.Init();
-	levelData->sprites.array.size = 0;
+	sprites.Init();
+	sprites.array.size = 0;
 
-	levelData->levelTransitions.Init();
-	levelData->levelTransitions.array.size = 0;
+	levelTransitions.Init();
+	levelTransitions.array.size = 0;
 
-	levelData->lineColliders.Init();
-	levelData->lineColliders.array.size = 0;
+	lineColliders.Init();
+	lineColliders.array.size = 0;
 
-	levelData->lockedCamera = false;
-	levelData->bounded = false;
+	lockedCamera = false;
+	bounded = false;
 
 	char filePath[PATH_MAX_LENGTH];
 
 	StringCat(levelPath, "/level.psd", filePath, PATH_MAX_LENGTH);
 	if (!LoadPSD(thread, filePath,
 	GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-	transient, &levelData->psdData,
+	transient, &psdData,
 	DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 		LOG_ERROR("Failed to load level PSD file %s\n", filePath);
 		return false;
 	}
 
-	for (uint64 i = 0; i < levelData->psdData.layers.array.size; i++) {
-		LayerInfo& layer = levelData->psdData.layers[i];
+	for (uint64 i = 0; i < psdData.layers.array.size; i++) {
+		LayerInfo& layer = psdData.layers[i];
 		if (!layer.visible) {
 			continue;
 		}
-		levelData->sprites.array.size++;
-		TextureWithPosition& sprite = levelData->sprites[levelData->sprites.array.size - 1];
-		sprite.texture = layer.textureGL;
-		sprite.type = SPRITE_BACKGROUND;
+
+		SpriteType spriteType = SPRITE_BACKGROUND;
 		if (StringContains(layer.name.array, "obj_")) {
-			sprite.type = SPRITE_OBJECT;
+			spriteType = SPRITE_OBJECT;
 		}
 		else if (StringContains(layer.name.array, "label_")) {
-			sprite.type = SPRITE_LABEL;
+			spriteType = SPRITE_LABEL;
 		}
+		else if (StringContains(layer.name.array, "x_")) {
+			continue;
+		}
+
+		sprites.array.size++;
+		TextureWithPosition& sprite = sprites[sprites.array.size - 1];
+		sprite.texture = layer.textureGL;
+		sprite.type = spriteType;
 		Vec2Int offset = Vec2Int {
 			layer.left,
-			levelData->psdData.size.y - layer.bottom
+			psdData.size.y - layer.bottom
 		};
 		sprite.pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
 		sprite.anchor = Vec2::zero;
 		sprite.restAngle = 0.0f;
 		sprite.flipped = false;
-
 	}
 
 	StringCat(levelPath, "/level.kmkv", filePath, PATH_MAX_LENGTH);
@@ -89,10 +88,10 @@ bool32 LoadLevelData(const ThreadContext* thread,
 		fileString.data += read;
 
 		if (StringCompare(keyword.array, "bounds")) {
-			Vec2 bounds;
+			Vec2 parsedBounds;
 			int parsedElements;
 			if (!StringToElementArray(value.array, ' ', true,
-			StringToFloat32, 2, bounds.e, &parsedElements)) {
+			StringToFloat32, 2, parsedBounds.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level bounds %.*s (%s)\n",
 					value.array.size, value.array.data, filePath);
 				return false;
@@ -103,8 +102,8 @@ bool32 LoadLevelData(const ThreadContext* thread,
 				return false;
 			}
 
-			levelData->bounded = true;
-			levelData->bounds = bounds;
+			bounded = true;
+			bounds = parsedBounds;
 		}
 		else if (StringCompare(keyword.array, "lockcamera")) {
 			Vec2 coords;
@@ -121,13 +120,12 @@ bool32 LoadLevelData(const ThreadContext* thread,
 				return false;
 			}
 
-			levelData->lockedCamera = true;
-			levelData->cameraCoords = coords;
+			lockedCamera = true;
+			cameraCoords = coords;
 		}
 		else if (StringCompare(keyword.array, "transition")) {
-			DEBUG_ASSERT(levelData->levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
-			LevelTransition* transition = &levelData->levelTransitions[
-				levelData->levelTransitions.array.size++];
+			DEBUG_ASSERT(levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
+			LevelTransition* transition = &levelTransitions[levelTransitions.array.size++];
 
 			Array<char> transitionString = value.array;
 			while (true) {
@@ -216,10 +214,9 @@ bool32 LoadLevelData(const ThreadContext* thread,
 			}
 		}
 		else if (StringCompare(keyword.array, "line")) {
-			DEBUG_ASSERT(levelData->lineColliders.array.size < LINE_COLLIDERS_MAX);
+			DEBUG_ASSERT(lineColliders.array.size < LINE_COLLIDERS_MAX);
 
-			LineCollider* lineCollider = &levelData->lineColliders[
-				levelData->lineColliders.array.size++];
+			LineCollider* lineCollider = &lineColliders[lineColliders.array.size++];
 			lineCollider->line.array.size = 0;
 			lineCollider->line.Init();
 
@@ -254,8 +251,8 @@ bool32 LoadLevelData(const ThreadContext* thread,
 			}
 		}
 		else if (StringCompare(keyword.array, "floor")) {
-			levelData->floor.line.array.size = 0;
-			levelData->floor.line.Init();
+			floor.line.array.size = 0;
+			floor.line.Init();
 
 			Array<char> element = value.array;
 			while (true) {
@@ -282,12 +279,12 @@ bool32 LoadLevelData(const ThreadContext* thread,
 					return false;
 				}
 
-				levelData->floor.line.Append(pos);
+				floor.line.Append(pos);
 
 				element = next;
 			}
 
-			levelData->floor.PrecomputeSampleVerticesFromLine();
+			floor.PrecomputeSampleVerticesFromLine();
 		}
 		else if (StringCompare(keyword.array, "//")) {
 			// comment, ignore
@@ -301,17 +298,17 @@ bool32 LoadLevelData(const ThreadContext* thread,
 
 	DEBUGPlatformFreeFileMemory(thread, &levelFile);
 
-	for (uint64 i = 0; i < levelData->sprites.array.size; i++) {
-		TextureWithPosition* sprite = &levelData->sprites[i];
+	for (uint64 i = 0; i < sprites.array.size; i++) {
+		TextureWithPosition* sprite = &sprites[i];
 		if (sprite->type == SPRITE_OBJECT) {
 			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
-			Vec2 coords = levelData->floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
+			Vec2 coords = floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
 
 			sprite->coords = coords;
 			sprite->anchor = Vec2::one / 2.0f;
 
 			Vec2 floorPos, floorNormal;
-			levelData->floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+			floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
 			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
 			if (floorNormal.x > 0.0f) {
 				sprite->restAngle = -sprite->restAngle;
@@ -319,9 +316,15 @@ bool32 LoadLevelData(const ThreadContext* thread,
 		}
 	}
 
-	levelData->loaded = true;
+	loaded = true;
 
 	LOG_INFO("Loaded level data from file %s\n", filePath);
 
 	return true;
+}
+
+void LevelData::Unload()
+{
+	UnloadPSDOpenGL(psdData);
+	loaded = false;
 }

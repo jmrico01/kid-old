@@ -87,11 +87,13 @@ LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
 # External dependencies
-paths["lib-freetype"] = paths["libs-external"] + "/freetype-2.8.1"
-paths["lib-stbimage"] = paths["libs-external"] + "/stb_image-2.23"
+paths["lib-freetype"] = paths["libs-external"]   + "/freetype-2.8.1"
+paths["lib-stbimage"] = paths["libs-external"]   + "/stb_image-2.23"
+paths["lib-stbsprintf"] = paths["libs-external"] + "/stb_sprintf-1.06"
 
-paths["include-freetype"] = paths["lib-freetype"] + "/include"
-paths["include-stbimage"] = paths["lib-stbimage"]
+paths["include-freetype"]   = paths["lib-freetype"] + "/include"
+paths["include-stbimage"]   = paths["lib-stbimage"]
+paths["include-stbsprintf"] = paths["lib-stbsprintf"]
 
 if platform.system() == "Windows":
 	paths["libdir-freetype-win32-d"] = paths["lib-freetype"] + "/win32/debug"
@@ -182,7 +184,8 @@ def WinCompile(compileMode, debugger):
 		"/I" + paths["src"],
 		"/I" + paths["libs-internal"],
 		"/I" + paths["include-freetype"],
-		"/I" + paths["include-stbimage"]
+		"/I" + paths["include-stbimage"],
+		"/I" + paths["include-stbsprintf"]
 	])
 
 	linkerFlags = " ".join([

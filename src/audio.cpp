@@ -69,41 +69,12 @@ bool32 InitAudioState(const ThreadContext* thread,
 	// audioState->globalMute = false;
 	audioState->globalMute = true;
 
-	const int KICK_VARIATIONS = 1;
-	const char* kickSoundFiles[KICK_VARIATIONS] = {
-		"data/audio/yow.wav"
-	};
-	const int SNARE_VARIATIONS = 1;
-	const char* snareSoundFiles[SNARE_VARIATIONS] = {
-		"data/audio/snare.wav"
-	};
-	const int DEATH_VARIATIONS = 1;
-	const char* deathSoundFiles[DEATH_VARIATIONS] = {
-		"data/audio/death.wav"
-	};
-
 	if (!SoundInit(thread, audio,
-		&audioState->soundKick,
-		kickSoundFiles[0],
+		&audioState->soundJump,
+		"data/audio/yow.wav",
 		transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
-		LOG_ERROR("Failed to init kick sound");
-		return false;
-	}
-	if (!SoundInit(thread, audio,
-		&audioState->soundSnare,
-		snareSoundFiles[0],
-		transient,
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
-		LOG_ERROR("Failed to init snare sound");
-		return false;
-	}
-	if (!SoundInit(thread, audio,
-		&audioState->soundDeath,
-		deathSoundFiles[0],
-		transient,
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
-		LOG_ERROR("Failed to init death sound");
+		LOG_ERROR("Failed to init jump sound");
 		return false;
 	}
 
@@ -121,9 +92,7 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
 	DEBUG_ASSERT(audio->channels == 2); // Stereo support only
 	AudioState* audioState = &gameState->audioState;
 
-	SoundUpdate(audio, &audioState->soundKick);
-	SoundUpdate(audio, &audioState->soundSnare);
-	SoundUpdate(audio, &audioState->soundDeath);
+	SoundUpdate(audio, &audioState->soundJump);
 
 	for (int i = 0; i < audio->fillLength; i++) {
 		audio->buffer[i * audio->channels] = 0.0f;
@@ -134,9 +103,7 @@ void OutputAudio(GameAudio* audio, GameState* gameState,
 		return;
 	}
 
-	SoundWriteSamples(&audioState->soundKick, 1.0f, audio);
-	SoundWriteSamples(&audioState->soundSnare, 0.7f, audio);
-	SoundWriteSamples(&audioState->soundDeath, 0.5f, audio);
+	SoundWriteSamples(&audioState->soundJump, 1.0f, audio);
 }
 
 #if GAME_INTERNAL
@@ -188,7 +155,7 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 {
 	AudioState* audioState = &gameState->audioState;
 
-	if (WasKeyPressed(input, KM_KEY_K)) {
+	if (WasKeyPressed(input, KM_KEY_H)) {
 		audioState->debugView = !audioState->debugView;
 	}
 
@@ -197,7 +164,8 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 		const Vec2Int MARGIN = { 30, 45 };
 		const Vec2 TEXT_ANCHOR = { 1.0f, 0.0f };
 
-		char strBuf[128];
+		const int STR_BUF_LENGTH = 128;
+		char strBuf[STR_BUF_LENGTH];
 		Vec2Int audioInfoStride = {
 			0,
 			-((int)gameState->fontFaceSmall.height + 6)
@@ -218,14 +186,14 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 			debugFontColor,
 			transient
 		);
-		sprintf(strBuf, "Sample Rate: %d", audio->sampleRate);
+		stbsp_snprintf(strBuf, STR_BUF_LENGTH, "Sample Rate: %d", audio->sampleRate);
 		audioInfoPos += audioInfoStride;
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
 			strBuf, audioInfoPos, TEXT_ANCHOR,
 			debugFontColor,
 			transient
 		);
-		sprintf(strBuf, "Channels: %d", audio->channels);
+		stbsp_snprintf(strBuf, STR_BUF_LENGTH, "Channels: %d", audio->channels);
 		audioInfoPos += audioInfoStride;
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
 			strBuf, audioInfoPos, TEXT_ANCHOR,

@@ -15,9 +15,7 @@ struct Sound
 
 struct AudioState
 {
-	Sound soundKick;
-	Sound soundSnare;
-	Sound soundDeath;
+	Sound soundJump;
 
 	bool32 globalMute;
 

@@ -58,11 +58,10 @@ struct LevelData
     PsdData psdData;
 
     bool32 loaded;
+
+    bool32 Load(const ThreadContext* thread,
+		const char* levelPath, MemoryBlock* transient,
+		DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
+		DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory);
+    void Unload();
 };
-
-void UnloadLevelData(LevelData* levelData);
-
-bool32 LoadLevelData(const ThreadContext* thread,
-	const char* levelPath, LevelData* levelData, MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory);

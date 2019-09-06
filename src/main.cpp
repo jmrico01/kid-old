@@ -10,6 +10,8 @@
 #undef internal
 #include <random>
 #define internal static
+#undef STB_SPRINTF_IMPLEMENTATION
+#include <stb_sprintf.h>
 
 #include "opengl.h"
 #include "opengl_funcs.h"
@@ -146,13 +148,12 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 	MemoryBlock* transient,
 	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
 {
-	uint64 stringSize = 0;
-	uint64 stringCapacity = transient->size;
+	int stringSize = 0;
+	int stringCapacity = ToIntOrTruncate(transient->size);
 	char* string = (char*)transient->memory;
 	for (uint64 i = 0; i < floor->line.array.size; i++) {
-		uint64 n = snprintf(string + stringSize, stringCapacity - stringSize,
-			"%.2f, %.2f\r\n",
-			floor->line[i].x, floor->line[i].y);
+		int n = stbsp_snprintf(string + stringSize, stringCapacity - stringSize,
+			"%.2f, %.2f\r\n", floor->line[i].x, floor->line[i].y);
 		stringSize += n;
 		DEBUG_ASSERT(stringSize < stringCapacity);
 	}
@@ -176,8 +177,8 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
 		char levelPath[PATH_MAX_LENGTH];
-		snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/%s", level);
-		if (!LoadLevelData(thread, levelPath, levelData, transient,
+		stbsp_snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/%s", level);
+		if (!levelData->Load(thread, levelPath, transient,
 		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
 			LOG_ERROR("Failed to load level data for level %llu\n", level);
 			return false;
@@ -206,7 +207,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	}
 
 	char bakFilePath[PATH_MAX_LENGTH];
-	snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", level);
+	stbsp_snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", level);
 	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient,
 	DEBUGPlatformWriteFile)) {
 		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
@@ -304,7 +305,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	gameState->playerVel.x = 0.0f;
 	bool skipPlayerInput = false;
 #if GAME_INTERNAL
-	if (gameState->editor) {
+	if (gameState->kmKey) {
 		skipPlayerInput = true;
 	}
 #endif
@@ -355,8 +356,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			gameState->playerJumpHolding = true;
 			gameState->playerJumpHold = 0.0f;
 			gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
-			gameState->audioState.soundKick.playing = true;
-			gameState->audioState.soundKick.sampleIndex = 0;
+			gameState->audioState.soundJump.playing = true;
+			gameState->audioState.soundJump.sampleIndex = 0;
 		}
 
 		if (gameState->playerJumpHolding) {
@@ -600,7 +601,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	gameState->paper.Update(deltaTime, paperNextAnims);
 
 #if GAME_INTERNAL
-	if (gameState->editor) {
+	if (gameState->kmKey) {
 		return;
 	}
 #endif
@@ -734,7 +735,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
 
 #if GAME_INTERNAL
-	if (gameState->editor) {
+	if (gameState->kmKey) {
 		DrawSprites(gameState->renderState, *spriteDataGL, projection);
 		return;
 	}
@@ -786,7 +787,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	if (memory->isInitialized && WasKeyPressed(input, KM_KEY_R)) {
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			if (gameState->levels[i].loaded) {
-				UnloadLevelData(&gameState->levels[i]);
+				gameState->levels[i].Unload();
 			}
 		}
 
@@ -835,7 +836,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const char* FIRST_LEVEL = "dream";
+		const char* FIRST_LEVEL = "overworld";
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient,
 		platformFuncs->DEBUGPlatformReadFile,
 		platformFuncs->DEBUGPlatformFreeFileMemory,
@@ -847,7 +848,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #if GAME_INTERNAL
 		gameState->debugView = false;
-		gameState->editor = false;
+		gameState->kmKey = false;
 		gameState->editorScaleExponent = 0.5f;
 
 		gameState->floorVertexSelected = -1;
@@ -1085,7 +1086,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 	Mat4 projection = CalculateProjectionMatrix(screenInfo);
 #if GAME_INTERNAL
-	if (gameState->editor) {
+	if (gameState->kmKey) {
 		projection = projection * Scale(ScaleExponentToWorldScale(gameState->editorScaleExponent));
 	}
 #endif
@@ -1139,8 +1140,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 	if (wasDebugKeyPressed) {
 		gameState->debugView = !gameState->debugView;
 	}
-	if (WasKeyPressed(input, KM_KEY_H)) {
-		gameState->editor = !gameState->editor;
+	if (WasKeyPressed(input, KM_KEY_K)) {
+		gameState->kmKey = !gameState->kmKey;
 		gameState->editorScaleExponent = 0.5f;
 	}
 
@@ -1152,9 +1153,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
 
-		FontFace& textFont = gameState->fontFaceSmall;
-		FontFace& textFontSmall = gameState->fontFaceSmall;
-		char textStr[128];
+		const FontFace& textFont = gameState->fontFaceSmall;
+		const FontFace& textFontSmall = gameState->fontFaceSmall;
+		const int TEXT_STR_LENGTH = 128;
+		char textStr[TEXT_STR_LENGTH];
 		Vec2Int textPosLeft = {
 			pillarboxWidth + MARGIN.x,
 			screenInfo.size.y - MARGIN.y,
@@ -1164,69 +1166,73 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			screenInfo.size.y - MARGIN.y,
 		};
 
-		sprintf(textStr, "[G] to toggle debug view");
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[G] to toggle debug view");
 		DrawText(gameState->textGL, textFontSmall, screenInfo,
 			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosLeft.y -= textFontSmall.height;
-		sprintf(textStr, "[H] to toggle editor");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
-
-		textPosLeft.y -= textFontSmall.height;
-		textPosLeft.y -= textFontSmall.height;
-		sprintf(textStr, "[K] to toggle debug audio view");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
-
-		textPosLeft.y -= textFontSmall.height;
-		sprintf(textStr, "[M] to toggle global audio mute");
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[K] to toggle km key");
 		DrawText(gameState->textGL, textFontSmall, screenInfo,
 			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosLeft.y -= textFontSmall.height;
 		textPosLeft.y -= textFontSmall.height;
-		sprintf(textStr, "[F11] to toggle fullscreen");
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[H] to toggle debug audio view");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosLeft.y -= textFontSmall.height;
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[M] to toggle global audio mute");
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+
+		textPosLeft.y -= textFontSmall.height;
+		textPosLeft.y -= textFontSmall.height;
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[F11] to toggle fullscreen");
 		DrawText(gameState->textGL, textFontSmall, screenInfo,
 			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		float32 fps = 1.0f / deltaTime;
-		sprintf(textStr, "%.2f --- FPS", fps);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f --- FPS", fps);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f -- CRDS", gameState->playerCoords.x, gameState->playerCoords.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f -- CRDS",
+			gameState->playerCoords.x, gameState->playerCoords.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f - CMCRD", gameState->cameraCoords.x, gameState->cameraCoords.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - CMCRD",
+			gameState->cameraCoords.x, gameState->cameraCoords.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
-		sprintf(textStr, "%.2f|%.2f --- POS", playerPosWorld.x, playerPosWorld.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f --- POS",
+			playerPosWorld.x, playerPosWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%d - STATE", gameState->playerState);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%d - STATE", gameState->playerState);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		HashKey& kidActiveAnim = gameState->kid.activeAnimation;
-		sprintf(textStr, "%.*s -- ANIM",
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.*s -- ANIM",
 			(int)kidActiveAnim.string.array.size, kidActiveAnim.string.array.data);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		textPosRight.y -= textFont.height;
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f --- CAM", gameState->cameraPos.x, gameState->cameraPos.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f --- CAM",
+			gameState->cameraPos.x, gameState->cameraPos.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
@@ -1235,13 +1241,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent));
-		sprintf(textStr, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
 		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
 		textPosRight.y -= textFont.height;
-		sprintf(textStr, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y);
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - MSCRD",
+			mouseCoords.x, mouseCoords.y);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
@@ -1390,16 +1397,24 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
 		}
 	}
-	if (gameState->editor) {
+	if (gameState->kmKey) {
 		FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
 
-		Vec2Int editorStrPos = {
-			pillarboxWidth + MARGIN.x,
-			MARGIN.y,
-		};
-		Vec4 editorFontColor = { 1.0f, 0.1f, 1.0f, 1.0f };
-		DrawText(gameState->textGL, gameState->fontFaceMedium, screenInfo,
-			"EDITOR", editorStrPos, Vec2 { 0.0f, 0.0f }, editorFontColor, memory->transient);
+		const FontFace& textFont = gameState->fontFaceMedium;
+		const FontFace& textFontSmall = gameState->fontFaceSmall;
+
+		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
+
+		Vec2Int kmKeyStringPos = { MARGIN.x, MARGIN.y, };
+		DrawText(gameState->textGL, textFont, screenInfo,
+			"KM KEY", kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor, memory->transient);
+
+		kmKeyStringPos.y += textFont.height * 2;
+		const int TEXT_STR_LENGTH = 128;
+		char textStr[TEXT_STR_LENGTH];
+		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "LEVEL: %s", LEVEL_NAMES[gameState->activeLevel]);
+		DrawText(gameState->textGL, textFontSmall, screenInfo,
+			textStr, kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor, memory->transient);
 
 		bool32 newVertexPressed = false;
 		{
@@ -1494,7 +1509,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		if (WasKeyPressed(input, KM_KEY_P)) {
 			char saveFilePath[PATH_MAX_LENGTH];
-			snprintf(saveFilePath, PATH_MAX_LENGTH,
+			stbsp_snprintf(saveFilePath, PATH_MAX_LENGTH,
 				"data/levels/level%llu/collision.kml", gameState->activeLevel);
 			if (!SaveFloorVertices(thread, &floor, saveFilePath,
 			&memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
@@ -1521,7 +1536,10 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
+#define STBI_NO_STDIO
 #include <stb_image.h>
+#define STB_SPRINTF_IMPLEMENTATION
+#include <stb_sprintf.h>
 
 #include <km_common/km_debug.cpp>
 #include <km_common/km_input.cpp>
