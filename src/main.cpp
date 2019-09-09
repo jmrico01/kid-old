@@ -1551,6 +1551,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include "audio.cpp"
 #include "collision.cpp"
 #include "framebuffer.cpp"
+#include "imgui.cpp"
 #include "load_level.cpp"
 #include "load_png.cpp"
 #include "load_psd.cpp"
