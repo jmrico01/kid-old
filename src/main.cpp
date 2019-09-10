@@ -1534,6 +1534,20 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 }
 
+#include "animation.cpp"
+#include "audio.cpp"
+#include "collision.cpp"
+#include "framebuffer.cpp"
+#include "load_level.cpp"
+#include "load_png.cpp"
+#include "load_psd.cpp"
+#include "load_wav.cpp"
+#include "opengl_base.cpp"
+#include "particles.cpp"
+#include "post.cpp"
+#include "render.cpp"
+#include "text.cpp"
+
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
@@ -1546,18 +1560,3 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include <km_common/km_lib.cpp>
 #include <km_common/km_log.cpp>
 #include <km_common/km_string.cpp>
-
-#include "animation.cpp"
-#include "audio.cpp"
-#include "collision.cpp"
-#include "framebuffer.cpp"
-#include "imgui.cpp"
-#include "load_level.cpp"
-#include "load_png.cpp"
-#include "load_psd.cpp"
-#include "load_wav.cpp"
-#include "opengl_base.cpp"
-#include "particles.cpp"
-#include "post.cpp"
-#include "render.cpp"
-#include "text.cpp"

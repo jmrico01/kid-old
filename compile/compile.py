@@ -87,8 +87,8 @@ LoadEnvSettings(paths, paths["env-settings"])
 NormalizePathSlashes(paths)
 
 # External dependencies
-paths["lib-freetype"] = paths["libs-external"]   + "/freetype-2.8.1"
-paths["lib-stbimage"] = paths["libs-external"]   + "/stb_image-2.23"
+paths["lib-freetype"]   = paths["libs-external"] + "/freetype-2.8.1"
+paths["lib-stbimage"]   = paths["libs-external"] + "/stb_image-2.23"
 paths["lib-stbsprintf"] = paths["libs-external"] + "/stb_sprintf-1.06"
 
 paths["include-freetype"]   = paths["lib-freetype"] + "/include"

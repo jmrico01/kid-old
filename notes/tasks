@@ -1,10 +1,6 @@
 - Generate ground from PSD layer with single loop
-	1. Find inner boundary of image region "outside" loop (paint-bucket ish)
-	2. Find outer boundary of image region "inside" loop
-	3. We get 2 lines that surround the ground. Somehow average/smooth them.
-	4. $$$
-
-- Generate collision platforms from PSD layers
-	* Same idea as above, but we only need inner boundary, because it's 1 line
+	1. Find outer+inner boundaries of loop using flood fill thing, get list of pixels.
+	2. Somehow average/smooth these list of pixels, assuming they form lines ish.
+	3. $$$
 
 - KM Immediate Mode GUI library
