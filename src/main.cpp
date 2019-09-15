@@ -747,7 +747,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 
 void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* platformFuncs,
 	const GameInput* input, ScreenInfo screenInfo, float32 deltaTime,
-	GameMemory* memory, GameAudio* audio, LogState* logState)
+	GameMemory* memory, GameAudio* audio)
 {
 	// NOTE: for clarity
 	// A call to this function means the following has happened, in order:
@@ -762,9 +762,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	GameState *gameState = (GameState*)memory->permanent.memory;
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
-		logState_ = logState;
-		flushLogs_ = platformFuncs->flushLogs;
-		
 		#define FUNC(returntype, name, ...) name = \
 		platformFuncs->glFunctions.name;
 			GL_FUNCTIONS_BASE
