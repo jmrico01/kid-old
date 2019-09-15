@@ -272,16 +272,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	const LevelData& levelData = gameState->levels[gameState->activeLevel];
 
-	HashKey ANIM_IDLE;
-	ANIM_IDLE.WriteString("Idle");
-	HashKey ANIM_WALK;
-	ANIM_WALK.WriteString("Walk");
-	HashKey ANIM_JUMP;
-	ANIM_JUMP.WriteString("Jump");
-	HashKey ANIM_FALL;
-	ANIM_FALL.WriteString("Fall");
-	HashKey ANIM_LAND;
-	ANIM_LAND.WriteString("Land");
+	HashKey ANIM_IDLE("Idle");
+	HashKey ANIM_WALK("Walk");
+	HashKey ANIM_JUMP("Jump");
+	HashKey ANIM_FALL("Fall");
+	HashKey ANIM_LAND("Land");
 
 	const float32 PLAYER_WALK_SPEED = 3.6f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
@@ -772,19 +767,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		LOG_INFO("Initialized global variables\n");
 	}
 
-	if (memory->isInitialized && WasKeyPressed(input, KM_KEY_R)) {
-		for (int i = 0; i < LEVELS_MAX; i++) {
-			if (gameState->levels[i].loaded) {
-				gameState->levels[i].Unload();
-			}
-		}
-
-		if (!SetActiveLevel(thread, gameState, LEVEL_NAMES[gameState->activeLevel],
-		gameState->playerCoords, &memory->transient)) {
-			DEBUG_PANIC("Failed to reload level %s\n", LEVEL_NAMES[gameState->activeLevel]);
-		}
-	}
-
 	if (!memory->isInitialized) {
 		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
 
@@ -824,6 +806,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
+		char levelPsdPath[PATH_MAX_LENGTH];
+		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/level.psd", FIRST_LEVEL);
+		PlatformFileChanged(thread, levelPsdPath); // TODO hacky. move this to SetActiveLevel?
 
 		gameState->grainTime = 0.0f;
 
@@ -989,6 +974,21 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
 
 		LOG_INFO("Updated screen-size-dependent info\n");
+	}
+
+	const char* activeLevelName = LEVEL_NAMES[gameState->activeLevel];
+	char levelPsdPath[PATH_MAX_LENGTH];
+	stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/level.psd", activeLevelName);
+	if (PlatformFileChanged(thread, levelPsdPath)) {
+		LOG_INFO("reloading level %s\n", activeLevelName);
+		if (gameState->levels[gameState->activeLevel].loaded) {
+			gameState->levels[gameState->activeLevel].Unload();
+		}
+
+		if (!SetActiveLevel(thread, gameState, activeLevelName,
+		gameState->playerCoords, &memory->transient)) {
+			DEBUG_PANIC("Failed to reload level %s\n", activeLevelName);
+		}
 	}
 
 	// gameState->grainTime = fmod(gameState->grainTime + deltaTime, 5.0f);
