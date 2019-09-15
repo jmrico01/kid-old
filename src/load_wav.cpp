@@ -80,8 +80,6 @@ bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* fi
 	ChunkHeader* header = (ChunkHeader*)((char*)format + fmtHeader->dataSize);
 	while (header->c1 != 'd' || header->c2 != 'a'
 	|| header->c3 != 't' || header->c4 != 'a') {
-		/*LOG_INFO("skipped chunk: %c%c%c%c\n",
-			header->c1, header->c2, header->c3, header->c4);*/
 		int bytesToSkip = sizeof(ChunkHeader) + header->dataSize;
 		if (bytesRead + bytesToSkip >= wavFile.size) {
 			LOG_ERROR("WAV file has no data chunk: %s\n", filePath);
@@ -100,21 +98,13 @@ bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* fi
 	}
 
 	if ((uint32)format->sampleRate != gameAudio->sampleRate) {
-		// TODO NOW I don't need this allocation...
-		AudioBuffer* origBuffer = (AudioBuffer*)allocator->Allocate(sizeof(AudioBuffer));
-		if (!origBuffer) {
-			LOG_ERROR("Not enough memory for temporary buffer, %s\n", filePath);
-			return false;
-		}
-		MemCopy(origBuffer->buffer, data, header->dataSize);
+		float32* floatData = (float32*)data;
 		int targetLengthSamples = (int)((float32)lengthSamples /
 			format->sampleRate * gameAudio->sampleRate);
 		for (int i = 0; i < targetLengthSamples; i++) {
 			float32 t = (float32)i / (targetLengthSamples - 1);
-			float32 sample1 = LinearSample(gameAudio,
-				origBuffer->buffer, lengthSamples, 0, t);
-			float32 sample2 = LinearSample(gameAudio,
-				origBuffer->buffer, lengthSamples, 1, t);
+			float32 sample1 = LinearSample(gameAudio, floatData, lengthSamples, 0, t);
+			float32 sample2 = LinearSample(gameAudio, floatData, lengthSamples, 1, t);
 			audioBuffer->buffer[i * gameAudio->channels] = sample1;
 			audioBuffer->buffer[i * gameAudio->channels + 1] = sample2;
 		}
@@ -127,9 +117,6 @@ bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* fi
 
 	audioBuffer->sampleRate = gameAudio->sampleRate;
 	audioBuffer->channels = gameAudio->channels;
-
-	// LOG_INFO("Loaded WAV file: %s\n", filePath);
-	// LOG_INFO("Samples: %d\n", audioBuffer->bufferSizeSamples);
 
 	return true;
 }

@@ -221,8 +221,6 @@ bool LoadPSD(const ThreadContext* thread, Allocator* allocator, const char* file
 			uint64 layerChannels = layerInfo.channels.array.size;
 			bool skipLayer = !layerInfo.visible;
 			if (skipLayer) {
-				LOG_INFO("Skipping hidden layer %.*s\n",
-					layerInfo.name.array.size, layerInfo.name.array.data);
 				for (int16 c = 0; c < layerChannels; c++) {
 					LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
 					parsedBytes += layerChannelInfo.dataSize;

@@ -168,10 +168,12 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 				TextureGL frameTextureGL;
 				// TODO probably make a DoesFileExist function?
-				bool32 frameResult = LoadPNGOpenGL(thread, spritePath, &allocator,
-					GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, frameTextureGL);
-				if (!frameResult) {
+				if (!PlatformFileExists(thread, spritePath)) {
 					break;
+				}
+				if (!LoadPNGOpenGL(thread, spritePath, &allocator,
+				GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, frameTextureGL)) {
+					LOG_ERROR("Failed to load animation frame %s\n", spritePath);
 				}
 				currentAnim->frameTextures[frame] = frameTextureGL;
 				currentAnim->frameTiming[frame] = 1;
