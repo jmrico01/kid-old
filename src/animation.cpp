@@ -92,7 +92,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	AnimatedSprite& outAnimatedSprite, MemoryBlock transient)
 {
 	LinearAllocator allocator(transient.size, transient.memory);
-	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, &allocator, filePath);
+	PlatformReadFileResult animFile = PlatformReadFile(thread, &allocator, filePath);
 	if (!animFile.data) {
 		LOG_ERROR("Failed to open animation file at: %s\n", filePath);
 		return false;

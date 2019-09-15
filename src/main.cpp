@@ -156,7 +156,7 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 		DEBUG_ASSERT(stringSize < stringCapacity);
 	}
 
-	if (!DEBUGPlatformWriteFile(thread, filePath, (uint32)stringSize, string, true)) {
+	if (!PlatformWriteFile(thread, filePath, (uint32)stringSize, string, true)) {
 		LOG_ERROR("Failed to write vertices to file\n");
 		return false;
 	}

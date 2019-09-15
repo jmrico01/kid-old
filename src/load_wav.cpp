@@ -35,7 +35,7 @@ bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* fi
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
 
-	DEBUGReadFileResult wavFile = DEBUGPlatformReadFile(thread, allocator, filePath);
+	PlatformReadFileResult wavFile = PlatformReadFile(thread, allocator, filePath);
 	if (!wavFile.data) {
 		LOG_ERROR("Failed to open WAV file at: %s\n", filePath);
 		return false;

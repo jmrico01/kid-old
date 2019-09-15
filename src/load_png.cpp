@@ -23,7 +23,7 @@ bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath, Allocator*
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
 
-	DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, allocator, filePath);
+	PlatformReadFileResult pngFile = PlatformReadFile(thread, allocator, filePath);
 	if (!pngFile.data) {
 		LOG_ERROR("Failed to open PNG file %s\n", filePath);
 		return false;

@@ -23,7 +23,7 @@ bool LoadPSD(const ThreadContext* thread, Allocator* allocator, const char* file
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
 
-	DEBUGReadFileResult psdFile = DEBUGPlatformReadFile(thread, allocator, filePath);
+	PlatformReadFileResult psdFile = PlatformReadFile(thread, allocator, filePath);
 	if (!psdFile.data) {
 		LOG_ERROR("Failed to open PSD file at: %s\n", filePath);
 		return false;

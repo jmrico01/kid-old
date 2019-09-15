@@ -13,7 +13,7 @@
 #define OGL_INFO_LOG_LENGTH_MAX 512
 
 internal bool CompileAndCheckShader(GLuint shaderID,
-	DEBUGReadFileResult shaderFile)
+	PlatformReadFileResult shaderFile)
 {
 	// Compile shader
 	GLint shaderFileSize = (GLint)shaderFile.size;
@@ -84,12 +84,12 @@ GLuint LoadShaders(const ThreadContext* thread, Allocator* allocator,
 	GLuint fragShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
 	// Read shader code from files.
-	DEBUGReadFileResult vertFile = DEBUGPlatformReadFile(thread, allocator, vertFilePath);
+	PlatformReadFileResult vertFile = PlatformReadFile(thread, allocator, vertFilePath);
 	if (vertFile.size == 0) {
 		LOG_ERROR("Failed to read vertex shader file.\n");
 		return 0; // TODO what to return
 	}
-	DEBUGReadFileResult fragFile = DEBUGPlatformReadFile(thread, allocator, fragFilePath);
+	PlatformReadFileResult fragFile = PlatformReadFile(thread, allocator, fragFilePath);
 	if (fragFile.size == 0) {
 		LOG_ERROR("Failed to read fragment shader file.\n");
 		return 0; // TODO what to return

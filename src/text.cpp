@@ -134,7 +134,7 @@ FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
 
     // Load font face using FreeType.
     FT_Face ftFace;
-    DEBUGReadFileResult fontFile = DEBUGPlatformReadFile(thread, allocator, path);
+    PlatformReadFileResult fontFile = PlatformReadFile(thread, allocator, path);
     FT_Open_Args openArgs = {};
     openArgs.flags = FT_OPEN_MEMORY;
     openArgs.memory_base = (const FT_Byte*)fontFile.data;

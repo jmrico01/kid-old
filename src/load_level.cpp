@@ -58,7 +58,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 	}
 
 	StringCat(levelPath, "/level.kmkv", filePath, PATH_MAX_LENGTH);
-	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, &allocator, filePath);
+	PlatformReadFileResult levelFile = PlatformReadFile(thread, &allocator, filePath);
 	if (!levelFile.data) {
 		LOG_ERROR("Failed to load level data file %s\n", filePath);
 		return false;
