@@ -43,10 +43,8 @@ struct PsdData
     FixedArray<LayerInfo, PSD_MAX_LAYERS> layers;
 };
 
-bool LoadPSD(const ThreadContext* thread, const char* filePath,
-    GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-    MemoryBlock* transient, PsdData* outPsdData,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+bool LoadPSD(const ThreadContext* thread, Allocator* allocator, const char* filePath,
+    GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, PsdData* outPsdData);
 
 void UnloadPSDOpenGL(const PsdData& psdData);

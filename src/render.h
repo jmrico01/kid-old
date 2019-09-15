@@ -35,10 +35,8 @@ Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor,
     Quat baseRot, Quat rot, bool32 flip);
 Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip);
 
-bool InitRenderState(RenderState& renderState,
-	const ThreadContext* thread,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+bool InitRenderState(const ThreadContext* thread, Allocator* allocator, RenderState& renderState);
 
 void PushSprite(SpriteDataGL* spriteDataGL, Mat4 transform, float32 alpha, GLuint texture);
 

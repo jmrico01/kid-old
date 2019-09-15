@@ -1,6 +1,7 @@
 #include "animation.h"
 
 #include <km_common/km_debug.h>
+#include <km_common/km_memory.h>
 #include <km_common/km_string.h>
 
 #include "main.h"
@@ -39,7 +40,7 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nex
 				int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
 				if (exitToFrame != nullptr) {
 					//Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
-                    animTransition = true;
+					animTransition = true;
 					activeAnimation = nextAnimations[i];
 					activeFrame = *exitToFrame;
 					activeFrameRepeat = 0;
@@ -79,20 +80,19 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool32 flipHorizontal) const
 {
 	Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
-    Vec2 animAnchor = anchor;
-    if (activeAnim->rootMotion) {
-        animAnchor = activeAnim->frameRootAnchor[activeFrame];
-    }
-    Mat4 transform = CalculateTransform(pos, size, animAnchor, rot, flipHorizontal);
+	Vec2 animAnchor = anchor;
+	if (activeAnim->rootMotion) {
+		animAnchor = activeAnim->frameRootAnchor[activeFrame];
+	}
+	Mat4 transform = CalculateTransform(pos, size, animAnchor, rot, flipHorizontal);
 	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
-	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+	AnimatedSprite& outAnimatedSprite, MemoryBlock transient)
 {
-	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, filePath);
+	LinearAllocator allocator(transient.size, transient.memory);
+	DEBUGReadFileResult animFile = DEBUGPlatformReadFile(thread, &allocator, filePath);
 	if (!animFile.data) {
 		LOG_ERROR("Failed to open animation file at: %s\n", filePath);
 		return false;
@@ -100,26 +100,26 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 	outAnimatedSprite.animations.Init();
 
-    Array<char> fileString;
-    fileString.size = animFile.size;
-    fileString.data = (char*)animFile.data;
+	Array<char> fileString;
+	fileString.size = animFile.size;
+	fileString.data = (char*)animFile.data;
 	HashKey currentAnimKey = {};
 	Animation* currentAnim = nullptr;
 	while (true) {
-        FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-        keyword.Init();
-        FixedArray<char, VALUE_MAX_LENGTH> value;
-        value.Init();
-        int read = ReadNextKeywordValue(fileString, &keyword, &value);
-        if (read < 0) {
-            LOG_ERROR("Animation file keyword/value error (%s)\n", filePath);
-            return false;
-        }
-        else if (read == 0) {
-            break;
-        }
-        fileString.size -= read;
-        fileString.data += read;
+		FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+		keyword.Init();
+		FixedArray<char, VALUE_MAX_LENGTH> value;
+		value.Init();
+		int read = ReadNextKeywordValue(fileString, &keyword, &value);
+		if (read < 0) {
+			LOG_ERROR("Animation file keyword/value error (%s)\n", filePath);
+			return false;
+		}
+		else if (read == 0) {
+			break;
+		}
+		fileString.size -= read;
+		fileString.data += read;
 
 		// TODO catch errors in order of keywords (e.g. dir should be first after anim)
 		if (StringCompare(keyword.array, KEYWORD_ANIM)) {
@@ -129,7 +129,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 			currentAnim->numFrames = 0;
 			currentAnim->loop = false;
-            currentAnim->rootMotion = false;
+			currentAnim->rootMotion = false;
 			currentAnim->rootFollow = false;
 			currentAnim->rootFollowEndLoop = false;
 		}
@@ -168,10 +168,8 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 
 				TextureGL frameTextureGL;
 				// TODO probably make a DoesFileExist function?
-				bool32 frameResult = LoadPNGOpenGL(thread, spritePath,
-                    GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                    frameTextureGL, transient,
-					DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+				bool32 frameResult = LoadPNGOpenGL(thread, spritePath, &allocator,
+					GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, frameTextureGL);
 				if (!frameResult) {
 					break;
 				}
@@ -268,17 +266,17 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			}
 		}
 		else if (StringCompare(keyword.array, KEYWORD_TIMING)) {
-            int parsedElements;
-            if (!StringToElementArray(value.array, ' ', false,
-                StringToIntBase10,
-                ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
-                LOG_ERROR("Failed to parse timing information (%s)\n", filePath);
-                return false;
-            }
-            if (parsedElements != currentAnim->numFrames) {
-                LOG_ERROR("Not enough timing information (%s)\n", filePath);
-                return false;
-            }
+			int parsedElements;
+			if (!StringToElementArray(value.array, ' ', false,
+				StringToIntBase10,
+				ANIMATION_MAX_FRAMES, currentAnim->frameTiming, &parsedElements)) {
+				LOG_ERROR("Failed to parse timing information (%s)\n", filePath);
+				return false;
+			}
+			if (parsedElements != currentAnim->numFrames) {
+				LOG_ERROR("Not enough timing information (%s)\n", filePath);
+				return false;
+			}
 		}
 		else if (StringCompare(keyword.array, KEYWORD_ROOTFOLLOW)) {
 			currentAnim->rootFollow = true;
@@ -287,7 +285,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 			currentAnim->rootFollowEndLoop = true;
 		}
 		else if (StringCompare(keyword.array, KEYWORD_ROOTMOTION)) {
-            currentAnim->rootMotion = true;
+			currentAnim->rootMotion = true;
 
 			Vec2Int textureSize = outAnimatedSprite.textureSize;
 			Vec2 rootPosWorld0 = Vec2::zero;
@@ -301,20 +299,20 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				Array<char> trimmed;
 				TrimWhitespace(element, &trimmed);
 
-                // Parse root motion coordinate pair
-                Vec2Int rootPos;
-                int parsedElements;
-                if (!StringToElementArray(trimmed, ' ', false,
-                    StringToIntBase10, 2, rootPos.e, &parsedElements)) {
-                    LOG_ERROR("Failed to parse root motion coordinates %.*s (%s)\n",
-                        trimmed.size, trimmed.data, filePath);
-                	return false;
-                }
-                if (parsedElements != 2) {
-                    LOG_ERROR("Not enough coordinates in root motion %.*s (%s)\n",
-                        trimmed.size, trimmed.data, filePath);
-                    return false;
-                }
+				// Parse root motion coordinate pair
+				Vec2Int rootPos;
+				int parsedElements;
+				if (!StringToElementArray(trimmed, ' ', false,
+					StringToIntBase10, 2, rootPos.e, &parsedElements)) {
+					LOG_ERROR("Failed to parse root motion coordinates %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
+				if (parsedElements != 2) {
+					LOG_ERROR("Not enough coordinates in root motion %.*s (%s)\n",
+						trimmed.size, trimmed.data, filePath);
+					return false;
+				}
 
 				rootPos.y = textureSize.y - rootPos.y;
 				Vec2 rootPosWorld = {
@@ -347,12 +345,10 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 		}
 		else {
 			LOG_ERROR("Animation file with unknown keyword: %.*s (%s)\n",
-                keyword.array.size, &keyword[0], filePath);
+				keyword.array.size, &keyword[0], filePath);
 			return false;
 		}
 	}
-
-	DEBUGPlatformFreeFileMemory(thread, &animFile);
 
 	// TODO maybe provide a friendlier way of iterating through HashTable
 	const HashTable<Animation>* animTable = &outAnimatedSprite.animations;

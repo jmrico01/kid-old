@@ -14,15 +14,16 @@ void UnloadTextureGL(const TextureGL& textureGL)
 	glDeleteTextures(1, &textureGL.textureID);
 }
 
-bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-	TextureGL& outTextureGL, MemoryBlock transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath, Allocator* allocator,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL& outTextureGL)
 {
 	outTextureGL.size = Vec2Int { 0, 0 };
 
-	DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, filePath);
+	const auto& allocatorState = allocator->SaveState();
+	defer (allocator->LoadState(allocatorState));
+
+	DEBUGReadFileResult pngFile = DEBUGPlatformReadFile(thread, allocator, filePath);
 	if (!pngFile.data) {
 		LOG_ERROR("Failed to open PNG file %s\n", filePath);
 		return false;
@@ -66,7 +67,6 @@ bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
 
 	stbi_image_free(data);
-	DEBUGPlatformFreeFileMemory(thread, &pngFile);
 
 	outTextureGL.textureID = textureID;
 	outTextureGL.size = Vec2Int { width, height };

@@ -1,5 +1,7 @@
 #include "load_wav.h"
 
+#include <km_common/km_lib.h>
+
 #define WAVE_FORMAT_PCM         0x0001
 #define WAVE_FORMAT_IEEE_FLOAT  0x0003
 
@@ -26,13 +28,14 @@ struct WaveFormat
 	// there might be additional data here
 };
 
-bool32 LoadWAV(const ThreadContext* thread, const char* filePath,
-	const GameAudio* audio, AudioBuffer* audioBuffer,
-	MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* filePath,
+	const GameAudio* gameAudio, AudioBuffer* audioBuffer)
 {
-	DEBUGReadFileResult wavFile = DEBUGPlatformReadFile(thread, filePath);
+	const auto& allocatorState = allocator->SaveState();
+	defer (allocator->LoadState(allocatorState));
+
+	DEBUGReadFileResult wavFile = DEBUGPlatformReadFile(thread, allocator, filePath);
 	if (!wavFile.data) {
 		LOG_ERROR("Failed to open WAV file at: %s\n", filePath);
 		return false;
@@ -96,20 +99,24 @@ bool32 LoadWAV(const ThreadContext* thread, const char* filePath,
 		return false;
 	}
 
-	if ((uint32)format->sampleRate != audio->sampleRate) {
-		DEBUG_ASSERT(transient->size >= sizeof(AudioBuffer));
-		AudioBuffer* origBuffer = (AudioBuffer*)transient->memory;
+	if ((uint32)format->sampleRate != gameAudio->sampleRate) {
+		// TODO NOW I don't need this allocation...
+		AudioBuffer* origBuffer = (AudioBuffer*)allocator->Allocate(sizeof(AudioBuffer));
+		if (!origBuffer) {
+			LOG_ERROR("Not enough memory for temporary buffer, %s\n", filePath);
+			return false;
+		}
 		MemCopy(origBuffer->buffer, data, header->dataSize);
 		int targetLengthSamples = (int)((float32)lengthSamples /
-			format->sampleRate * audio->sampleRate);
+			format->sampleRate * gameAudio->sampleRate);
 		for (int i = 0; i < targetLengthSamples; i++) {
 			float32 t = (float32)i / (targetLengthSamples - 1);
-			float32 sample1 = LinearSample(audio,
+			float32 sample1 = LinearSample(gameAudio,
 				origBuffer->buffer, lengthSamples, 0, t);
-			float32 sample2 = LinearSample(audio,
+			float32 sample2 = LinearSample(gameAudio,
 				origBuffer->buffer, lengthSamples, 1, t);
-			audioBuffer->buffer[i * audio->channels] = sample1;
-			audioBuffer->buffer[i * audio->channels + 1] = sample2;
+			audioBuffer->buffer[i * gameAudio->channels] = sample1;
+			audioBuffer->buffer[i * gameAudio->channels + 1] = sample2;
 		}
 		audioBuffer->bufferSizeSamples = targetLengthSamples;
 	}
@@ -118,25 +125,23 @@ bool32 LoadWAV(const ThreadContext* thread, const char* filePath,
 		audioBuffer->bufferSizeSamples = lengthSamples;
 	}
 
-	audioBuffer->sampleRate = audio->sampleRate;
-	audioBuffer->channels = audio->channels;
+	audioBuffer->sampleRate = gameAudio->sampleRate;
+	audioBuffer->channels = gameAudio->channels;
 
 	// LOG_INFO("Loaded WAV file: %s\n", filePath);
 	// LOG_INFO("Samples: %d\n", audioBuffer->bufferSizeSamples);
 
-	DEBUGPlatformFreeFileMemory(thread, &wavFile);
-
 	return true;
 }
 
-float32 LinearSample(const GameAudio* audio,
+float32 LinearSample(const GameAudio* gameAudio,
 	const float32* buffer, int bufferLengthSamples,
 	int channel, float32 t)
 {
 	float32 iFloat = t * bufferLengthSamples;
 	int i1 = (int)floorf(iFloat);
 	int i2 = (int)ceilf(iFloat);
-	float32 val1 = buffer[i1 * audio->channels + channel];
-	float32 val2 = buffer[i2 * audio->channels + channel];
+	float32 val1 = buffer[i1 * gameAudio->channels + channel];
+	float32 val2 = buffer[i2 * gameAudio->channels + channel];
 	return Lerp(val1, val2, iFloat - i1);
 }

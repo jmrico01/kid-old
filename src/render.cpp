@@ -26,10 +26,9 @@ Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip)
 	return Translate(ToVec3(pos, 0.0f)) * UnitQuatToMat4(rot) * transform;
 }
 
-bool InitSpriteState(SpriteStateGL& spriteStateGL,
-	const ThreadContext* thread,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool InitSpriteState(const ThreadContext* thread, Allocator* allocator,
+	SpriteStateGL& spriteStateGL)
 {
 	glGenVertexArrays(1, &spriteStateGL.vertexArray);
 	glBindVertexArray(spriteStateGL.vertexArray);
@@ -74,20 +73,16 @@ bool InitSpriteState(SpriteStateGL& spriteStateGL,
 
 	glBindVertexArray(0);
 
-	spriteStateGL.multiplyProgramID = LoadShaders(thread,
-		"shaders/sprite.vert", "shaders/spriteMultiply.frag",
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+	spriteStateGL.multiplyProgramID = LoadShaders(thread, allocator,
+		"shaders/sprite.vert", "shaders/spriteMultiply.frag");
 
 	return true;
 }
 
-bool InitRenderState(RenderState& renderState,
-	const ThreadContext* thread,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool InitRenderState(const ThreadContext* thread, Allocator* allocator, RenderState& renderState)
 {
-	InitSpriteState(renderState.spriteStateGL,
-		thread, DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+	InitSpriteState(thread, allocator, renderState.spriteStateGL);
 
 #if 0
 	glGenBuffers(1, &renderState.posBuffer);

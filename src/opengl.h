@@ -2,6 +2,7 @@
 
 #include <km_common/km_defines.h>
 
+// TODO review these GAME_PLATFORM_CODE things and wonky stuff, especially non-windows
 #if defined(GAME_MACOS) && defined(GAME_PLATFORM_CODE)
 #include <OpenGL/gl.h>
 #endif

@@ -4,21 +4,15 @@
 
 #include "main.h"
 
-internal bool32 SoundInit(const ThreadContext* thread,
-	const GameAudio* audio, Sound* sound,
-	const char* filePath,
-	MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+internal bool32 SoundInit(const ThreadContext* thread, Allocator* allocator,
+	const GameAudio* audio, Sound* sound, const char* filePath)
 {
 	sound->play = false;
 	sound->playing = false;
 	sound->sampleIndex = 0;
 
-	return LoadWAV(thread, filePath,
-		audio, &sound->buffer,
-		transient,
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+	return LoadWAV(thread, allocator, filePath, audio, &sound->buffer);
 }
 
 internal void SoundUpdate(const GameAudio* audio, Sound* sound)
@@ -60,20 +54,14 @@ internal void SoundWriteSamples(const Sound* sound, float32 amplitude,
 	}
 }
 
-bool32 InitAudioState(const ThreadContext* thread,
-	AudioState* audioState, GameAudio* audio,
-	MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool32 InitAudioState(const ThreadContext* thread, Allocator* allocator,
+	AudioState* audioState, GameAudio* audio)
 {
 	// audioState->globalMute = false;
 	audioState->globalMute = true;
 
-	if (!SoundInit(thread, audio,
-		&audioState->soundJump,
-		"data/audio/yow.wav",
-		transient,
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+	if (!SoundInit(thread, allocator, audio, &audioState->soundJump, "data/audio/yow.wav")) {
 		LOG_ERROR("Failed to init jump sound");
 		return false;
 	}

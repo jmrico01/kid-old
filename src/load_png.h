@@ -13,9 +13,6 @@ struct TextureGL
 
 void UnloadTextureGL(const TextureGL& textureGL);
 
-// TODO change ref out to pointer
-bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-	TextureGL& outTextureGL, MemoryBlock transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath, Allocator* allocator,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL& outTextureGL);

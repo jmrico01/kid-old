@@ -16,7 +16,6 @@ DEPLOY_FILES = [
 	"data",
 	"logs",
 	"shaders",
-	"kid_game.dll",
 	"kid_win32.exe"
 ]
 
@@ -125,7 +124,7 @@ def ClearDirContents(path):
 
 def WinCompile(compileMode, debugger):
 	macros = " ".join([
-		"/DGAME_WIN32",
+		"/DGAME_WIN32=1",
 		"/D_CRT_SECURE_NO_WARNINGS"
 	])
 	if compileMode == CompileMode.DEBUG:
@@ -193,32 +192,39 @@ def WinCompile(compileMode, debugger):
 		"/opt:ref"          # get rid of extraneous linkages
 	])
 
-	libPathsPlatform = " ".join([
-	])
+	libPaths = ""
+	if compileMode == CompileMode.DEBUG:
+		libPaths = " ".join([
+			libPaths,
+			"/LIBPATH:" + paths["libdir-freetype-win32-d"]
+		])
+	elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+		libPaths = " ".join([
+			libPaths,
+			"/LIBPATH:" + paths["libdir-freetype-win32-r"]
+		])
+	else:
+		raise Exception("Unknown compile mode {}".format(compileMode))
 
-	libsPlatform = " ".join([
+	libs = " ".join([
 		"user32.lib",
 		"gdi32.lib",
 		"opengl32.lib",
 		"ole32.lib",
 		"winmm.lib"
 	])
-
-	libPathsGame = " ".join([
-		"/LIBPATH:" + paths["libdir-freetype-win32-d"]
-	])
-	if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
-		libPathsGame = " ".join([
-			"/LIBPATH:" + paths["libdir-freetype-win32-r"]
+	if compileMode == CompileMode.DEBUG:
+		libs = " ".join([
+			libs,
+			"freetype281MTd.lib"
 		])
-
-	libsGame = " ".join([
-		"freetype281MTd.lib"
-	])
-	if compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
-		libsGame = " ".join([
+	elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
+		libs = " ".join([
+			libs,
 			"freetype281MT.lib"
 		])
+	else:
+		raise Exception("Unknown compile mode {}".format(compileMode))
 
 	# Clear old PDB files
 	for fileName in os.listdir(paths["build"]):
@@ -229,31 +235,27 @@ def WinCompile(compileMode, debugger):
 				print("Couldn't remove " + fileName)
 
 	pdbName = PROJECT_NAME + "_game" + str(random.randrange(99999)) + ".pdb"
-	compileDLLCommand = " ".join([
+
+	exeFileName = PROJECT_NAME + "_win32.exe"
+	compileCommand = " ".join([
 		"cl",
 		macros, compilerFlags, compilerWarningFlags, includePaths,
-		"/LD", "/Fe" + PROJECT_NAME + "_game.dll",
-		paths["main-cpp"],
-		"/link", linkerFlags, libPathsGame, libsGame,
-		"/EXPORT:GameUpdateAndRender", "/PDB:" + pdbName])
-
-	compileCommand = " ".join([
-		"cl", "/DGAME_PLATFORM_CODE",
-		macros, compilerFlags, compilerWarningFlags, includePaths,
-		"/Fe" + PROJECT_NAME + "_win32.exe",
+		"/Fe" + exeFileName,
 		"/Fm" + PROJECT_NAME + "_win32.map",
-		paths["win32-main-cpp"],
-		"/link", linkerFlags, libPathsPlatform, libsPlatform])
+		paths["main-cpp"],
+		"/link", linkerFlags, libPaths, libs,
+		"/PDB:" + pdbName
+	])
 	
 	devenvCommand = "rem"
 	if debugger:
-		devenvCommand = "devenv " + PROJECT_NAME + "_win32.exe"
+		devenvCommand = "devenv " + exeFileName
 
 	loadCompiler = "call \"" + paths["win32-vcvarsall"] + "\" x64"
 	os.system(" & ".join([
 		"pushd " + paths["build"],
 		loadCompiler,
-		compileDLLCommand,
+		# compileDLLCommand,
 		compileCommand,
 		devenvCommand,
 		"popd"

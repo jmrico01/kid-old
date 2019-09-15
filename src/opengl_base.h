@@ -60,26 +60,20 @@ RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size,
 RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size, Vec2 anchor,
     ScreenInfo screenInfo);
 
-GLuint LoadShaders(const ThreadContext* thread,
-    const char* vertFilePath, const char* fragFilePath,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+GLuint LoadShaders(const ThreadContext* thread, Allocator* allocator,
+    const char* vertFilePath, const char* fragFilePath);
 
-RectGL InitRectGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
-TexturedRectGL InitTexturedRectGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
-LineGL InitLineGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
-PlaneGL InitPlaneGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
-BoxGL InitBoxGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+RectGL InitRectGL(const ThreadContext* thread, Allocator* allocator);
+template <typename Allocator>
+TexturedRectGL InitTexturedRectGL(const ThreadContext* thread, Allocator* allocator);
+template <typename Allocator>
+LineGL InitLineGL(const ThreadContext* thread, Allocator* allocator);
+template <typename Allocator>
+PlaneGL InitPlaneGL(const ThreadContext* thread, Allocator* allocator);
+template <typename Allocator>
+BoxGL InitBoxGL(const ThreadContext* thread, Allocator* allocator);
 
 // TODO this API is unrealistic and dumb. I need a batch draw function?
 // TODO actually, is it? this is pretty useful for debug stuff...

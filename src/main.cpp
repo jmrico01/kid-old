@@ -5,6 +5,7 @@
 #include <km_common/km_input.h>
 #include <km_common/km_log.h>
 #include <km_common/km_math.h>
+#include <km_common/km_memory.h>
 #include <km_common/km_string.h>
 #include <km_platform/main_platform.h>
 #undef internal
@@ -42,7 +43,6 @@ global_var const char* LEVEL_NAMES[] = {
 internal uint64 LevelNameToId(const Array<char>& name)
 {
 	uint64 numNames = C_ARRAY_LENGTH(LEVEL_NAMES);
-	LOG_INFO("numNames: %llu\n", numNames);
 	for (uint64 i = 0; i < numNames; i++) {
 		if (StringCompare(name, LEVEL_NAMES[i])) {
 			return i;
@@ -144,9 +144,7 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 }
 
 internal bool32 SaveFloorVertices(const ThreadContext* thread,
-	const FloorCollider* floor, const char* filePath,
-	MemoryBlock* transient,
-	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+	const FloorCollider* floor, const char* filePath, MemoryBlock* transient)
 {
 	int stringSize = 0;
 	int stringCapacity = ToIntOrTruncate(transient->size);
@@ -168,18 +166,14 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 }
 
 internal bool32 SetActiveLevel(const ThreadContext* thread,
-	GameState* gameState, const char* level, Vec2 startCoords, MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
-	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+	GameState* gameState, const char* level, Vec2 startCoords, MemoryBlock* transient)
 {
 	uint64 levelId = LevelNameToId(level);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
 		char levelPath[PATH_MAX_LENGTH];
 		stbsp_snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/%s", level);
-		if (!levelData->Load(thread, levelPath, transient,
-		DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+		if (!levelData->Load(thread, levelPath, transient)) {
 			LOG_ERROR("Failed to load level data for level %llu\n", level);
 			return false;
 		}
@@ -208,8 +202,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 
 	char bakFilePath[PATH_MAX_LENGTH];
 	stbsp_snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", level);
-	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient,
-	DEBUGPlatformWriteFile)) {
+	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient)) {
 		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
 		return false;
 	}
@@ -250,10 +243,7 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 }
 
 internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput* input,
-	MemoryBlock transient,
-	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory,
-	DEBUGPlatformWriteFileFunc DEBUGPlatformWriteFile)
+	MemoryBlock transient)
 {
 	bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
 		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
@@ -272,8 +262,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
 				if (!SetActiveLevel(nullptr, gameState, LEVEL_NAMES[newLevel], startCoords,
-				&transient, DEBUGPlatformReadFile,
-				DEBUGPlatformFreeFileMemory, DEBUGPlatformWriteFile)) {
+				&transient)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
 				break;
@@ -756,7 +745,9 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
 }
 
-extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
+void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* platformFuncs,
+	const GameInput* input, ScreenInfo screenInfo, float32 deltaTime,
+	GameMemory* memory, GameAudio* audio, LogState* logState)
 {
 	// NOTE: for clarity
 	// A call to this function means the following has happened, in order:
@@ -792,15 +783,14 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		}
 
 		if (!SetActiveLevel(thread, gameState, LEVEL_NAMES[gameState->activeLevel],
-		gameState->playerCoords, &memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory,
-		platformFuncs->DEBUGPlatformWriteFile)) {
+		gameState->playerCoords, &memory->transient)) {
 			DEBUG_PANIC("Failed to reload level %s\n", LEVEL_NAMES[gameState->activeLevel]);
 		}
 	}
 
 	if (!memory->isInitialized) {
+		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
+
 		// Very explicit depth testing setup (DEFAULT VALUES)
 		// NDC is left-handed with this setup
 		// (subtle left-handedness definition:
@@ -818,10 +808,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glLineWidth(1.0f);
 
-		if (!InitAudioState(thread, &gameState->audioState, audio,
-			&memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!InitAudioState(thread, &allocator, &gameState->audioState, audio)) {
 			DEBUG_PANIC("Failed to init audio state\n");
 		}
 
@@ -837,10 +824,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			gameState->levels[i].loaded = false;
 		}
 		const char* FIRST_LEVEL = "overworld";
-		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory,
-		platformFuncs->DEBUGPlatformWriteFile)) {
+		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
 
@@ -855,37 +839,21 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #endif
 
 		// Rendering stuff
-		InitRenderState(gameState->renderState, thread,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+		InitRenderState(thread, &allocator, gameState->renderState);
 
-		gameState->rectGL = InitRectGL(thread,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->texturedRectGL = InitTexturedRectGL(thread,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->lineGL = InitLineGL(thread,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->textGL = InitTextGL(thread,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+		gameState->rectGL = InitRectGL(thread, &allocator);
+		gameState->texturedRectGL = InitTexturedRectGL(thread, &allocator);
+		gameState->lineGL = InitLineGL(thread, &allocator);
+		gameState->textGL = InitTextGL(thread, &allocator);
 
 		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
 		if (error) {
 			LOG_ERROR("FreeType init error: %d\n", error);
 		}
-		gameState->fontFaceSmall = LoadFontFace(thread, gameState->ftLibrary,
-			"data/fonts/ocr-a/regular.ttf", 18,
-			memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->fontFaceMedium = LoadFontFace(thread, gameState->ftLibrary,
-			"data/fonts/ocr-a/regular.ttf", 24,
-			memory->transient,
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+		gameState->fontFaceSmall = LoadFontFace(thread, &allocator, gameState->ftLibrary,
+			"data/fonts/ocr-a/regular.ttf", 18);
+		gameState->fontFaceMedium = LoadFontFace(thread, &allocator, gameState->ftLibrary,
+			"data/fonts/ocr-a/regular.ttf", 24);
 
 		InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR_DEPTH, gameState->framebuffersColorDepth);
 		InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR, gameState->framebuffersColor);
@@ -939,50 +907,31 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 
 		glBindVertexArray(0);
 
-		gameState->screenShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/screen.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->bloomExtractShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/bloomExtract.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->bloomBlendShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/bloomBlend.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->blurShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/blur.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->grainShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/grain.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
-		gameState->lutShader = LoadShaders(thread,
-			"shaders/screen.vert", "shaders/lut.frag",
-			platformFuncs->DEBUGPlatformReadFile,
-			platformFuncs->DEBUGPlatformFreeFileMemory);
+		gameState->screenShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/screen.frag");
+		gameState->bloomExtractShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/bloomExtract.frag");
+		gameState->bloomBlendShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/bloomBlend.frag");
+		gameState->blurShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/blur.frag");
+		gameState->grainShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/grain.frag");
+		gameState->lutShader = LoadShaders(thread, &allocator,
+			"shaders/screen.vert", "shaders/lut.frag");
 
 		gameState->rock.coords = {
 			gameState->levels[gameState->activeLevel].floor.length - 10.0f,
 			0.0f
 		};
 		gameState->rock.angle = 0.0f;
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/rock.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->rockTexture, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadPNGOpenGL(thread, "data/sprites/rock.png", &allocator,
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->rockTexture)) {
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		if (!LoadAnimatedSprite(thread,
-		"data/animations/kid/kid.kma",
-		gameState->spriteKid, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
+		gameState->spriteKid, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 
@@ -992,11 +941,8 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
 
-		if (!LoadAnimatedSprite(thread,
-		"data/animations/paper/paper.kma",
-		gameState->spritePaper, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadAnimatedSprite(thread, "data/animations/paper/paper.kma",
+		gameState->spritePaper, memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
 
@@ -1006,38 +952,22 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/frame.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->frame, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadPNGOpenGL(thread, "data/sprites/frame.png", &allocator,
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frame)) {
 			DEBUG_PANIC("Failed to load frame\n");
 		}
-		if (!LoadPNGOpenGL(thread,
-		"data/sprites/pixel.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->pixelTexture, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadPNGOpenGL(thread, "data/sprites/pixel.png", &allocator,
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->pixelTexture)) {
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
 
-		if (!LoadPNGOpenGL(thread,
-		"data/luts/lutbase.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->lutBase, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadPNGOpenGL(thread, "data/luts/lutbase.png", &allocator,
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lutBase)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-		if (!LoadPNGOpenGL(thread,
-		"data/luts/kodak5205.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-		gameState->lut1, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory)) {
+		if (!LoadPNGOpenGL(thread, "data/luts/kodak5205.png", &allocator,
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lut1)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
@@ -1071,10 +1001,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 		gameState->audioState.globalMute = !gameState->audioState.globalMute;
 	}
 
-	UpdateWorld(gameState, deltaTime, input, memory->transient,
-		platformFuncs->DEBUGPlatformReadFile,
-		platformFuncs->DEBUGPlatformFreeFileMemory,
-		platformFuncs->DEBUGPlatformWriteFile);
+	UpdateWorld(gameState, deltaTime, input, memory->transient);
 
 	// ---------------------------- Begin Rendering ---------------------------
 	glEnable(GL_DEPTH_TEST);
@@ -1511,8 +1438,7 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 			char saveFilePath[PATH_MAX_LENGTH];
 			stbsp_snprintf(saveFilePath, PATH_MAX_LENGTH,
 				"data/levels/level%llu/collision.kml", gameState->activeLevel);
-			if (!SaveFloorVertices(thread, &floor, saveFilePath,
-			&memory->transient, platformFuncs->DEBUGPlatformWriteFile)) {
+			if (!SaveFloorVertices(thread, &floor, saveFilePath, &memory->transient)) {
 				LOG_ERROR("Level save failed!\n");
 			}
 		}
@@ -1559,4 +1485,11 @@ extern "C" GAME_UPDATE_AND_RENDER_FUNC(GameUpdateAndRender)
 #include <km_common/km_input.cpp>
 #include <km_common/km_lib.cpp>
 #include <km_common/km_log.cpp>
+#include <km_common/km_memory.cpp>
 #include <km_common/km_string.cpp>
+
+#if GAME_WIN32
+#include <km_platform/win32_main.cpp>
+#include <km_platform/win32_audio.cpp>
+// TODO else other platforms...
+#endif

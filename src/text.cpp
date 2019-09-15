@@ -22,9 +22,8 @@ struct TextDataGL
     Vec4 uvInfo[GLYPH_BATCH_SIZE];
 };
 
-TextGL InitTextGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+TextGL InitTextGL(const ThreadContext* thread, Allocator* allocator)
 {
     TextGL textGL;
 
@@ -118,26 +117,24 @@ TextGL InitTextGL(const ThreadContext* thread,
 
     glBindVertexArray(0);
 
-    textGL.programID = LoadShaders(thread,
-        "shaders/text.vert", "shaders/text.frag",
-        DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory);
+    textGL.programID = LoadShaders(thread, allocator, "shaders/text.vert", "shaders/text.frag");
 
     return textGL;
 }
 
-FontFace LoadFontFace(const ThreadContext* thread,
-    FT_Library library,
-    const char* path, uint32 height,
-    MemoryBlock transient,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
+    FT_Library library, const char* path, uint32 height)
 {
+    const auto& allocatorState = allocator->SaveState();
+    defer (allocator->LoadState(allocatorState));
+
     FontFace face = {};
     face.height = height;
 
     // Load font face using FreeType.
     FT_Face ftFace;
-    DEBUGReadFileResult fontFile = DEBUGPlatformReadFile(thread, path);
+    DEBUGReadFileResult fontFile = DEBUGPlatformReadFile(thread, allocator, path);
     FT_Open_Args openArgs = {};
     openArgs.flags = FT_OPEN_MEMORY;
     openArgs.memory_base = (const FT_Byte*)fontFile.data;
@@ -215,8 +212,11 @@ FontFace LoadFontFace(const ThreadContext* thread,
     }
 
     // Allocate and initialize atlas texture data.
-    DEBUG_ASSERT(transient.size >= sizeof(AtlasData));
-    AtlasData* atlasData = (AtlasData*)transient.memory;
+    AtlasData* atlasData = (AtlasData*)allocator->Allocate(sizeof(AtlasData));
+    if (!atlasData) {
+        LOG_ERROR("Not enough memory for AtlasData, font %s\n", path);
+        return face;
+    }
     for (uint32 j = 0; j < atlasHeight; j++) {
         for (uint32 i = 0; i < atlasWidth; i++) {
             atlasData->data[j * atlasWidth + i] = 0;

@@ -25,11 +25,9 @@ struct AudioState
 };
 
 struct GameState;
-bool32 InitAudioState(const ThreadContext* thread,
-	AudioState* audioState, GameAudio* audio,
-	MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+bool32 InitAudioState(const ThreadContext* thread, Allocator* allocator,
+	AudioState* audioState, GameAudio* audio);
 void OutputAudio(GameAudio* audio, GameState* gameState,
 	const GameInput* input, MemoryBlock transient);
 

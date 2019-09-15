@@ -16,13 +16,14 @@ int32 ReadBigEndianInt32(const uint8 bigEndian[4])
 
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
-bool LoadPSD(const ThreadContext* thread, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT,
-	MemoryBlock* transient, PsdData* outPsdData,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory)
+template <typename Allocator>
+bool LoadPSD(const ThreadContext* thread, Allocator* allocator, const char* filePath,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, PsdData* outPsdData)
 {
-	DEBUGReadFileResult psdFile = DEBUGPlatformReadFile(thread, filePath);
+	const auto& allocatorState = allocator->SaveState();
+	defer (allocator->LoadState(allocatorState));
+
+	DEBUGReadFileResult psdFile = DEBUGPlatformReadFile(thread, allocator, filePath);
 	if (!psdFile.data) {
 		LOG_ERROR("Failed to open PSD file at: %s\n", filePath);
 		return false;
@@ -229,18 +230,23 @@ bool LoadPSD(const ThreadContext* thread, const char* filePath,
 				continue;
 			}
 
+			const auto& allocatorStateInner = allocator->SaveState();
+			defer (allocator->LoadState(allocatorStateInner));
+
 			int layerWidth = layerInfo.right - layerInfo.left;
 			int layerHeight = layerInfo.bottom - layerInfo.top;
 			uint64 sizeRowLengths = layerHeight * sizeof(int16);
 			uint64 sizeLayerDataGL = layerWidth * layerHeight * layerChannels;
-			if (transient->size < sizeRowLengths + sizeLayerDataGL) {
-				LOG_ERROR("Not enough memory to read layer %.*s data, need %zu but have %zu\n",
-					layerInfo.name.array.size, layerInfo.name.array.data,
-					sizeRowLengths + sizeLayerDataGL, transient->size);
+			uint16* layerRowLengths = (uint16*)allocator->Allocate(sizeRowLengths);
+			if (!layerRowLengths) {
+				LOG_ERROR("Not enough memory for layer row lengths, need %d\n", layerRowLengths);
 				return false;
 			}
-			uint16* layerRowLengths = (uint16*)transient->memory;
-			uint8* layerDataGL = (uint8*)transient->memory + sizeRowLengths;
+			uint8* layerDataGL = (uint8*)allocator->Allocate(sizeLayerDataGL);
+			if (!layerDataGL) {
+				LOG_ERROR("Not enough memory for layer data, need %d\n", sizeLayerDataGL);
+				return false;
+			}
 
 			for (int16 c = 0; c < layerChannels; c++) {
 				LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
@@ -380,8 +386,6 @@ bool LoadPSD(const ThreadContext* thread, const char* filePath,
 		layerRowLengths[r] = rowLengthBytes;
 	}
 	LOG_INFO("image data length %d compression %d\n", imageDataLength, compression);*/
-
-	DEBUGPlatformFreeFileMemory(thread, &psdFile);
 
 	return true;
 }

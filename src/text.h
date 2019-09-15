@@ -40,15 +40,11 @@ struct FontFace
 	GlyphInfo glyphInfo[MAX_GLYPHS];
 };
 
-TextGL InitTextGL(const ThreadContext* thread,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
-FontFace LoadFontFace(const ThreadContext* thread,
-	FT_Library library,
-	const char* path, uint32 height,
-	MemoryBlock transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+TextGL InitTextGL(const ThreadContext* thread, Allocator* allocator);
+template <typename Allocator>
+FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
+	FT_Library library, const char* path, uint32 height);
 
 int GetTextWidth(const FontFace& face, const char* text);
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,

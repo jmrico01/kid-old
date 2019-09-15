@@ -59,9 +59,6 @@ struct LevelData
 
     bool32 loaded;
 
-    bool32 Load(const ThreadContext* thread,
-		const char* levelPath, MemoryBlock* transient,
-		DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-		DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory);
+    bool32 Load(const ThreadContext* thread, const char* levelPath, MemoryBlock* transient);
     void Unload();
 };

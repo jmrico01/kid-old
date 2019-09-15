@@ -49,8 +49,6 @@ struct AnimatedSpriteInstance
 };
 
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
-	AnimatedSprite& outAnimatedSprite, MemoryBlock transient,
-	DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+	AnimatedSprite& outAnimatedSprite, MemoryBlock transient);
 
 void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite);

@@ -1,9 +1,6 @@
 #include "load_level.h"
 
-bool32 LevelData::Load(const ThreadContext* thread,
-	const char* levelPath, MemoryBlock* transient,
-	DEBUGPlatformReadFileFunc DEBUGPlatformReadFile,
-	DEBUGPlatformFreeFileMemoryFunc DEBUGPlatformFreeFileMemory)
+bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
 
@@ -21,11 +18,10 @@ bool32 LevelData::Load(const ThreadContext* thread,
 
 	char filePath[PATH_MAX_LENGTH];
 
+	LinearAllocator allocator(transient->size, transient->memory);
 	StringCat(levelPath, "/level.psd", filePath, PATH_MAX_LENGTH);
-	if (!LoadPSD(thread, filePath,
-	GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-	transient, &psdData,
-	DEBUGPlatformReadFile, DEBUGPlatformFreeFileMemory)) {
+	if (!LoadPSD(thread, &allocator, filePath,
+	GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &psdData)) {
 		LOG_ERROR("Failed to load level PSD file %s\n", filePath);
 		return false;
 	}
@@ -62,7 +58,7 @@ bool32 LevelData::Load(const ThreadContext* thread,
 	}
 
 	StringCat(levelPath, "/level.kmkv", filePath, PATH_MAX_LENGTH);
-	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, filePath);
+	DEBUGReadFileResult levelFile = DEBUGPlatformReadFile(thread, &allocator, filePath);
 	if (!levelFile.data) {
 		LOG_ERROR("Failed to load level data file %s\n", filePath);
 		return false;
@@ -295,8 +291,6 @@ bool32 LevelData::Load(const ThreadContext* thread,
 			return false;
 		}
 	}
-
-	DEBUGPlatformFreeFileMemory(thread, &levelFile);
 
 	for (uint64 i = 0; i < sprites.array.size; i++) {
 		TextureWithPosition* sprite = &sprites[i];

@@ -13,49 +13,49 @@
 
 enum ColliderType
 {
-    COLLIDER_SINK,
-    COLLIDER_BOUNCE
+	COLLIDER_SINK,
+	COLLIDER_BOUNCE
 };
 
 struct Particle
 {
-    float32 life;
-    Vec3 pos;
-    Vec3 vel;
-    Vec4 color;
-    Vec2 size;
-    float32 bounceMult;
-    float32 frictionMult;
+	float32 life;
+	Vec3 pos;
+	Vec3 vel;
+	Vec4 color;
+	Vec2 size;
+	float32 bounceMult;
+	float32 frictionMult;
 
-    float32 depth;
+	float32 depth;
 };
 
 struct Attractor
 {
-    Vec3 pos;
-    float32 strength;
+	Vec3 pos;
+	float32 strength;
 };
 
 struct PlaneCollider
 {
-    ColliderType type;
+	ColliderType type;
 
-    Vec3 normal;
-    Vec3 point;
+	Vec3 normal;
+	Vec3 point;
 };
 struct AxisBoxCollider
 {
-    ColliderType type;
+	ColliderType type;
 
-    Vec3 min;
-    Vec3 max;
+	Vec3 min;
+	Vec3 max;
 };
 struct SphereCollider
 {
-    ColliderType type;
+	ColliderType type;
 
-    Vec3 center;
-    float32 radius;
+	Vec3 center;
+	float32 radius;
 };
 
 struct ParticleSystem;
@@ -63,60 +63,59 @@ typedef void (*InitParticleFunction)(ParticleSystem*, Particle*, void* data);
 
 struct ParticleSystem
 {
-    Particle particles[MAX_PARTICLES];
-    float32 spawnCounter;
-    int active;
+	Particle particles[MAX_PARTICLES];
+	float32 spawnCounter;
+	int active;
 
-    int maxParticles;
-    int particlesPerSec;
-    float32 maxLife;
-    Vec3 gravity;
-    float32 linearDamp;
-    float32 quadraticDamp;
+	int maxParticles;
+	int particlesPerSec;
+	float32 maxLife;
+	Vec3 gravity;
+	float32 linearDamp;
+	float32 quadraticDamp;
 
-    Attractor attractors[MAX_ATTRACTORS];
-    int numAttractors;
+	Attractor attractors[MAX_ATTRACTORS];
+	int numAttractors;
 
-    PlaneCollider planeColliders[MAX_COLLIDERS];
-    int numPlaneColliders;
+	PlaneCollider planeColliders[MAX_COLLIDERS];
+	int numPlaneColliders;
 
-    AxisBoxCollider boxColliders[MAX_COLLIDERS];
-    int numBoxColliders;
+	AxisBoxCollider boxColliders[MAX_COLLIDERS];
+	int numBoxColliders;
 
-    SphereCollider sphereColliders[MAX_COLLIDERS];
-    int numSphereColliders;
+	SphereCollider sphereColliders[MAX_COLLIDERS];
+	int numSphereColliders;
 
-    InitParticleFunction initParticleFunc;
+	InitParticleFunction initParticleFunc;
 
-    GLuint texture;
+	GLuint texture;
 };
 
 struct ParticleSystemGL
 {
-    GLuint vertexArray;
-    GLuint vertexBuffer;
-    GLuint uvBuffer;
-    GLuint posBuffer;
-    GLuint colorBuffer;
-    GLuint sizeBuffer;
-    GLuint programID;
+	GLuint vertexArray;
+	GLuint vertexBuffer;
+	GLuint uvBuffer;
+	GLuint posBuffer;
+	GLuint colorBuffer;
+	GLuint sizeBuffer;
+	GLuint programID;
 };
 
-ParticleSystemGL InitParticleSystemGL(const ThreadContext* thread,
-    DEBUGPlatformReadFileFunc* DEBUGPlatformReadFile,
-    DEBUGPlatformFreeFileMemoryFunc* DEBUGPlatformFreeFileMemory);
+template <typename Allocator>
+ParticleSystemGL InitParticleSystemGL(const ThreadContext* thread, Allocator* allocator);
 
 void CreateParticleSystem(ParticleSystem* ps, int maxParticles,
-    int particlesPerSec, float32 maxLife, Vec3 gravity,
-    float32 linearDamp, float32 quadraticDamp,
-    Attractor* attractors, int numAttractors,
-    PlaneCollider* planeColliders, int numPlaneColliders,
-    AxisBoxCollider* boxColliders, int numBoxColliders,
-    SphereCollider* sphereColliders, int numSphereColliders,
-    InitParticleFunction initParticleFunc, GLuint texture);
+	int particlesPerSec, float32 maxLife, Vec3 gravity,
+	float32 linearDamp, float32 quadraticDamp,
+	Attractor* attractors, int numAttractors,
+	PlaneCollider* planeColliders, int numPlaneColliders,
+	AxisBoxCollider* boxColliders, int numBoxColliders,
+	SphereCollider* sphereColliders, int numSphereColliders,
+	InitParticleFunction initParticleFunc, GLuint texture);
 void ParticleBurst(ParticleSystem* ps, int numParticles, void* data);
 void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data);
 void DrawParticleSystem(ParticleSystemGL psGL,
-    ParticleSystem* ps,
-    Vec3 camRight, Vec3 camUp, Vec3 camPos, Mat4 proj, Mat4 view,
-    MemoryBlock transient);
+	ParticleSystem* ps,
+	Vec3 camRight, Vec3 camUp, Vec3 camPos, Mat4 proj, Mat4 view,
+	MemoryBlock transient);
