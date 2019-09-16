@@ -1,3 +1,6 @@
+# Standard build script for Kapricorn Media projects
+# Must be run from the root directory
+
 import argparse
 from enum import Enum
 import hashlib
@@ -10,52 +13,21 @@ import sys
 import string
 import zipfile
 
-PROJECT_NAME = "kid"
-
-DEPLOY_FILES = [
-	"data",
-	"logs",
-	"shaders",
-	"kid_win32.exe"
-]
+from app_info import PROJECT_NAME, DEPLOY_FILES, LIBS_EXTERNAL, PATHS
 
 class CompileMode(Enum):
 	DEBUG    = "debug"
 	INTERNAL = "internal"
 	RELEASE  = "release"
 
-def GetScriptPath():
-	path = os.path.realpath(__file__)
-	lastSep = path.rfind(os.sep)
-	return path[:lastSep]
-
-def GetEnclosingDir(path):
-	"""
-	Returns the path before the last separating slash in path.
-	(The path of the directory containing the given path.
-	This is the equivalent of "path/..", but without the "..")
-	"""
-	lastSep = path.rfind(os.sep)
-	return path[:lastSep]
-
 def NormalizePathSlashes(pathDict):
 	for name in pathDict:
 		pathDict[name] = pathDict[name].replace("/", os.sep)
 
-def LoadEnvSettings(pathDict, envSettingsPath):
-	"""
-	You must create a file called "env_settings.json" in the same directory as this script.
-	It must contain at least a "osName": { "libs": "<path-to-external-libs>" } entry
-	"""
-	with open(envSettingsPath, "r") as envSettingsFile:
-		envSettings = json.loads(envSettingsFile.read())
-
-	for envOS in envSettings:
-		for envSetting in envSettings[envOS]:
-			pathDict[envOS + "-" + envSetting] = envSettings[envOS][envSetting]
-
 # Important directory & file paths
-paths = { "root": GetEnclosingDir(GetScriptPath()) }
+paths = {}
+
+paths["root"] = os.getcwd()
 
 paths["build"]          = paths["root"]  + "/build"
 paths["data"]           = paths["root"]  + "/data"
@@ -69,36 +41,51 @@ paths["build-logs"]     = paths["build"] + "/logs"
 paths["build-shaders"]  = paths["build"] + "/shaders"
 paths["src-shaders"]    = paths["src"]   + "/shaders"
 
-# Main source files
-paths["main-cpp"]       = paths["src"]             + "/main.cpp"
-paths["linux-main-cpp"] = paths["libs-internal"]   + "/km_platform/linux_main.cpp"
-paths["macos-main-mm"]  = paths["libs-internal"]   + "/km_platform/macos_main.cpp"
-paths["win32-main-cpp"] = paths["libs-internal"]   + "/km_platform/win32_main.cpp"
+# Main source file
+paths["main-cpp"]       = paths["src"]   + "/main.cpp"
 
 # Source hashes for if-changed compilation
 paths["src-hashes"]     = paths["build"] + "/src_hashes"
 paths["src-hashes-old"] = paths["build"] + "/src_hashes_old"
 
-paths["env-settings"]   = paths["root"]  + "/compile/env_settings.json"
-
-NormalizePathSlashes(paths)
-LoadEnvSettings(paths, paths["env-settings"])
-NormalizePathSlashes(paths)
-
 # External dependencies
-paths["lib-freetype"]   = paths["libs-external"] + "/freetype-2.8.1"
-paths["lib-stbimage"]   = paths["libs-external"] + "/stb_image-2.23"
-paths["lib-stbsprintf"] = paths["libs-external"] + "/stb_sprintf-1.06"
-
-paths["include-freetype"]   = paths["lib-freetype"] + "/include"
-paths["include-stbimage"]   = paths["lib-stbimage"]
-paths["include-stbsprintf"] = paths["lib-stbsprintf"]
+"""
+for name, libInfo in LIBS_EXTERNAL:
+	paths["lib-" + name] = paths["libs-external"] + "/" + libInfo["path"]
+	pathInclude = ""
+	if "pathInclude" in libInfo:
+		pathInclude = "/" + libInfo["pathInclude"]
+	paths["include-" + name] = paths["lib-" + name] + pathInclude
 
 if platform.system() == "Windows":
 	paths["libdir-freetype-win32-d"] = paths["lib-freetype"] + "/win32/debug"
 	paths["libdir-freetype-win32-r"] = paths["lib-freetype"] + "/win32/release"
+"""
+
+# Other project-specific paths
+for name, path in PATHS.items():
+	paths[name] = path
 
 NormalizePathSlashes(paths)
+
+includeDirs = {}
+libCompiledBaseDirs = {}
+libCompiledNames = {
+	"debug": [],
+	"release": []
+}
+for name, libInfo in LIBS_EXTERNAL.items():
+	libPath = paths["libs-external"] + "/" + libInfo["path"]
+	includeDirs[name] = libPath
+	if libInfo["includeDir"]:
+		includeDirs[name] += "/include"
+	if libInfo["compiled"]:
+		libCompiledBaseDirs[name] = libPath
+		libCompiledNames["debug"].append(libInfo["compiledName"]["debug"])
+		libCompiledNames["release"].append(libInfo["compiledName"]["release"])
+
+NormalizePathSlashes(includeDirs)
+NormalizePathSlashes(libCompiledBaseDirs)
 
 def RemakeDestAndCopyDir(srcPath, dstPath):
 	# Re-create (clear) the directory
@@ -181,11 +168,9 @@ def WinCompile(compileMode, debugger):
 
 	includePaths = " ".join([
 		"/I" + paths["src"],
-		"/I" + paths["libs-internal"],
-		"/I" + paths["include-freetype"],
-		"/I" + paths["include-stbimage"],
-		"/I" + paths["include-stbsprintf"]
-	])
+		"/I" + paths["libs-internal"]
+	] + [ "/I" + path for path in includeDirs.values() ])
+	print(includePaths)
 
 	linkerFlags = " ".join([
 		"/incremental:no",  # disable incremental linking
@@ -194,17 +179,14 @@ def WinCompile(compileMode, debugger):
 
 	libPaths = ""
 	if compileMode == CompileMode.DEBUG:
-		libPaths = " ".join([
-			libPaths,
-			"/LIBPATH:" + paths["libdir-freetype-win32-d"]
-		])
+		libPath = "/win32/debug"
 	elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
-		libPaths = " ".join([
-			libPaths,
-			"/LIBPATH:" + paths["libdir-freetype-win32-r"]
-		])
+		libPath = "/win32/release"
 	else:
 		raise Exception("Unknown compile mode {}".format(compileMode))
+	libPaths = " ".join([
+		libPaths
+	] + [ "/LIBPATH:" + baseDir + libPath for baseDir in libCompiledBaseDirs.values() ])
 
 	libs = " ".join([
 		"user32.lib",
@@ -215,14 +197,12 @@ def WinCompile(compileMode, debugger):
 	])
 	if compileMode == CompileMode.DEBUG:
 		libs = " ".join([
-			libs,
-			"freetype281MTd.lib"
-		])
+			libs
+		] + [ libName for libName in libCompiledNames["debug"] ])
 	elif compileMode == CompileMode.INTERNAL or compileMode == CompileMode.RELEASE:
 		libs = " ".join([
-			libs,
-			"freetype281MT.lib"
-		])
+			libs
+		] + [ libName for libName in libCompiledNames["release"] ])
 	else:
 		raise Exception("Unknown compile mode {}".format(compileMode))
 
