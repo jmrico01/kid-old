@@ -19,16 +19,32 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 	char filePath[PATH_MAX_LENGTH];
 
 	LinearAllocator allocator(transient->size, transient->memory);
+
+	PsdFile psdFile;
 	StringCat(levelPath, "/level.psd", filePath, PATH_MAX_LENGTH);
-	if (!LoadPSD(thread, &allocator, filePath,
-	GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &psdData)) {
-		LOG_ERROR("Failed to load level PSD file %s\n", filePath);
+	if (!OpenPSD(thread, &allocator, filePath, &psdFile)) {
+		LOG_ERROR("Failed to open and parse level PSD file %s\n", filePath);
 		return false;
 	}
 
-	for (uint64 i = 0; i < psdData.layers.array.size; i++) {
-		LayerInfo& layer = psdData.layers[i];
+	for (uint64 i = 0; i < psdFile.layers.array.size; i++) {
+		PsdLayerInfo& layer = psdFile.layers[i];
 		if (!layer.visible) {
+			continue;
+		}
+
+		if (StringContains(layer.name.array, "ground_")) {
+			const auto& allocatorState = allocator.SaveState();
+			defer (allocator.LoadState(allocatorState));
+			ImageData imageData;
+			if (!psdFile.LoadLayerImageData(i, &allocator, &imageData)) {
+			LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
+				layer.name.array.size, layer.name.array.data, filePath);
+				return false;
+			}
+
+			// TODO build collision from imageData
+
 			continue;
 		}
 
@@ -45,11 +61,20 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 
 		sprites.array.size++;
 		TextureWithPosition& sprite = sprites[sprites.array.size - 1];
-		sprite.texture = layer.textureGL;
+
+		const auto& allocatorState = allocator.SaveState();
+		defer (allocator.LoadState(allocatorState));
+		if (!psdFile.LoadLayerTextureGL(i, &allocator,
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &sprite.texture)) {
+			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
+				layer.name.array.size, layer.name.array.data, filePath);
+			return false;
+		}
+
 		sprite.type = spriteType;
 		Vec2Int offset = Vec2Int {
 			layer.left,
-			psdData.size.y - layer.bottom
+			psdFile.size.y - layer.bottom
 		};
 		sprite.pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
 		sprite.anchor = Vec2::zero;
@@ -319,6 +344,8 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 
 void LevelData::Unload()
 {
-	UnloadPSDOpenGL(psdData);
+	for (uint64 i = 0; i < sprites.array.size; i++) {
+		UnloadTextureGL(sprites[i].texture);
+	}
 	loaded = false;
 }
