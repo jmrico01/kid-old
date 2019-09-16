@@ -170,7 +170,6 @@ def WinCompile(compileMode, debugger):
 		"/I" + paths["src"],
 		"/I" + paths["libs-internal"]
 	] + [ "/I" + path for path in includeDirs.values() ])
-	print(includePaths)
 
 	linkerFlags = " ".join([
 		"/incremental:no",  # disable incremental linking
