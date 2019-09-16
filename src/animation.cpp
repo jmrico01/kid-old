@@ -171,7 +171,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 				if (!PlatformFileExists(thread, spritePath)) {
 					break;
 				}
-				if (!LoadPNGOpenGL(thread, spritePath, &allocator,
+				if (!LoadPNGOpenGL(thread, &allocator, spritePath,
 				GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, frameTextureGL)) {
 					LOG_ERROR("Failed to load animation frame %s\n", spritePath);
 				}

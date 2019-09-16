@@ -10,8 +10,6 @@ import platform
 import random
 import shutil
 import sys
-import string
-import zipfile
 
 from app_info import PROJECT_NAME, DEPLOY_FILES, LIBS_EXTERNAL, PATHS
 

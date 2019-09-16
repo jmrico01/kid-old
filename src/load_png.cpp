@@ -15,7 +15,7 @@ void UnloadTextureGL(const TextureGL& textureGL)
 }
 
 template <typename Allocator>
-bool LoadPNGOpenGL(const ThreadContext* thread, const char* filePath, Allocator* allocator,
+bool LoadPNGOpenGL(const ThreadContext* thread, Allocator* allocator, const char* filePath,
 	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL& outTextureGL)
 {
 	outTextureGL.size = Vec2Int { 0, 0 };

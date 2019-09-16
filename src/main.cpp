@@ -753,8 +753,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	// and draw the frame that will be displayed, ideally, some constant
 	// amount of time in the future.
 	DEBUG_ASSERT(sizeof(GameState) <= memory->permanent.size);
-
 	GameState *gameState = (GameState*)memory->permanent.memory;
+
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
 		#define FUNC(returntype, name, ...) name = \
@@ -907,7 +907,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			0.0f
 		};
 		gameState->rock.angle = 0.0f;
-		if (!LoadPNGOpenGL(thread, "data/sprites/rock.png", &allocator,
+		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/rock.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->rockTexture)) {
 			DEBUG_PANIC("Failed to load rock\n");
 		}
@@ -934,21 +934,21 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 
-		if (!LoadPNGOpenGL(thread, "data/sprites/frame.png", &allocator,
+		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frame)) {
 			DEBUG_PANIC("Failed to load frame\n");
 		}
-		if (!LoadPNGOpenGL(thread, "data/sprites/pixel.png", &allocator,
+		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/pixel.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->pixelTexture)) {
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
 
-		if (!LoadPNGOpenGL(thread, "data/luts/lutbase.png", &allocator,
+		if (!LoadPNGOpenGL(thread, &allocator, "data/luts/lutbase.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lutBase)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-		if (!LoadPNGOpenGL(thread, "data/luts/kodak5205.png", &allocator,
+		if (!LoadPNGOpenGL(thread, &allocator, "data/luts/kodak5205.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lut1)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}

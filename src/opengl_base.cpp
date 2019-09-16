@@ -12,8 +12,7 @@
 
 #define OGL_INFO_LOG_LENGTH_MAX 512
 
-internal bool CompileAndCheckShader(GLuint shaderID,
-	PlatformReadFileResult shaderFile)
+internal bool CompileAndCheckShader(GLuint shaderID, PlatformReadFileResult shaderFile)
 {
 	// Compile shader
 	GLint shaderFileSize = (GLint)shaderFile.size;
