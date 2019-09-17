@@ -166,15 +166,13 @@ internal bool32 SaveFloorVertices(const ThreadContext* thread,
 }
 
 internal bool32 SetActiveLevel(const ThreadContext* thread,
-	GameState* gameState, const char* level, Vec2 startCoords, MemoryBlock* transient)
+	GameState* gameState, const char* levelName, Vec2 startCoords, MemoryBlock* transient)
 {
-	uint64 levelId = LevelNameToId(level);
+	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
-		char levelPath[PATH_MAX_LENGTH];
-		stbsp_snprintf(levelPath, PATH_MAX_LENGTH, "data/levels/%s", level);
-		if (!levelData->Load(thread, levelPath, transient)) {
-			LOG_ERROR("Failed to load level data for level %llu\n", level);
+		if (!levelData->Load(thread, levelName, transient)) {
+			LOG_ERROR("Failed to load level data for level %s\n", levelName);
 			return false;
 		}
 	}
@@ -201,9 +199,9 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	}
 
 	char bakFilePath[PATH_MAX_LENGTH];
-	stbsp_snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", level);
+	stbsp_snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", levelName);
 	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient)) {
-		LOG_ERROR("Failed to save backup floor vertex data for level %llu\n", level);
+		LOG_ERROR("Failed to save backup floor vertex data for level %s\n", levelName);
 		return false;
 	}
 
@@ -807,7 +805,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
 		char levelPsdPath[PATH_MAX_LENGTH];
-		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/level.psd", FIRST_LEVEL);
+		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
+			FIRST_LEVEL, FIRST_LEVEL);
 		PlatformFileChanged(thread, levelPsdPath); // TODO hacky. move this to SetActiveLevel?
 
 		gameState->grainTime = 0.0f;
@@ -978,7 +977,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 	const char* activeLevelName = LEVEL_NAMES[gameState->activeLevel];
 	char levelPsdPath[PATH_MAX_LENGTH];
-	stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/level.psd", activeLevelName);
+	stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
+		activeLevelName, activeLevelName);
 	if (PlatformFileChanged(thread, levelPsdPath)) {
 		LOG_INFO("reloading level %s\n", activeLevelName);
 		if (gameState->levels[gameState->activeLevel].loaded) {

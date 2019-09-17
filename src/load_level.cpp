@@ -1,6 +1,9 @@
 #include "load_level.h"
 
-bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, MemoryBlock* transient)
+#undef STB_SPRINTF_IMPLEMENTATION
+#include <stb_sprintf.h>
+
+bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
 
@@ -16,12 +19,11 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 	lockedCamera = false;
 	bounded = false;
 
-	char filePath[PATH_MAX_LENGTH];
-
 	LinearAllocator allocator(transient->size, transient->memory);
 
 	PsdFile psdFile;
-	StringCat(levelPath, "/level.psd", filePath, PATH_MAX_LENGTH);
+	char filePath[PATH_MAX_LENGTH];
+	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd", levelName, levelName);
 	if (!OpenPSD(thread, &allocator, filePath, &psdFile)) {
 		LOG_ERROR("Failed to open and parse level PSD file %s\n", filePath);
 		return false;
@@ -82,7 +84,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelPath, Memor
 		sprite.flipped = false;
 	}
 
-	StringCat(levelPath, "/level.kmkv", filePath, PATH_MAX_LENGTH);
+	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/levels/%s/%s.kmkv", levelName, levelName);
 	PlatformReadFileResult levelFile = PlatformReadFile(thread, &allocator, filePath);
 	if (!levelFile.data) {
 		LOG_ERROR("Failed to load level data file %s\n", filePath);
