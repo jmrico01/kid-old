@@ -38,14 +38,54 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		if (StringContains(layer.name.array, "ground_")) {
 			const auto& allocatorState = allocator.SaveState();
 			defer (allocator.LoadState(allocatorState));
+
 			ImageData imageData;
-			if (!psdFile.LoadLayerImageData(i, &allocator, &imageData)) {
-			LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
-				layer.name.array.size, layer.name.array.data, filePath);
+			if (!psdFile.LoadLayerImageData(i, &allocator, LAYER_CHANNEL_ALPHA, &imageData)) {
+				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
+					layer.name.array.size, layer.name.array.data, filePath);
 				return false;
 			}
 
-			// TODO build collision from imageData
+			bool* isEdge = (bool*)allocator.Allocate(imageData.size.x * imageData.size.y * sizeof(bool));
+			int edgePixels = 0;
+			for (int y = 0; y < imageData.size.y; y++) {
+				for (int x = 0; x < imageData.size.x; x++) {
+					int index = y * imageData.size.x + x;
+					isEdge[index] = false;
+					bool nonZero = imageData.data[index] != 0;
+					if (x > 0) {
+						bool zeroLeft = imageData.data[y * imageData.size.x + (x - 1)] == 0;
+						if (nonZero && zeroLeft) {
+							isEdge[index] = true;
+						}
+					}
+					if (x < imageData.size.x - 1) {
+						bool zeroRight = imageData.data[y * imageData.size.x + (x + 1)] == 0;
+						if (nonZero && zeroRight) {
+							isEdge[index] = true;
+						}
+					}
+					if (y > 0) {
+						bool zeroTop = imageData.data[(y - 1) * imageData.size.x + x] == 0;
+						if (nonZero && zeroTop) {
+							isEdge[index] = true;
+						}
+					}
+					if (y < imageData.size.y - 1) {
+						bool zeroBottom = imageData.data[(y + 1) * imageData.size.x + x] == 0;
+						if (nonZero && zeroBottom) {
+							isEdge[index] = true;
+						}
+					}
+
+					if (isEdge[index]) {
+						edgePixels++;
+					}
+				}
+			}
+
+			LOG_INFO("edgePixels: %d\n", edgePixels);
+			LOG_FLUSH();
 
 			continue;
 		}
@@ -66,7 +106,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 		const auto& allocatorState = allocator.SaveState();
 		defer (allocator.LoadState(allocatorState));
-		if (!psdFile.LoadLayerTextureGL(i, &allocator,
+		if (!psdFile.LoadLayerTextureGL(i, &allocator, LAYER_CHANNEL_ALL,
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &sprite.texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
 				layer.name.array.size, layer.name.array.data, filePath);

@@ -17,7 +17,9 @@ enum LayerChannelID
 	LAYER_CHANNEL_RED = 0,
 	LAYER_CHANNEL_GREEN,
 	LAYER_CHANNEL_BLUE,
-	LAYER_CHANNEL_ALPHA
+	LAYER_CHANNEL_ALPHA,
+
+	LAYER_CHANNEL_ALL
 };
 
 struct LayerChannelInfo
@@ -25,27 +27,6 @@ struct LayerChannelInfo
 	LayerChannelID channelID;
 	uint32 dataSize;
 };
-
-struct LayerInfo
-{
-	TextureGL textureGL;
-	FixedArray<char, PSD_LAYER_NAME_MAX_LENGTH> name;
-	int left, right, top, bottom;
-	FixedArray<LayerChannelInfo, PSD_CHANNELS> channels;
-	uint8 opacity;
-	LayerBlendMode blendMode;
-	bool visible;
-};
-
-struct PsdData
-{
-	Vec2Int size;
-	FixedArray<LayerInfo, PSD_MAX_LAYERS> layers;
-};
-
-template <typename Allocator>
-bool LoadPSD(const ThreadContext* thread, Allocator* allocator, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, PsdData* outPsdData);
 
 struct ImageData
 {
@@ -72,9 +53,10 @@ struct PsdFile
 	PlatformReadFileResult file;
 
 	template <typename Allocator>
-	bool LoadLayerImageData(uint64 layerIndex, Allocator* allocator, ImageData* outImageData);
+	bool LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
+		ImageData* outImageData);
 	template <typename Allocator>
-	bool LoadLayerTextureGL(uint64 layerIndex, Allocator* allocator,
+	bool LoadLayerTextureGL(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
 		GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);
 };
 
