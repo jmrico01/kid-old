@@ -3,8 +3,8 @@
 #include <km_common/km_lib.h>
 #include <km_common/km_math.h>
 
-#define FLOOR_PRECOMPUTED_POINTS_MAX 32768
-#define FLOOR_COLLIDER_MAX_VERTICES 1024
+#define FLOOR_PRECOMPUTED_POINTS_MAX 262144
+#define FLOOR_COLLIDER_MAX_VERTICES 8192
 #define LINE_COLLIDER_MAX_VERTICES 32
 
 struct FloorSampleVertex
