@@ -5,6 +5,92 @@
 
 #include <queue> // TODO implement in km_lib?
 
+template <typename Allocator>
+bool GetLoop(const bool* marked, int width, int height, Allocator* allocator,
+	DynamicArray<Vec2Int>* outLoop)
+{
+	FixedArray<Vec2Int, 4> neighborOffsets4;
+	neighborOffsets4.array.size = 0;
+	neighborOffsets4.Init();
+	neighborOffsets4.Append(Vec2Int { -1,  0 });
+	neighborOffsets4.Append(Vec2Int {  0,  1 });
+	neighborOffsets4.Append(Vec2Int {  1,  0 });
+	neighborOffsets4.Append(Vec2Int {  0, -1 });
+
+	bool* inLoop = (bool*)allocator->Allocate(width * height * sizeof(bool));
+	if (!inLoop) {
+		LOG_ERROR("Not enough memory for inLoop\n");
+		return false;
+	}
+
+	int numMarked = 0;
+	Vec2Int startPixel = Vec2Int { -1, -1 };
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			int pixelIndex = y * width + x;
+			inLoop[pixelIndex] = false;
+			if (marked[pixelIndex]) {
+				numMarked++;
+				startPixel = Vec2Int { x, y };
+			}
+		}
+	}
+
+	struct SearchItem {
+		Vec2Int pixel;
+		Vec2Int prev;
+		int depth;
+
+		SearchItem(Vec2Int pixel, Vec2Int prev, int depth) : pixel(pixel), prev(prev), depth(depth) {}
+	};
+	DynamicArray<Vec2Int> loop(10000);
+	DynamicArray<SearchItem> stack;
+	stack.Append(SearchItem(startPixel, startPixel, 0));
+	while (stack.array.size > 0) {
+		const SearchItem item = stack[stack.array.size - 1];
+		stack.RemoveLast();
+		while (loop.array.size > item.depth) {
+			Vec2Int toRemove = loop[loop.array.size - 1];
+			inLoop[toRemove.y * width + toRemove.x] = false;
+			loop.RemoveLast();
+		}
+		loop.Append(item.pixel);
+		int pixelIndex = item.pixel.y * width + item.pixel.x;
+		inLoop[pixelIndex] = true;
+
+		if (item.depth >= numMarked) {
+			continue;
+		}
+		for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
+			Vec2Int neighborPixel = item.pixel + neighborOffsets4[o];
+			if (neighborPixel.x < 0 || neighborPixel.x >= width
+			|| neighborPixel.y < 0 || neighborPixel.y >= height) {
+				continue;
+			}
+			if (neighborPixel == item.prev) {
+				continue;
+			}
+			if (neighborPixel == startPixel && item.depth > 0) {
+				if (loop.array.size > outLoop->array.size) {
+					outLoop->Clear();
+					for (uint64 l = 0; l < loop.array.size; l++) {
+						outLoop->Append(loop[l]);
+					}
+				}
+				continue;
+			}
+			int neighborIndex = neighborPixel.y * width + neighborPixel.x;
+			if (marked[neighborIndex] && !inLoop[neighborIndex]) {
+				// inStack[neighborIndex] = true;
+				stack.Append(SearchItem(neighborPixel, item.pixel, item.depth + 1));
+			}
+		}
+		LOG_FLUSH();
+	}
+
+	return true;
+}
+
 bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
@@ -47,14 +133,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 					layer.name.array.size, layer.name.array.data, filePath);
 				return false;
 			}
-
-			FixedArray<Vec2Int, 4> neighborOffsets4;
-			neighborOffsets4.array.size = 0;
-			neighborOffsets4.Init();
-			neighborOffsets4.Append(Vec2Int { -1,  0 });
-			neighborOffsets4.Append(Vec2Int {  0,  1 });
-			neighborOffsets4.Append(Vec2Int {  1,  0 });
-			neighborOffsets4.Append(Vec2Int {  0, -1 });
 			FixedArray<Vec2Int, 8> neighborOffsets8;
 			neighborOffsets8.array.size = 0;
 			neighborOffsets8.Init();
@@ -72,8 +150,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				LOG_ERROR("Not enough memory for isEdge array\n");
 				return false;
 			}
-			uint64 numEdgePixels = 0;
-			Vec2Int startPixel = Vec2Int { -1, -1 };
 			for (int y = 0; y < imageData.size.y; y++) {
 				for (int x = 0; x < imageData.size.x; x++) {
 					int pixelIndex = y * imageData.size.x + x;
@@ -98,147 +174,20 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 					}
 					if (hasZeroNeighbor) {
 						isEdge[pixelIndex] = true;
-						numEdgePixels++;
-						startPixel = Vec2Int { x, y };
 					}
 				}
 			}
 
-			bool* inStack = (bool*)allocator.Allocate(imageData.size.x * imageData.size.y * sizeof(bool));
-			if (!inStack) {
-				LOG_ERROR("Not enough memory for inStack\n");
+			DynamicArray<Vec2Int> loop;
+			if (!GetLoop(isEdge, imageData.size.x, imageData.size.y, &allocator, &loop)) {
+				LOG_ERROR("Failed to get loop from ground edges\n");
 				return false;
 			}
-			for (int y = 0; y < imageData.size.y; y++) {
-				for (int x = 0; x < imageData.size.x; x++) {
-					int pixelIndex = y * imageData.size.x + x;
-					inStack[pixelIndex] = false;
-				}
-			}
-			struct SearchItem {
-				Vec2Int pixel;
-				Vec2Int prev;
-				int depth;
-
-				SearchItem(Vec2Int pixel, Vec2Int prev, int depth) : pixel(pixel), prev(prev), depth(depth) {}
-			};
-			DynamicArray<Vec2Int, LinearAllocator> longestLoop(&allocator);
-			DynamicArray<Vec2Int, LinearAllocator> loop(&allocator);
-			DynamicArray<SearchItem, LinearAllocator> stack(&allocator);
-			stack.Append(SearchItem(startPixel, startPixel, 0));
-			while (stack.array.size > 0) {
-				const SearchItem item = stack[stack.array.size - 1];
-				stack.RemoveLast();
-				inStack[item.pixel.y * imageData.size.x + item.pixel.x] = false;
-				while (loop.array.size > item.depth) {
-					loop.RemoveLast();
-				}
-				if (item.pixel == startPixel && item.depth > 0) {
-					if (loop.array.size > longestLoop.array.size) {
-						longestLoop.Clear();
-						for (uint64 l = 0; l < loop.array.size; l++) {
-							longestLoop.Append(loop[l]);
-						}
-					}
-					continue;
-				}
-				loop.Append(item.pixel);
-
-				if (item.depth >= numEdgePixels) {
-					continue;
-				}
-				for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
-					Vec2Int neighborPixel = item.pixel + neighborOffsets4[o];
-					if (neighborPixel == item.prev) {
-						continue;
-					}
-					if (neighborPixel.x < 0 || neighborPixel.x >= imageData.size.x
-					|| neighborPixel.y < 0 || neighborPixel.y >= imageData.size.y) {
-						continue;
-					}
-					int neighborIndex = neighborPixel.y * imageData.size.x + neighborPixel.x;
-					if (isEdge[neighborIndex]) {
-						stack.Append(SearchItem(neighborPixel, item.pixel, item.depth + 1));
-					}
-				}
-				LOG_FLUSH();
-			}
-
-/*
-			struct SearchResult {
-				Vec2Int prev;
-				int depth;
-			};
-			uint64 searchResultSize = imageData.size.x * imageData.size.y * sizeof(SearchResult);
-			SearchResult* searchResult = (SearchResult*)allocator.Allocate(searchResultSize);
-			if (!searchResult) {
-				LOG_ERROR("Not enough memory for searchResult, need %llu\n", searchResultSize);
-				return false;
-			}
-			bool* inQueue = (bool*)allocator.Allocate(imageData.size.x * imageData.size.y * sizeof(bool));
-			if (!inQueue) {
-				LOG_ERROR("Not enough memory for inQueue\n");
-				return false;
-			}
-			for (int y = 0; y < imageData.size.y; y++) {
-				for (int x = 0; x < imageData.size.x; x++) {
-					int pixelIndex = y * imageData.size.x + x;
-					searchResult[pixelIndex].depth = -1;
-					inQueue[pixelIndex] = false;
-				}
-			}
-			struct SearchItem {
-				Vec2Int pixel;
-				Vec2Int prev;
-
-				SearchItem(Vec2Int pixel, Vec2Int prev) : pixel(pixel), prev(prev) {}
-			};
-			const Vec2Int DEPTH_MARKER = Vec2Int { -1, -1 };
-			std::queue<SearchItem> realQueue;
-			realQueue.push(SearchItem(startPixel, startPixel));
-			//inQueue[startPixel.y * imageData.size.x + startPixel.x] = true;
-			realQueue.push(SearchItem(DEPTH_MARKER, Vec2Int::zero));
-			int depth = 0;
-			while (depth < numEdgePixels && realQueue.size() > 0) {
-				const SearchItem item = realQueue.front();
-				realQueue.pop();
-				if (item.pixel == DEPTH_MARKER) {
-					depth++;
-					realQueue.push(SearchItem(DEPTH_MARKER, Vec2Int::zero));
-					continue;
-				}
-				int pixelIndex = item.pixel.y * imageData.size.x + item.pixel.x;
-				//inQueue[pixelIndex] = false;
-				SearchResult& result = searchResult[pixelIndex];
-				if (result.depth < depth) {
-					result.prev = item.prev;
-					result.depth = depth;
-				}
-
-				for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
-					Vec2Int neighborPixel = item.pixel + neighborOffsets4[o];
-					if (neighborPixel == item.prev) {
-						continue;
-					}
-					if (neighborPixel.x < 0 || neighborPixel.x >= imageData.size.x
-					|| neighborPixel.y < 0 || neighborPixel.y >= imageData.size.y) {
-						continue;
-					}
-					int neighborIndex = neighborPixel.y * imageData.size.x + neighborPixel.x;
-					if (isEdge[neighborIndex] && !inQueue[neighborIndex]) {
-						//inQueue[neighborIndex] = true;
-						realQueue.push(SearchItem(neighborPixel, item.pixel));
-					}
-				}
-			}
-
-			DynamicArray<Vec2Int, LinearAllocator> loop(&allocator);
-*/
 
 			floor.line.array.size = 0;
 			floor.line.Init();
-			for (uint64 v = 0; v < longestLoop.array.size; v++) {
-				Vec2 pos = Vec2 { (float32)longestLoop[v].x, (float32)longestLoop[v].y };
+			for (uint64 v = 0; v < loop.array.size; v++) {
+				Vec2 pos = ToVec2(loop[v]) / REF_PIXELS_PER_UNIT * REF_PIXELS_PER_UNIT;
 				floor.line.Append(pos);
 			}
 			floor.PrecomputeSampleVerticesFromLine();
