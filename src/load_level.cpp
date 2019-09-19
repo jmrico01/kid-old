@@ -47,7 +47,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			}
 
 			bool* isEdge = (bool*)allocator.Allocate(imageData.size.x * imageData.size.y * sizeof(bool));
-			int edgePixels = 0;
+			Vec2Int startPixel = Vec2Int { -1, -1 };
 			for (int y = 0; y < imageData.size.y; y++) {
 				for (int x = 0; x < imageData.size.x; x++) {
 					int index = y * imageData.size.x + x;
@@ -59,11 +59,17 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 							isEdge[index] = true;
 						}
 					}
+					else if (nonZero) {
+						isEdge[index] = true;
+					}
 					if (x < imageData.size.x - 1) {
 						bool zeroRight = imageData.data[y * imageData.size.x + (x + 1)] == 0;
 						if (nonZero && zeroRight) {
 							isEdge[index] = true;
 						}
+					}
+					else if (nonZero) {
+						isEdge[index] = true;
 					}
 					if (y > 0) {
 						bool zeroTop = imageData.data[(y - 1) * imageData.size.x + x] == 0;
@@ -71,23 +77,81 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 							isEdge[index] = true;
 						}
 					}
+					else if (nonZero) {
+						isEdge[index] = true;
+					}
 					if (y < imageData.size.y - 1) {
 						bool zeroBottom = imageData.data[(y + 1) * imageData.size.x + x] == 0;
 						if (nonZero && zeroBottom) {
 							isEdge[index] = true;
 						}
 					}
+					else if (nonZero) {
+						isEdge[index] = true;
+					}
 
 					if (isEdge[index]) {
-						edgePixels++;
+						startPixel = Vec2Int { x, y };
 					}
 				}
 			}
 
-			LOG_INFO("edgePixels: %d\n", edgePixels);
-			LOG_FLUSH();
+			// TODO eh... i gotta do a full-on DFS here
+			FixedArray<Vec2Int, 8> neighborOffsets;
+			neighborOffsets.array.size = 0;
+			neighborOffsets.Init();
+			neighborOffsets.Append(Vec2Int { -1,  0 });
+			neighborOffsets.Append(Vec2Int { -1,  1 });
+			neighborOffsets.Append(Vec2Int {  0,  1 });
+			neighborOffsets.Append(Vec2Int {  1,  1 });
+			neighborOffsets.Append(Vec2Int {  1,  0 });
+			neighborOffsets.Append(Vec2Int {  1, -1 });
+			neighborOffsets.Append(Vec2Int {  0, -1 });
+			neighborOffsets.Append(Vec2Int { -1, -1 });
 
-			continue;
+			DynamicArray<Vec2Int> loop;
+			Vec2Int currentPixel = startPixel;
+			while (true) {
+				LOG_INFO("%d: %d, %d\n", loop.array.size, currentPixel.x, currentPixel.y);
+				if (loop.array.size % 100 == 0) {
+					LOG_FLUSH();
+				}
+				isEdge[currentPixel.y * imageData.size.x + currentPixel.x] = false;
+				loop.Append(currentPixel);
+				bool foundNeighbor = false;
+				bool startIsNeighbor = false;
+				for (uint64 o = 0; o < neighborOffsets.array.size; o++) {
+					Vec2Int neighborPixel = currentPixel + neighborOffsets[o];
+					if (neighborPixel.x < 0 || neighborPixel.x >= imageData.size.x
+					|| neighborPixel.y < 0 || neighborPixel.y >= imageData.size.y) {
+						continue;
+					}
+					if (neighborPixel == startPixel) {
+						startIsNeighbor = true;
+					}
+					if (isEdge[neighborPixel.y * imageData.size.x + neighborPixel.x]) {
+						currentPixel = neighborPixel;
+						foundNeighbor = true;
+						break;
+					}
+				}
+				if (!foundNeighbor) {
+					if (startIsNeighbor) {
+						break;
+					}
+					DEBUG_PANIC("No neighboring edge pixel found! Stopped at %d, %d\n",
+						currentPixel.x, currentPixel.y);
+				}
+			}
+
+			floor.line.array.size = 0;
+			floor.line.Init();
+			for (uint64 v = 0; v < loop.array.size; v++) {
+				Vec2 pos = Vec2 { (float32)loop[v].x, (float32)loop[v].y };
+				floor.line.Append(pos);
+			}
+			// floor.line.Append(pos);
+			floor.PrecomputeSampleVerticesFromLine();
 		}
 
 		SpriteType spriteType = SPRITE_BACKGROUND;
@@ -314,7 +378,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			}
 		}
 		else if (StringCompare(keyword.array, "floor")) {
-			floor.line.array.size = 0;
+			/*floor.line.array.size = 0;
 			floor.line.Init();
 
 			Array<char> element = value.array;
@@ -347,7 +411,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				element = next;
 			}
 
-			floor.PrecomputeSampleVerticesFromLine();
+			floor.PrecomputeSampleVerticesFromLine();*/
 		}
 		else if (StringCompare(keyword.array, "//")) {
 			// comment, ignore

@@ -4,36 +4,40 @@
 
 #define PSD_COLOR_MODE_RGB 3
 
-int16 ReadBigEndianInt16(const uint8 bigEndian[2])
+enum PsdImageDataFormat
+{
+	PSD_IMAGE_DATA_RAW      = 0,
+	PSD_IMAGE_DATA_PACKBITS = 1
+};
+
+internal int16 ReadBigEndianInt16(const uint8 bigEndian[2])
 {
 	return ((int16)bigEndian[0] << 8) + bigEndian[1];
 }
 
-int32 ReadBigEndianInt32(const uint8 bigEndian[4])
+internal int32 ReadBigEndianInt32(const uint8 bigEndian[4])
 {
 	return ((int32)bigEndian[0] << 24) + (bigEndian[1] << 16) + (bigEndian[2] << 8) + bigEndian[3];
 }
 
-template <typename Allocator>
-bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
-		ImageData* outImageData)
+internal void ReadRawData(const uint8* inData, int width, int height,
+	uint8 numChannels, int channelOffset, uint8* outData)
 {
-	const PsdLayerInfo& layerInfo = layers[layerIndex];
-	uint8 channels = (uint8)layerInfo.channels.array.size;
-	if (channel != LAYER_CHANNEL_ALL) {
-		channels = 1;
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			uint64 inIndex = y * width + x;
+			uint64 invertedY = height - y - 1; // NOTE y-axis is inverted by this procedure
+			uint64 outIndex = (invertedY * width + x) * numChannels + channelOffset;
+			outData[outIndex] = inData[inIndex];
+		}
 	}
-	int layerWidth = layerInfo.right - layerInfo.left;
-	int layerHeight = layerInfo.bottom - layerInfo.top;
+}
 
-	uint64 sizeLayerData = layerWidth * layerHeight * channels;
-	uint8* layerData = (uint8*)allocator->Allocate(sizeLayerData);
-	if (!layerData) {
-		LOG_ERROR("Not enough memory for layer data, need %d\n", sizeLayerData);
-		return false;
-	}
-
-	uint64 sizeRowLengths = layerHeight * sizeof(int16);
+template <typename Allocator>
+internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int width, int height,
+	uint8 numChannels, int channelOffset, uint8* outData)
+{
+	uint64 sizeRowLengths = height * sizeof(int16);
 	uint16* layerRowLengths = (uint16*)allocator->Allocate(sizeRowLengths);
 	if (!layerRowLengths) {
 		LOG_ERROR("Not enough memory for layer row lengths, need %d\n", layerRowLengths);
@@ -41,87 +45,125 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerC
 	}
 	defer (allocator->Free(layerRowLengths));
 
-	uint8* psdData = (uint8*)file.data;
-	uint64 psdDataIndex = layerInfo.dataStart;
+	uint64 dataIndex = 0;
 
-	for (uint8 c = 0; c < channels; c++) {
-		const LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
-		int channelOffset = (int)layerChannelInfo.channelID;
-		if (channel != LAYER_CHANNEL_ALL) {
-			if (layerChannelInfo.channelID != channel) {
+	for (int r = 0; r < height; r++) {
+		int16 rowLengthBytes = ReadBigEndianInt16(&inData[dataIndex]);
+		dataIndex += 2;
+		layerRowLengths[r] = rowLengthBytes;
+	}
+
+	for (int r = 0; r < height; r++) {
+		// Parse data in PackBits format
+		// https://en.wikipedia.org/wiki/PackBits
+		int16 parsedData = 0;
+		uint64 pixelY = height - r - 1; // NOTE y-axis is inverted by this procedure
+		uint64 pixelX = 0;
+		while (true) {
+			int8 header = inData[dataIndex + parsedData];
+			if (++parsedData >= layerRowLengths[r]) {
+				break;
+			}
+			if (header == -128) {
 				continue;
 			}
-			channelOffset = 0;
-		}
-		int16 compression = ReadBigEndianInt16(&psdData[psdDataIndex]);
-		psdDataIndex += 2;
-		if (compression != 1 && layerHeight > 0) {
-			LOG_ERROR("Unhandled layer compression %d\n", compression);
-			return false;
-		}
-
-		for (int r = 0; r < layerHeight; r++) {
-			int16 rowLengthBytes = ReadBigEndianInt16(&psdData[psdDataIndex]);
-			psdDataIndex += 2;
-			layerRowLengths[r] = rowLengthBytes;
-		}
-
-		for (int r = 0; r < layerHeight; r++) {
-			// Parse data in PackBits format
-			// https://en.wikipedia.org/wiki/PackBits
-			int16 parsedData = 0;
-			uint64 pixelY = layerHeight - r - 1;
-			uint64 pixelX = 0;
-			while (true) {
-				int8 header = psdData[psdDataIndex + parsedData];
+			else if (header < 0) {
+				uint8 data = inData[dataIndex + parsedData];
+				int repeats = 1 - header;
+				for (int i = 0; i < repeats; i++) {
+					uint64 outIndex = (pixelY * width + pixelX) * numChannels + channelOffset;
+					outData[outIndex] = data;
+					pixelX++;
+				}
 				if (++parsedData >= layerRowLengths[r]) {
 					break;
 				}
-				if (header == -128) {
-					continue;
-				}
-				else if (header < 0) {
-					uint8 data = psdData[psdDataIndex + parsedData];
-					int repeats = 1 - header;
-					for (int i = 0; i < repeats; i++) {
-						uint64 ind = (pixelY * layerWidth + pixelX) * channels + channelOffset;
-						layerData[ind] = data;
-						pixelX++;
-					}
+			}
+			else if (header >= 0) {
+				int dataLength = 1 + header;
+				for (int i = 0; i < dataLength; i++) {
+					uint8 data = inData[dataIndex + parsedData];
+					uint64 outIndex = (pixelY * width + pixelX) * numChannels + channelOffset;
+					outData[outIndex] = data;
+					pixelX++;
 					if (++parsedData >= layerRowLengths[r]) {
+						if (i < dataLength - 1) {
+							LOG_ERROR("data parse unexpected end %d, %d\n", dataIndex, parsedData);
+							return false;
+						}
 						break;
 					}
 				}
-				else if (header >= 0) {
-					int dataLength = 1 + header;
-					for (int i = 0; i < dataLength; i++) {
-						uint8 data = psdData[psdDataIndex + parsedData];
-						uint64 ind = (pixelY * layerWidth + pixelX) * channels + channelOffset;
-						layerData[ind] = data;
-						pixelX++;
-						if (++parsedData >= layerRowLengths[r]) {
-							if (i < dataLength - 1) {
-								LOG_ERROR("data parse unexpected end %d, %d\n",
-									psdDataIndex, parsedData);
-								return false;
-							}
-							break;
-						}
-					}
-				}
 			}
+		}
 
-			if (pixelX != layerWidth) {
-				LOG_ERROR("PackBits row length mismatch: %d vs %d\n", pixelX, layerWidth);
+		if (pixelX != width) {
+			LOG_ERROR("PackBits row length mismatch: %d vs %d\n", pixelX, width);
+			return false;
+		}
+
+		dataIndex += layerRowLengths[r];
+	}
+
+	return true;
+}
+
+template <typename Allocator>
+bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
+	ImageData* outImageData)
+{
+	const PsdLayerInfo& layerInfo = layers[layerIndex];
+	uint8 numChannelsDest = (uint8)layerInfo.channels.array.size;
+	if (channel != LAYER_CHANNEL_ALL) {
+		numChannelsDest = 1;
+	}
+	int layerWidth = layerInfo.right - layerInfo.left;
+	int layerHeight = layerInfo.bottom - layerInfo.top;
+
+	uint64 sizeLayerData = layerWidth * layerHeight * numChannelsDest;
+	uint8* layerData = (uint8*)allocator->Allocate(sizeLayerData);
+	if (!layerData) {
+		LOG_ERROR("Not enough memory for layer data, need %d\n", sizeLayerData);
+		return false;
+	}
+
+	const uint8* psdData = (uint8*)file.data;
+	uint64 psdDataIndex = layerInfo.dataStart;
+
+	for (uint8 c = 0; c < layerInfo.channels.array.size; c++) {
+		const LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
+		int channelOffsetDest = (int)layerChannelInfo.channelID;
+		if (channel != LAYER_CHANNEL_ALL) {
+			if (layerChannelInfo.channelID != channel) {
+				psdDataIndex += layerChannelInfo.dataSize;
+				continue;
+			}
+			channelOffsetDest = 0;
+		}
+
+		int16 compression = ReadBigEndianInt16(&psdData[psdDataIndex]);
+		const uint8* layerImageData = &psdData[psdDataIndex + 2];
+		psdDataIndex += layerChannelInfo.dataSize;
+
+		if (compression == PSD_IMAGE_DATA_RAW) {
+			ReadRawData(layerImageData, layerWidth, layerHeight,
+				numChannelsDest, channelOffsetDest, layerData);
+		}
+		else if (compression == PSD_IMAGE_DATA_PACKBITS) {
+			if (!ReadPackBitsData(layerImageData, allocator, layerWidth, layerHeight,
+			numChannelsDest, channelOffsetDest, layerData)) {
+				LOG_ERROR("Failed to read PackBits data\n");
 				return false;
 			}
-
-			psdDataIndex += layerRowLengths[r];
+		}
+		else {
+			LOG_ERROR("Unhandled layer compression %d\n", compression);
+			return false;
 		}
 	}
 
 	outImageData->size = { layerWidth, layerHeight };
-	outImageData->channels = channels;
+	outImageData->channels = numChannelsDest;
 	outImageData->data = layerData;
 	return true;
 }
