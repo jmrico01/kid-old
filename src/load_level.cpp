@@ -5,10 +5,23 @@
 
 #include <queue> // TODO implement in km_lib?
 
+internal int ToFlatIndex(Vec2Int index, Vec2Int size)
+{
+	return index.y * size.x + index.x;
+}
+
+internal bool PixelInBounds(Vec2Int pixel, Vec2Int size)
+{
+	return 0 <= pixel.x && pixel.x < size.x && 0 <= pixel.y && pixel.y < size.y;
+}
+
 template <typename Allocator>
-bool GetLoop(const bool* marked, int width, int height, Allocator* allocator,
+internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 	DynamicArray<Vec2Int>* outLoop)
 {
+	const int NUM_PIXELS = imageAlpha.size.x * imageAlpha.size.y;
+	const Vec2Int PIXEL_NULL = Vec2Int { -1, -1 };
+
 	FixedArray<Vec2Int, 4> neighborOffsets4;
 	neighborOffsets4.array.size = 0;
 	neighborOffsets4.Init();
@@ -17,78 +30,109 @@ bool GetLoop(const bool* marked, int width, int height, Allocator* allocator,
 	neighborOffsets4.Append(Vec2Int {  1,  0 });
 	neighborOffsets4.Append(Vec2Int {  0, -1 });
 
-	bool* inLoop = (bool*)allocator->Allocate(width * height * sizeof(bool));
-	if (!inLoop) {
-		LOG_ERROR("Not enough memory for inLoop\n");
+	FixedArray<Vec2Int, 8> neighborOffsets8;
+	neighborOffsets8.array.size = 0;
+	neighborOffsets8.Init();
+	neighborOffsets8.Append(Vec2Int { -1,  0 });
+	neighborOffsets8.Append(Vec2Int { -1,  1 });
+	neighborOffsets8.Append(Vec2Int {  0,  1 });
+	neighborOffsets8.Append(Vec2Int {  1,  1 });
+	neighborOffsets8.Append(Vec2Int {  1,  0 });
+	neighborOffsets8.Append(Vec2Int {  1, -1 });
+	neighborOffsets8.Append(Vec2Int {  0, -1 });
+	neighborOffsets8.Append(Vec2Int { -1, -1 });
+
+	bool* isEdge = (bool*)allocator->Allocate(NUM_PIXELS * sizeof(bool));
+	if (isEdge == nullptr) {
+		LOG_ERROR("Not enough memory for isEdge array\n");
+		return false;
+	}
+	uint8* neighborsVisited = (uint8*)allocator->Allocate(NUM_PIXELS * sizeof(uint8));
+	if (neighborsVisited == nullptr) {
+		LOG_ERROR("Not enough memory for neighborsVisited array\n");
 		return false;
 	}
 
-	int numMarked = 0;
-	Vec2Int startPixel = Vec2Int { -1, -1 };
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			int pixelIndex = y * width + x;
-			inLoop[pixelIndex] = false;
-			if (marked[pixelIndex]) {
-				numMarked++;
-				startPixel = Vec2Int { x, y };
-			}
-		}
-	}
-
-	struct SearchItem {
-		Vec2Int pixel;
-		Vec2Int prev;
-		int depth;
-
-		SearchItem(Vec2Int pixel, Vec2Int prev, int depth) : pixel(pixel), prev(prev), depth(depth) {}
-	};
-	DynamicArray<Vec2Int> loop(10000);
-	DynamicArray<SearchItem> stack;
-	stack.Append(SearchItem(startPixel, startPixel, 0));
-	while (stack.array.size > 0) {
-		const SearchItem item = stack[stack.array.size - 1];
-		stack.RemoveLast();
-		while (loop.array.size > item.depth) {
-			Vec2Int toRemove = loop[loop.array.size - 1];
-			inLoop[toRemove.y * width + toRemove.x] = false;
-			loop.RemoveLast();
-		}
-		loop.Append(item.pixel);
-		int pixelIndex = item.pixel.y * width + item.pixel.x;
-		inLoop[pixelIndex] = true;
-
-		if (item.depth >= numMarked) {
-			continue;
-		}
-		for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
-			Vec2Int neighborPixel = item.pixel + neighborOffsets4[o];
-			if (neighborPixel.x < 0 || neighborPixel.x >= width
-			|| neighborPixel.y < 0 || neighborPixel.y >= height) {
+	Vec2Int startPixel = PIXEL_NULL;
+	for (int y = 0; y < imageAlpha.size.y; y++) {
+		for (int x = 0; x < imageAlpha.size.x; x++) {
+			Vec2Int pixel = { x, y };
+			int pixelIndex = ToFlatIndex(pixel, imageAlpha.size);
+			isEdge[pixelIndex] = false;
+			neighborsVisited[pixelIndex] = 0;
+			if (imageAlpha.data[pixelIndex] == 0) {
 				continue;
 			}
-			if (neighborPixel == item.prev) {
-				continue;
-			}
-			if (neighborPixel == startPixel && item.depth > 0) {
-				if (loop.array.size > outLoop->array.size) {
-					outLoop->Clear();
-					for (uint64 l = 0; l < loop.array.size; l++) {
-						outLoop->Append(loop[l]);
-					}
+			bool hasZeroNeighbor = false;
+			for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
+				Vec2Int neighbor = pixel + neighborOffsets4[o];
+				if (!PixelInBounds(neighbor, imageAlpha.size)) {
+					hasZeroNeighbor = true;
+					break;
 				}
-				continue;
+				int neighborIndex = ToFlatIndex(neighbor, imageAlpha.size);
+				if (imageAlpha.data[neighborIndex] == 0) {
+					hasZeroNeighbor = true;
+					break;
+				}
 			}
-			int neighborIndex = neighborPixel.y * width + neighborPixel.x;
-			if (marked[neighborIndex] && !inLoop[neighborIndex]) {
-				// inStack[neighborIndex] = true;
-				stack.Append(SearchItem(neighborPixel, item.pixel, item.depth + 1));
+			if (hasZeroNeighbor) {
+				isEdge[pixelIndex] = true;
+				startPixel = pixel;
 			}
 		}
-		LOG_FLUSH();
 	}
+
+	Vec2Int pixel = startPixel;
+	outLoop->Append(startPixel);
+	do {
+		DEBUG_ASSERT(outLoop->array.size > 0);
+		Vec2Int prev = outLoop->array.data[outLoop->array.size - 1];
+		int index = ToFlatIndex(pixel, imageAlpha.size);
+		Vec2Int next = PIXEL_NULL;
+		while (true) {
+			uint8 offsetIndex = neighborsVisited[index];
+			if (offsetIndex >= neighborOffsets8.array.size) {
+				break;
+			}
+			neighborsVisited[index]++;
+
+			Vec2Int neighbor = pixel + neighborOffsets8[offsetIndex];
+			if (!PixelInBounds(neighbor, imageAlpha.size) || neighbor == prev) {
+				continue;
+			}
+			if (neighbor == startPixel) {
+				LOG_INFO("I win? %llu\n", outLoop->array.size);
+			}
+			int neighborIndex = ToFlatIndex(neighbor, imageAlpha.size);
+			if (isEdge[neighborIndex]) {
+				next = neighbor;
+				break;
+			}
+		}
+		if (next == PIXEL_NULL) {
+			// Dead end, backtrack
+			outLoop->RemoveLast();
+			pixel = prev;
+		}
+		else {
+			// Valid neighbor, advance
+			outLoop->Append(pixel);
+			pixel = next;
+		}
+	} while (pixel != startPixel);
 
 	return true;
+}
+
+internal void DownsampleLoop(DynamicArray<Vec2Int>* loop, uint64 factor)
+{
+	uint64 i = 0;
+	while (i * factor < loop->array.size) {
+		loop->array.data[i] = loop->array.data[i * factor];
+		i++;
+	}
+	loop->array.size = i;
 }
 
 bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, MemoryBlock* transient)
@@ -123,71 +167,33 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			continue;
 		}
 
-		if (StringContains(layer.name.array, "ground_")) {
-			const auto& allocatorState = allocator.SaveState();
-			defer (allocator.LoadState(allocatorState));
+		const auto& allocatorState = allocator.SaveState();
+		defer (allocator.LoadState(allocatorState));
 
-			ImageData imageData;
-			if (!psdFile.LoadLayerImageData(i, &allocator, LAYER_CHANNEL_ALPHA, &imageData)) {
+		if (StringContains(layer.name.array, "ground_")) {
+			ImageData imageAlpha;
+			if (!psdFile.LoadLayerImageData(i, &allocator, LAYER_CHANNEL_ALPHA, &imageAlpha)) {
 				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
 					layer.name.array.size, layer.name.array.data, filePath);
 				return false;
 			}
-			FixedArray<Vec2Int, 8> neighborOffsets8;
-			neighborOffsets8.array.size = 0;
-			neighborOffsets8.Init();
-			neighborOffsets8.Append(Vec2Int { -1,  0 });
-			neighborOffsets8.Append(Vec2Int { -1,  1 });
-			neighborOffsets8.Append(Vec2Int {  0,  1 });
-			neighborOffsets8.Append(Vec2Int {  1,  1 });
-			neighborOffsets8.Append(Vec2Int {  1,  0 });
-			neighborOffsets8.Append(Vec2Int {  1, -1 });
-			neighborOffsets8.Append(Vec2Int {  0, -1 });
-			neighborOffsets8.Append(Vec2Int { -1, -1 });
-
-			bool* isEdge = (bool*)allocator.Allocate(imageData.size.x * imageData.size.y * sizeof(bool));
-			if (isEdge == nullptr) {
-				LOG_ERROR("Not enough memory for isEdge array\n");
-				return false;
-			}
-			for (int y = 0; y < imageData.size.y; y++) {
-				for (int x = 0; x < imageData.size.x; x++) {
-					int pixelIndex = y * imageData.size.x + x;
-					isEdge[pixelIndex] = false;
-					if (imageData.data[pixelIndex] == 0) {
-						continue;
-					}
-					bool hasZeroNeighbor = false;
-					for (uint64 o = 0; o < neighborOffsets8.array.size; o++) {
-						int neighborX = x + neighborOffsets8[o].x;
-						int neighborY = y + neighborOffsets8[o].y;
-						if (neighborX < 0 || neighborX >= imageData.size.x
-						|| neighborY < 0 || neighborY >= imageData.size.y) {
-							hasZeroNeighbor = true;
-							break;
-						}
-						int neighborIndex = neighborY * imageData.size.x + neighborX;
-						if (imageData.data[neighborIndex] == 0) {
-							hasZeroNeighbor = true;
-							break;
-						}
-					}
-					if (hasZeroNeighbor) {
-						isEdge[pixelIndex] = true;
-					}
-				}
-			}
 
 			DynamicArray<Vec2Int> loop;
-			if (!GetLoop(isEdge, imageData.size.x, imageData.size.y, &allocator, &loop)) {
+			if (!GetLoop(imageAlpha, &allocator, &loop)) {
 				LOG_ERROR("Failed to get loop from ground edges\n");
 				return false;
 			}
 
+			DownsampleLoop(&loop, 10);
+
+			Vec2Int origin = Vec2Int {
+				layer.left,
+				psdFile.size.y - layer.bottom
+			};
 			floor.line.array.size = 0;
 			floor.line.Init();
 			for (uint64 v = 0; v < loop.array.size; v++) {
-				Vec2 pos = ToVec2(loop[v]) / REF_PIXELS_PER_UNIT * REF_PIXELS_PER_UNIT;
+				Vec2 pos = ToVec2(loop[v] + origin) / REF_PIXELS_PER_UNIT;
 				floor.line.Append(pos);
 			}
 			floor.PrecomputeSampleVerticesFromLine();
@@ -207,8 +213,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		sprites.array.size++;
 		TextureWithPosition& sprite = sprites[sprites.array.size - 1];
 
-		const auto& allocatorState = allocator.SaveState();
-		defer (allocator.LoadState(allocatorState));
 		if (!psdFile.LoadLayerTextureGL(i, &allocator, LAYER_CHANNEL_ALL,
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &sprite.texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
