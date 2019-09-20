@@ -102,7 +102,8 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 				continue;
 			}
 			if (neighbor == startPixel) {
-				LOG_INFO("I win? %llu\n", outLoop->array.size);
+				// for some reason, we exit whenever this is the case
+				// which is great, but idk why it's happening
 			}
 			int neighborIndex = ToFlatIndex(neighbor, imageAlpha.size);
 			if (isEdge[neighborIndex]) {
@@ -125,14 +126,39 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 	return true;
 }
 
-internal void DownsampleLoop(DynamicArray<Vec2Int>* loop, uint64 factor)
+internal void DownsampleLoop(Array<Vec2Int>* loop, uint64 factor)
 {
+	// TODO smoothing
 	uint64 i = 0;
-	while (i * factor < loop->array.size) {
-		loop->array.data[i] = loop->array.data[i * factor];
+	while (i * factor < loop->size) {
+		loop->data[i] = loop->data[i * factor];
 		i++;
 	}
-	loop->array.size = i;
+	loop->size = i;
+}
+
+internal bool IsLoopClockwise(const Array<Vec2Int>& loop)
+{
+	int sumAngleMetric = 0;
+	Vec2Int prevVector = loop[1] - loop[0];
+	for (uint64 i = 2; i < loop.size; i++) {
+		Vec2Int vector = loop[i] - loop[i - 1];
+		// determinant is proportinal to sine of angle
+		int determinant = vector.x * prevVector.y - vector.y * prevVector.x;
+		sumAngleMetric += determinant;
+		prevVector = vector;
+	}
+
+	return sumAngleMetric >= 0;
+}
+
+internal void InvertLoop(Array<Vec2Int>* loop)
+{
+	for (uint64 low = 0, high = loop->size - 1; low < high; low++, high--) {
+		Vec2Int temp = loop->data[low];
+		loop->data[low] = loop->data[high];
+		loop->data[high] = temp;
+	}
 }
 
 bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, MemoryBlock* transient)
@@ -184,7 +210,10 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				return false;
 			}
 
-			DownsampleLoop(&loop, 10);
+			DownsampleLoop(&loop.array, 10);
+			if (!IsLoopClockwise(loop.array)) {
+				InvertLoop(&loop.array);
+			}
 
 			Vec2Int origin = Vec2Int {
 				layer.left,

@@ -143,28 +143,6 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool32 SaveFloorVertices(const ThreadContext* thread,
-	const FloorCollider* floor, const char* filePath, MemoryBlock* transient)
-{
-	int stringSize = 0;
-	int stringCapacity = ToIntOrTruncate(transient->size);
-	char* string = (char*)transient->memory;
-	for (uint64 i = 0; i < floor->line.array.size; i++) {
-		int n = stbsp_snprintf(string + stringSize, stringCapacity - stringSize,
-			"%.2f, %.2f\r\n", floor->line[i].x, floor->line[i].y);
-		stringSize += n;
-		DEBUG_ASSERT(stringSize < stringCapacity);
-	}
-
-	if (!PlatformWriteFile(thread, filePath, (uint32)stringSize, string, true)) {
-		LOG_ERROR("Failed to write vertices to file\n");
-		return false;
-	}
-
-	LOG_INFO("Floor vertices written to file\n");
-	return true;
-}
-
 internal bool32 SetActiveLevel(const ThreadContext* thread,
 	GameState* gameState, const char* levelName, Vec2 startCoords, MemoryBlock* transient)
 {
@@ -196,13 +174,6 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	}
 	else {
 		gameState->cameraCoords = startCoords;
-	}
-
-	char bakFilePath[PATH_MAX_LENGTH];
-	stbsp_snprintf(bakFilePath, PATH_MAX_LENGTH, "data/levels/%s/collision-bak.kml", levelName);
-	if (!SaveFloorVertices(thread, &levelData->floor, bakFilePath, transient)) {
-		LOG_ERROR("Failed to save backup floor vertex data for level %s\n", levelName);
-		return false;
 	}
 
 	return true;
@@ -1429,15 +1400,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (input->mouseButtons[2].isDown) {
 			Vec2Int screenCenterToMouse = input->mousePos - screenInfo.size / 2;
 			// TODO rotate camera
-		}
-
-		if (WasKeyPressed(input, KM_KEY_P)) {
-			char saveFilePath[PATH_MAX_LENGTH];
-			stbsp_snprintf(saveFilePath, PATH_MAX_LENGTH,
-				"data/levels/level%llu/collision.kml", gameState->activeLevel);
-			if (!SaveFloorVertices(thread, &floor, saveFilePath, &memory->transient)) {
-				LOG_ERROR("Level save failed!\n");
-			}
 		}
 
 		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
