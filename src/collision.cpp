@@ -52,9 +52,6 @@ Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
         }
     }
 
-    //float32 coordX = ind * FLOOR_PRECOMPUTED_STEP_LENGTH;
-    //float32 coordXPrev = coordX - FLOOR_PRECOMPUTED_STEP_LENGTH;
-    //float32 coordXNext = coordX - FLOOR_PRECOMPUTED_STEP_LENGTH;
     Vec2 coords = {
         ind * FLOOR_PRECOMPUTED_STEP_LENGTH,
         Dot(worldPos - sampleVertices[ind].pos, sampleVertices[ind].normal)
@@ -64,7 +61,7 @@ Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
 
 void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const
 {
-    const int EDGE_NEIGHBORS = 2;
+    const int EDGE_NEIGHBORS = 10;
     
     *outFloorPos = Vec2::zero;
     *outNormal = Vec2::unitY;
@@ -138,8 +135,7 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	sampleVertices.Init();
 	for (uint64 i = 0; i < precomputedPoints; i++) {
 		float32 coordX = i * FLOOR_PRECOMPUTED_STEP_LENGTH;
-		GetInfoFromCoordXSlow(coordX,
-            &sampleVertices[i].pos, &sampleVertices[i].normal);
+		GetInfoFromCoordXSlow(coordX, &sampleVertices[i].pos, &sampleVertices[i].normal);
 	}
 }
 
