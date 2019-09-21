@@ -449,42 +449,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword.array, "floor")) {
-			/*floor.line.array.size = 0;
-			floor.line.Init();
-
-			Array<char> element = value.array;
-			while (true) {
-				Array<char> next;
-				ReadElementInSplitString(&element, &next, '\n');
-
-				Array<char> trimmed;
-				TrimWhitespace(element, &trimmed);
-				if (trimmed.size == 0) {
-					break;
-				}
-
-				Vec2 pos;
-				int parsedElements;
-				if (!StringToElementArray(trimmed, ',', true,
-				StringToFloat32, 2, pos.e, &parsedElements)) {
-					LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
-					return false;
-				}
-				if (parsedElements != 2) {
-					LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
-					return false;
-				}
-
-				floor.line.Append(pos);
-
-				element = next;
-			}
-
-			floor.PrecomputeSampleVerticesFromLine();*/
-		}
 		else if (StringCompare(keyword.array, "//")) {
 			// comment, ignore
 		}
