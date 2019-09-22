@@ -15,9 +15,9 @@ internal bool PixelInBounds(Vec2Int pixel, Vec2Int size)
 	return 0 <= pixel.x && pixel.x < size.x && 0 <= pixel.y && pixel.y < size.y;
 }
 
-template <typename Allocator>
+template <typename Allocator, typename LoopAllocator>
 internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
-	DynamicArray<Vec2Int>* outLoop)
+	DynamicArray<Vec2Int, LoopAllocator>* outLoop)
 {
 	const int NUM_PIXELS = imageAlpha.size.x * imageAlpha.size.y;
 	const Vec2Int PIXEL_NULL = Vec2Int { -1, -1 };
@@ -47,11 +47,13 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 		LOG_ERROR("Not enough memory for isEdge array\n");
 		return false;
 	}
+	defer (allocator->Free(isEdge));
 	uint8* neighborsVisited = (uint8*)allocator->Allocate(NUM_PIXELS * sizeof(uint8));
 	if (neighborsVisited == nullptr) {
 		LOG_ERROR("Not enough memory for neighborsVisited array\n");
 		return false;
 	}
+	defer (allocator->Free(neighborsVisited));
 
 	Vec2Int startPixel = PIXEL_NULL;
 	for (int y = 0; y < imageAlpha.size.y; y++) {
@@ -81,6 +83,11 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 				startPixel = pixel;
 			}
 		}
+	}
+
+	if (startPixel == PIXEL_NULL) {
+		LOG_ERROR("No edge pixels found\n");
+		return false;
 	}
 
 	Vec2Int pixel = startPixel;
@@ -174,6 +181,9 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 	lineColliders.Init();
 	lineColliders.array.size = 0;
 
+	floor.line.Init();
+	floor.line.array.size = 0;
+
 	lockedCamera = false;
 	bounded = false;
 
@@ -197,6 +207,11 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		defer (allocator.LoadState(allocatorState));
 
 		if (StringContains(layer.name.array, "ground_")) {
+			if (floor.line.array.size > 0) {
+				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %s\n",
+					layer.name.array.size, layer.name.array.data, filePath);
+				return false;
+			}
 			ImageData imageAlpha;
 			if (!psdFile.LoadLayerImageData(i, &allocator, LAYER_CHANNEL_ALPHA, &imageAlpha)) {
 				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
@@ -205,6 +220,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			}
 
 			DynamicArray<Vec2Int> loop;
+			defer (loop.Free());
 			if (!GetLoop(imageAlpha, &allocator, &loop)) {
 				LOG_ERROR("Failed to get loop from ground edges\n");
 				return false;
@@ -219,8 +235,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				layer.left,
 				psdFile.size.y - layer.bottom
 			};
-			floor.line.array.size = 0;
-			floor.line.Init();
 			for (uint64 v = 0; v < loop.array.size; v++) {
 				Vec2 pos = ToVec2(loop[v] + origin) / REF_PIXELS_PER_UNIT;
 				floor.line.Append(pos);
