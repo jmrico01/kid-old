@@ -1,0 +1,82 @@
+// This is a comment
+
+// "anim" must be the first keyword
+
+// fps -1 means that the animation will run at the game's framerate
+// This is useful for static animations that require an immediate exit response
+
+anim idle
+fps -1
+loop
+rootmotion 110 480
+exit * walk 1
+exit * jump 0
+exit * fall 0
+
+anim walk
+fps 24
+loop
+rootmotion {
+    110 480
+    110 480
+    110 480
+    110 480
+    110 480
+    110 480
+    110 480
+}
+exit 2 idle 0
+exit * jump 0
+exit * fall 0
+
+anim jump
+fps 24
+rootfollow
+rootmotion {
+    110 480
+    110 403
+    110 270
+    110 217
+    110 209
+}
+exit 4 fall 0
+
+anim fall
+fps 24
+rootfollow
+rootfollowendloop
+rootmotion {
+    110 206
+    110 209
+    110 217
+    110 246
+    110 340
+    110 480
+}
+exit 0 land 0
+exit 1 land 1
+exit 2 land 2
+exit 3 land 3
+exit 4 land 4
+exit 5 land 5
+
+anim land
+fps 24
+rootmotion {
+    110 209
+    110 217
+    110 246
+    110 340
+    110 480
+    110 480
+    110 480
+    110 480
+}
+exit 7 idle 0
+exit 7 walk 0
+exit 7 fall 0
+exit 5 jump 0
+exit 6 jump 0
+exit 7 jump 0
+
+start idle
