@@ -14,6 +14,7 @@
 #undef STB_SPRINTF_IMPLEMENTATION
 #include <stb_sprintf.h>
 
+#include "imgui.h"
 #include "opengl.h"
 #include "opengl_funcs.h"
 #include "opengl_base.h"
@@ -724,6 +725,17 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	DEBUG_ASSERT(sizeof(GameState) <= memory->permanent.size);
 	GameState *gameState = (GameState*)memory->permanent.memory;
 
+	// NOTE make sure deltaTime values are reasonable
+	const float32 MAX_DELTA_TIME = 1.0f / 10.0f;
+	if (deltaTime < 0.0f) {
+		LOG_ERROR("Negative deltaTime %f !!\n", deltaTime);
+		deltaTime = 1.0f / 60.0f; // eh... idk
+	}
+	if (deltaTime > MAX_DELTA_TIME) {
+		LOG_WARN("Large deltaTime %f, capped to %f\n", deltaTime, MAX_DELTA_TIME);
+		deltaTime = MAX_DELTA_TIME;
+	}
+
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
 		#define FUNC(returntype, name, ...) name = \
@@ -1025,6 +1037,16 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 	OutputAudio(audio, gameState, input, memory->transient);
 
+	{
+		Panel testPanel;
+		testPanel.Begin();
+
+		testPanel.Text("Hello, sailor");
+
+		testPanel.End();
+	}
+
+/*
 #if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
@@ -1409,6 +1431,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 	DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
 #endif
+*/
 
 #if GAME_SLOW
 	// Catch-all site for OpenGL errors
@@ -1423,6 +1446,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 #include "audio.cpp"
 #include "collision.cpp"
 #include "framebuffer.cpp"
+#include "imgui.cpp"
 #include "load_level.cpp"
 #include "load_png.cpp"
 #include "load_psd.cpp"
