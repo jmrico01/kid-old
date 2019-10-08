@@ -898,7 +898,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->spriteKid, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
-		if (!gameState->spriteKid.Load(thread, "data/animations/kid/kid.kma", &memory->transient)) {
+		if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 

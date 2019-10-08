@@ -1,5 +1,7 @@
 #pragma once
 
+#include <km_common/km_lib.h>
+
 const uint64 INPUT_BUFFER_MAX = 256;
 
 typedef FixedArray<char, INPUT_BUFFER_MAX> InputString;
@@ -25,7 +27,7 @@ struct PanelRenderCommand
 
 struct PanelRenderInfo
 {
-	DynamicArray<PanelCommand> renderCommands;
+	DynamicArray<PanelRenderCommand> renderCommands;
 };
 
 struct Panel
