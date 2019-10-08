@@ -4,23 +4,28 @@ const uint64 INPUT_BUFFER_MAX = 256;
 
 typedef FixedArray<char, INPUT_BUFFER_MAX> InputString;
 
-enum class PanelCommandType
+enum class PanelRenderCommandType
 {
 	DRAW_TEXT
 };
 
-struct PanelCommandDataText
+struct PanelRenderCommandDataText
 {
 	FontFace* face;
 };
 
-struct PanelCommand
+struct PanelRenderCommand
 {
-	PanelCommandType type;
+	PanelRenderCommandType type;
 	union
 	{
-		PanelCommandDataText dataText;
+		PanelRenderCommandDataText dataText;
 	};
+};
+
+struct PanelRenderInfo
+{
+	DynamicArray<PanelCommand> renderCommands;
 };
 
 struct Panel

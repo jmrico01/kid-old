@@ -2,6 +2,7 @@
 
 void Panel::Begin()
 {
+	size = Vec2Int::zero;
 }
 
 void Panel::End()
