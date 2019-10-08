@@ -88,6 +88,28 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
+bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const MemoryBlock* transient)
+{
+	LinearAllocator allocator(transient->size, transient->memory);
+
+	PsdFile psdFile;
+	char filePath[PATH_MAX_LENGTH];
+	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/animations/%s/%s.psd", name, name);
+	if (!OpenPSD(thread, &allocator, filePath, &psdFile)) {
+		LOG_ERROR("Failed to open and parse level PSD file %s\n", filePath);
+		return false;
+	}
+
+	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/animations/%s/%s.kmkv", name, name);
+	PlatformReadFileResult animFile = PlatformReadFile(thread, &allocator, filePath);
+	if (!animFile.data) {
+		LOG_ERROR("Failed to open animation file at: %s\n", filePath);
+		return false;
+	}
+
+	return true;
+}
+
 bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 	AnimatedSprite& outAnimatedSprite, MemoryBlock transient)
 {

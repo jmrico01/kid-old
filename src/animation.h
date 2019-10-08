@@ -31,6 +31,8 @@ struct AnimatedSprite
     HashTable<Animation> animations;
     HashKey startAnimation;
 	Vec2Int textureSize;
+
+    bool Load(const ThreadContext* thread, const char* name, const MemoryBlock* transient);
 };
 
 struct AnimatedSpriteInstance
