@@ -1,7 +1,7 @@
 @echo off
 
-SET cloc_path="C:\Users\RicoJose\Documents\dev-other\cloc\cloc-1.82.exe"
-REM SET cloc_path="D:\Development\cloc\cloc-1.82.exe"
+REM SET cloc_path="C:\Users\RicoJose\Documents\dev-other\cloc\cloc-1.82.exe"
+SET cloc_path="D:\Development\cloc\cloc-1.82.exe"
 
 %cloc_path% ^
 	--by-file ^
