@@ -1049,7 +1049,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		testPanel.End();
 	}
 
-/*
 #if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
@@ -1434,7 +1433,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 	DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
 #endif
-*/
 
 #if GAME_SLOW
 	// Catch-all site for OpenGL errors

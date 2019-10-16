@@ -17,13 +17,6 @@ DEPLOY_FILES = [
 ]
 
 LIBS_EXTERNAL = [
-	LibExternal("libclang", "libclang-9.0.0", {
-		"debug":   "libclang.lib",
-		"release": "libclang.lib"
-	}, {
-		"debug":   "libclang.dll",
-		"release": "libclang.dll"
-	}),
 	LibExternal("freetype", "freetype-2.8.1", {
 		"debug":   "freetype281MTd.lib",
 		"release": "freetype281MT.lib"
