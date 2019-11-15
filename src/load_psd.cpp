@@ -272,8 +272,45 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 	int32 imageResourcesLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
-	// TODO nothing here for now
-	parsedBytes += imageResourcesLength;
+	uint64 imageResourcesStart = parsedBytes;
+	if (imageResourcesLength > 0) {
+		while (parsedBytes - imageResourcesStart < imageResourcesLength) {
+			LOG_INFO("%d\n", parsedBytes);
+			MemCopy(signature, &psdData[parsedBytes], 4);
+			parsedBytes += 4;
+			if (signature[0] != '8' || signature[1] != 'B'
+			|| signature[2] != 'I' || signature[3] != 'M') {
+				LOG_ERROR("Invalid image resource signature (8BIM) on file %s\n", filePath);
+				return false;
+			}
+			uint16 resourceId = ReadBigEndianInt16(&psdData[parsedBytes]);
+			parsedBytes += 2;
+
+			FixedArray<char, 256> resourceName;
+			resourceName.Init();
+			uint8 nameLength = psdData[parsedBytes++];
+			MemCopy(resourceName.array.data, &psdData[parsedBytes], nameLength);
+			resourceName.array.size = nameLength;
+			if (nameLength % 2 == 0) {
+				// Entire Pascal string is even size, so nameLength is always odd
+				nameLength += 1;
+			}
+			parsedBytes += nameLength;
+
+			int32 dataSize = ReadBigEndianInt32(&psdData[parsedBytes]);
+			parsedBytes += 4;
+
+			if (resourceId == 0x0433) {
+				// TODO timeline information
+			}
+
+			if (dataSize % 2 == 1) {
+				dataSize += 1;
+			}
+			parsedBytes += dataSize;
+		}
+	}
+	parsedBytes = imageResourcesStart + imageResourcesLength;
 
 	int32 layerAndMaskInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
