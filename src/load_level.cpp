@@ -213,7 +213,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				return false;
 			}
 			ImageData imageAlpha;
-			if (!psdFile.LoadLayerImageData(i, &allocator, LAYER_CHANNEL_ALPHA, &imageAlpha)) {
+			if (!psdFile.LoadLayerImageData(i, &allocator, LayerChannelID::ALPHA, &imageAlpha)) {
 				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
 					layer.name.array.size, layer.name.array.data, filePath);
 				return false;
@@ -256,7 +256,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		sprites.array.size++;
 		TextureWithPosition& sprite = sprites[sprites.array.size - 1];
 
-		if (!psdFile.LoadLayerTextureGL(i, &allocator, LAYER_CHANNEL_ALL,
+		if (!psdFile.LoadLayerTextureGL(i, &allocator, LayerChannelID::ALL,
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &sprite.texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
 				layer.name.array.size, layer.name.array.data, filePath);

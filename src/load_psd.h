@@ -6,20 +6,20 @@
 #define PSD_MAX_LAYERS 64
 #define PSD_LAYER_NAME_MAX_LENGTH 256
 
-enum LayerBlendMode
+enum class LayerBlendMode
 {
-	LAYER_BLEND_MODE_NORMAL,
-	LAYER_BLEND_MODE_MULTIPLY
+	NORMAL,
+	MULTIPLY
 };
 
-enum LayerChannelID
+enum class LayerChannelID
 {
-	LAYER_CHANNEL_RED   = 0,
-	LAYER_CHANNEL_GREEN = 1,
-	LAYER_CHANNEL_BLUE  = 2,
-	LAYER_CHANNEL_ALPHA = 3,
+	RED   = 0,
+	GREEN = 1,
+	BLUE  = 2,
+	ALPHA = 3,
 
-	LAYER_CHANNEL_ALL
+	ALL
 };
 
 struct LayerChannelInfo
