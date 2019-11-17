@@ -747,6 +747,17 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		LOG_INFO("Initialized global variables\n");
 	}
 
+	// TODO debug only
+	static bool testingOneTimeThing = true;
+	if (testingOneTimeThing) {
+		if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
+			DEBUG_PANIC("Failed to load kid animation sprite\n");
+		}
+		LOG_FLUSH();
+		testingOneTimeThing = false;
+	}
+	return;
+
 	if (!memory->isInitialized) {
 		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
 
@@ -897,9 +908,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->spriteKid, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
-		if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
-			DEBUG_PANIC("Failed to load kid animation sprite\n");
-		}
+		// if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
+		// 	DEBUG_PANIC("Failed to load kid animation sprite\n");
+		// }
 
 		gameState->kid.animatedSprite = &gameState->spriteKid;
 		gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
