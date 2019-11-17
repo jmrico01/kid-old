@@ -4,6 +4,8 @@
 
 #define PSD_COLOR_MODE_RGB 3
 
+static const uint64 STRING_MAX_SIZE = 1024;
+
 enum class PsdCompression
 {
 	RAW      = 0,
@@ -12,17 +14,228 @@ enum class PsdCompression
 
 enum class PsdImageResource
 {
-	TIMELINE = 0x0433
+	LAYER_STATE             = 0x0400,
+	LAYER_GROUPS            = 0x0402,
+	GRID_AND_GUIDES         = 0x0408,
+	SLICES                  = 0x041A,
+	URL_LIST                = 0x041E,
+	LAYER_COMPS             = 0x0429,
+	LAYER_SELECTION_IDS     = 0x042D,
+	LAYER_GROUPS_ENABLED_ID = 0x0430,
+	MEASUREMENT_SCALE       = 0x0432,
+	TIMELINE                = 0x0433,
+	SHEET_DISCLOSURE        = 0x0434,
+	ONION_SKINS             = 0x0436,
+	COUNT_INFO              = 0x0438,
+	PRINT_INFO              = 0x043A,
+	PRINT_STYLE             = 0x043B,
+	PATH_SELECTION_STATE    = 0x0440,
+	ORIGIN_PATH_INFO        = 0x0BB8
 };
 
 internal int16 ReadBigEndianInt16(const uint8 bigEndian[2])
 {
 	return ((int16)bigEndian[0] << 8) + bigEndian[1];
 }
+internal int16 ReadBigEndianInt16(const char bigEndian[2])
+{
+	return ReadBigEndianInt16((const uint8*)bigEndian);
+}
 
 internal int32 ReadBigEndianInt32(const uint8 bigEndian[4])
 {
 	return ((int32)bigEndian[0] << 24) + (bigEndian[1] << 16) + (bigEndian[2] << 8) + bigEndian[3];
+}
+internal int32 ReadBigEndianInt32(const char bigEndian[4])
+{
+	return ReadBigEndianInt32((const uint8*)bigEndian);
+}
+
+internal bool ReadUnicodeString(const Array<char>& string,
+	FixedArray<char, STRING_MAX_SIZE>* outString, uint64* outParsedBytes)
+{
+	uint64 parsedBytes = 0;
+	int32 stringLength = ReadBigEndianInt32(&string[parsedBytes]);
+	parsedBytes += 4;
+	if (stringLength > STRING_MAX_SIZE) {
+		LOG_ERROR("unicode string too long (%d, max %d)\n", stringLength, STRING_MAX_SIZE);
+		return false;
+	}
+	outString->array.size = stringLength;
+	for (uint64 c = 0; c < outString->array.size; c++) {
+		int16 unicodeChar = ReadBigEndianInt16(&string[parsedBytes]);
+		parsedBytes += 2;
+		(*outString)[c] = (char)unicodeChar;
+	}
+
+	*outParsedBytes = parsedBytes;
+	return true;
+}
+
+struct PsdDescriptorItem
+{
+	FixedArray<char, 4> type;
+	// stuff per type
+
+	bool Load(const Array<char>& string, uint64* outParsedBytes);
+};
+
+struct PsdDescriptor
+{
+	static const uint64 MAX_ITEMS = 64;
+
+	FixedArray<char, STRING_MAX_SIZE> name;
+	FixedArray<char, STRING_MAX_SIZE> classIdString;
+	int32 classId;
+	FixedArray<PsdDescriptorItem, MAX_ITEMS> items;
+
+	bool Load(const Array<char>& string, uint64* outParsedBytes)
+	{
+		uint64 parsedBytes = 0;
+
+		name.Init();
+		uint64 nameBytes;
+		if (!ReadUnicodeString(string.Slice(parsedBytes, string.size), &name, &nameBytes)) {
+			LOG_ERROR("Failed to parse descriptor name\n");
+			return false;
+		}
+		parsedBytes += nameBytes;
+
+		classIdString.Init();
+		uint64 classIdBytes;
+		if (!ReadUnicodeString(string.Slice(parsedBytes, string.size), &classIdString, &classIdBytes)) {
+			LOG_ERROR("Failed to parse class ID string\n");
+			return false;
+		}
+		parsedBytes += classIdBytes;
+		if (classIdString.array.size == 0) {
+			classId = ReadBigEndianInt32(&string[parsedBytes]);
+			parsedBytes += 4;
+		}
+
+		int32 descriptorItems = ReadBigEndianInt32(&string[parsedBytes]);
+		parsedBytes += 4;
+		items.Init();
+		items.array.size = descriptorItems;
+		for (uint64 i = 0; i < items.array.size; i++) {
+			int32 keyLength = ReadBigEndianInt32(&string[parsedBytes]);
+			parsedBytes += 4;
+			if (keyLength > STRING_MAX_SIZE) {
+				LOG_ERROR("key string too big (%d, max is %d)\n", keyLength, STRING_MAX_SIZE);
+				return false;
+			}
+			FixedArray<char, STRING_MAX_SIZE> keyString;
+			keyString.Init();
+			keyString.array.size = keyLength;
+			if (keyLength != 0) {
+				MemCopy(keyString.array.data, &string[parsedBytes], keyLength);
+				parsedBytes += keyLength;
+				LOG_INFO("item key string %.*s\n", keyString.array.size, keyString.array.data);
+			}
+			else {
+				int32 keyInt = ReadBigEndianInt32(&string[parsedBytes]);
+				parsedBytes += 4;
+				LOG_INFO("item key int %d\n", keyInt);
+			}
+
+			Array<char> itemString = string.Slice(parsedBytes, string.size);
+			uint64 itemBytes;
+			if (!items[i].Load(itemString, &itemBytes)) {
+				LOG_ERROR("Failed to load descriptor item %d\n", i);
+				return false;
+			}
+			parsedBytes += itemBytes;
+		}
+
+		*outParsedBytes = parsedBytes;
+		return true;
+	}
+};
+
+bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
+{
+	uint64 parsedBytes = 0;
+
+	type.Init();
+	type.array.size = 4;
+	MemCopy(type.array.data, &string[parsedBytes], 4);
+	parsedBytes += 4;
+	// (StringCompare(type.array, "obj ")) {
+	// }
+	if (StringCompare(type.array, "Objc")) {
+		Array<char> descriptorString = string.Slice(parsedBytes, string.size);
+		PsdDescriptor descriptor;
+		uint64 descriptorBytes;
+		LOG_INFO("descriptor {\n");
+		if (!descriptor.Load(descriptorString, &descriptorBytes)) {
+			LOG_ERROR("failed to load descriptor in item\n");
+			return false;
+		}
+		LOG_INFO("}\n");
+		parsedBytes += descriptorBytes;
+	}
+	else if (StringCompare(type.array, "VlLs")) {
+		int32 listLength = ReadBigEndianInt32(&string[parsedBytes]);
+		parsedBytes += 4;
+		for (int32 i = 0; i < listLength; i++) {
+			Array<char> listItemString = string.Slice(parsedBytes, string.size);
+			PsdDescriptorItem listItem;
+			uint64 listItemBytes;
+			if (!listItem.Load(listItemString, &listItemBytes)) {
+				LOG_ERROR("failed to load item in list\n");
+				return false;
+			}
+			parsedBytes += listItemBytes;
+		}
+	}
+	else if (StringCompare(type.array, "doub")) {
+		double doub = *((double*)&string[parsedBytes]);
+		parsedBytes += 8;
+		LOG_INFO("double %f\n", doub);
+	}
+	// else if (StringCompare(type.array, "UntF")) {
+	// }
+	else if (StringCompare(type.array, "TEXT")) {
+		FixedArray<char, STRING_MAX_SIZE> stringData;
+		stringData.Init();
+		uint64 stringBytes;
+		if (!ReadUnicodeString(string.Slice(parsedBytes, string.size), &stringData, &stringBytes)) {
+			LOG_ERROR("Failed to parse string in descriptor\n");
+			return false;
+		}
+		parsedBytes += stringBytes;
+		LOG_INFO("string %.*s\n", stringData.array.size, stringData.array.data);
+	}
+	// else if (StringCompare(type.array, "enum")) {
+	// }
+	else if (StringCompare(type.array, "long")) {
+		int32 integer = ReadBigEndianInt32(&string[parsedBytes]);
+		parsedBytes += 4;
+		LOG_INFO("integer %d\n", integer);
+	}
+	// else if (StringCompare(type.array, "comp")) {
+	// }
+	else if (StringCompare(type.array, "bool")) {
+		uint8 boolean = string[parsedBytes++];
+		LOG_INFO("boolean %d\n", boolean);
+	}
+	// else if (StringCompare(type.array, "GlbO")) {
+	// }
+	// else if (StringCompare(type.array, "type")) {
+	// }
+	// else if (StringCompare(type.array, "GlbC")) {
+	// }
+	// else if (StringCompare(type.array, "alis")) {
+	// }
+	// else if (StringCompare(type.array, "tdta")) {
+	// }
+	else {
+		LOG_ERROR("Unhandled descriptor type %.*s\n", type.array.size, type.array.data);
+		return false;
+	}
+
+	*outParsedBytes = parsedBytes;
+	return true;
 }
 
 internal void ReadRawData(const uint8* inData, int width, int height,
@@ -132,7 +345,10 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerC
 		return false;
 	}
 
-	const uint8* psdData = (uint8*)file.data;
+	const Array<char> psdData = {
+		.size = file.size,
+		.data = (char*)file.data
+	};
 	uint64 psdDataIndex = layerInfo.dataStart;
 
 	for (uint8 c = 0; c < layerInfo.channels.array.size; c++) {
@@ -147,7 +363,8 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerC
 		}
 
 		int16 compression = ReadBigEndianInt16(&psdData[psdDataIndex]);
-		const uint8* layerImageData = &psdData[psdDataIndex + 2];
+		// TODO hmm
+		const uint8* layerImageData = (uint8*)&psdData[psdDataIndex + 2];
 		psdDataIndex += layerChannelInfo.dataSize;
 
 		switch (compression) {
@@ -223,7 +440,10 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 		LOG_ERROR("Failed to open PSD file at: %s\n", filePath);
 		return false;
 	}
-	const uint8* psdData = (uint8*)outPsdFile->file.data;
+	const Array<char> psdData = {
+		.size = outPsdFile->file.size,
+		.data = (char*)outPsdFile->file.data
+	};
 	uint64 parsedBytes = 0;
 
 	uint8 signature[4];
@@ -308,119 +528,133 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 			uint64 resourceStart = parsedBytes;
 			switch (resourceId) {
-				case PsdImageResource::TIMELINE: {
+				case PsdImageResource::LAYER_GROUPS: {
+				} break;
+				case PsdImageResource::SLICES: {
+					int32 slicesVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
+					parsedBytes += 4;
+					if (slicesVersion == 6) {
+						parsedBytes += 4 * 4;
+						FixedArray<char, STRING_MAX_SIZE> slicesName;
+						slicesName.Init();
+						uint64 slicesNameBytes;
+						if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size), &slicesName, &slicesNameBytes)) {
+							LOG_ERROR("Failed to read slices name\n");
+							return false;
+						}
+						parsedBytes += slicesNameBytes;
+						int32 numSlices = ReadBigEndianInt32(&psdData[parsedBytes]);
+						parsedBytes += 4;
+						LOG_INFO("slice group %.*s (%d slices)\n",
+							slicesName.array.size, slicesName.array.data, numSlices);
+						for (int32 s = 0; s < numSlices; s++) {
+							int32 sliceId = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+							int32 groupId = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+							int32 sliceOrigin = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+							if (sliceOrigin == 1) {
+								//int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
+								parsedBytes += 4;
+							}
+							FixedArray<char, STRING_MAX_SIZE> sliceString;
+							sliceString.Init();
+							uint64 sliceStringBytes;
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice name\n");
+								return false;
+							}
+							parsedBytes += sliceStringBytes;
+							int32 sliceType = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+							parsedBytes += 4 * 4;
+							LOG_INFO("slice id %d group %d origin %d name %.*s type %d\n",
+								sliceId, groupId, sliceOrigin,
+								sliceString.array.size, sliceString.array.data,
+								sliceType);
+
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice URL\n");
+								return false;
+							}
+							LOG_INFO("URL %.*s\n", sliceString.array.size, sliceString.array.data);
+							parsedBytes += sliceStringBytes;
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice target\n");
+								return false;
+							}
+							LOG_INFO("target %.*s\n", sliceString.array.size, sliceString.array.data);
+							parsedBytes += sliceStringBytes;
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice message\n");
+								return false;
+							}
+							LOG_INFO("message %.*s\n", sliceString.array.size, sliceString.array.data);
+							parsedBytes += sliceStringBytes;
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice alt tag\n");
+								return false;
+							}
+							LOG_INFO("alt tag %.*s\n", sliceString.array.size, sliceString.array.data);
+							parsedBytes += sliceStringBytes;
+
+							uint8 isHtml = psdData[parsedBytes++];
+							if (isHtml) {
+								LOG_INFO("text is HTML\n");
+							}
+							if (!ReadUnicodeString(psdData.Slice(parsedBytes, psdData.size),
+							&sliceString, &sliceStringBytes)) {
+								LOG_ERROR("Failed to read slice text\n");
+								return false;
+							}
+							LOG_INFO("text %.*s\n", sliceString.array.size, sliceString.array.data);
+							parsedBytes += sliceStringBytes;
+						}
+						break;
+					}
+					else if (slicesVersion == 7 || slicesVersion == 8) {
+						// fall-through to cases below
+					}
+					else {
+						LOG_ERROR("Invalid slices version %d in %s\n", slicesVersion, filePath);
+						return false;
+					}
+				} // intentional fall-through
+				case PsdImageResource::LAYER_COMPS:
+				case PsdImageResource::MEASUREMENT_SCALE:
+				case PsdImageResource::TIMELINE:
+				case PsdImageResource::SHEET_DISCLOSURE:
+				case PsdImageResource::ONION_SKINS:
+				case PsdImageResource::COUNT_INFO:
+				// case PsdImageResource::PRINT_INFO:
+				// case PsdImageResource::PRINT_STYLE:
+				case PsdImageResource::PATH_SELECTION_STATE:
+				case PsdImageResource::ORIGIN_PATH_INFO: {
+					LOG_INFO("PSD %x info for %s\n", resourceId, filePath);
 					int32 descriptorVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					if (descriptorVersion != 16) {
-						LOG_ERROR("descriptorVersion for timeline not 16 %s\n", filePath);
+						LOG_ERROR("descriptorVersion for %x not 16 %s\n", resourceId, filePath);
 						return false;
 					}
-					int32 stringLength = ReadBigEndianInt32(&psdData[parsedBytes]);
-					parsedBytes += 4;
-					FixedArray<char, 256> string;
-					string.Init();
-					string.array.size = 0;
-					for (int32 c = 0; c < stringLength; c++) {
-						int16 unicodeChar = ReadBigEndianInt16(&psdData[parsedBytes]);
-						parsedBytes += 2;
-						string.Append((char)unicodeChar);
-					}
-					LOG_INFO("timeline %.*s | %s\n", string.array.size, string.array.data,
-						filePath);
 
-					int32 classIdLength = ReadBigEndianInt32(&psdData[parsedBytes]);
-					parsedBytes += 4;
-					LOG_INFO("class ID length %d\n", classIdLength);
-					if (classIdLength != 0) {
-						FixedArray<char, 256> classString;
-						classString.Init();
-						classString.array.size = 0;
-						for (int32 c = 0; c < classIdLength; c++) {
-							int16 unicodeChar = ReadBigEndianInt16(&psdData[parsedBytes]);
-							parsedBytes += 2;
-							classString.Append((char)unicodeChar);
-						}
-						LOG_INFO("class name %.*s\n", classString.array.size, classString.array.data);
+					PsdDescriptor descriptor;
+					uint64 descriptorBytes;
+					Array<char> dataString = psdData.Slice(parsedBytes, psdData.size);
+					if (!descriptor.Load(dataString, &descriptorBytes)) {
+						LOG_ERROR("Failed to parse descriptor for %s\n", filePath);
+						return false;
 					}
-					else {
-						int32 classId = ReadBigEndianInt32(&psdData[parsedBytes]);
-						parsedBytes += 4;
-						LOG_INFO("class ID %d\n", classId);
-					}
-
-					int32 descriptorItems = ReadBigEndianInt32(&psdData[parsedBytes]);
-					parsedBytes += 4;
-					for (int32 i = 0; i < descriptorItems; i++) {
-						int32 itemLength = ReadBigEndianInt32(&psdData[parsedBytes]);
-						parsedBytes += 4;
-						LOG_INFO("item length %d\n", itemLength);
-						if (itemLength != 0) {
-							FixedArray<char, 256> itemString;
-							itemString.Init();
-							itemString.array.size = 0;
-							if (itemLength > 256) {
-								LOG_ERROR("item string too big %s\n", filePath);
-								return false;
-							}
-							MemCopy(itemString.array.data, &psdData[parsedBytes], itemLength);
-							parsedBytes += itemLength;
-							LOG_INFO("item name %.*s\n", itemString.array.size, itemString.array.data);
-						}
-						else {
-							int32 itemKey = ReadBigEndianInt32(&psdData[parsedBytes]);
-							parsedBytes += 4;
-							LOG_INFO("item key %d\n", itemKey);
-						}
-
-						FixedArray<char, 4> key;
-						key.Init();
-						key.array.size = 4;
-						MemCopy(key.array.data, &psdData[parsedBytes], 4);
-						parsedBytes += 4;
-						LOG_INFO("%.*s\n", key.array.size, key.array.data);
-						if (StringCompare(key.array, "obj ")) {
-							// oh... ugh
-						}
-						else if (StringCompare(key.array, "Objc")) {
-							// U G H
-						}
-						else if (StringCompare(key.array, "VlLs")) {
-						}
-						else if (StringCompare(key.array, "doub")) {
-						}
-						else if (StringCompare(key.array, "UntF")) {
-						}
-						else if (StringCompare(key.array, "TEXT")) {
-						}
-						else if (StringCompare(key.array, "enum")) {
-						}
-						else if (StringCompare(key.array, "long")) {
-							int32 integer = ReadBigEndianInt32(&psdData[parsedBytes]);
-							parsedBytes += 4;
-							LOG_INFO("integer data %d\n", integer);
-						}
-						else if (StringCompare(key.array, "comp")) {
-						}
-						else if (StringCompare(key.array, "bool")) {
-							uint8 boolean = psdData[parsedBytes++];
-							LOG_INFO("boolean data %d\n", boolean);
-						}
-						else if (StringCompare(key.array, "GlbO")) {
-						}
-						else if (StringCompare(key.array, "type")) {
-						}
-						else if (StringCompare(key.array, "GlbC")) {
-						}
-						else if (StringCompare(key.array, "alis")) {
-						}
-						else if (StringCompare(key.array, "tdta")) {
-						}
-						else {
-							LOG_ERROR("Unhandled descriptor key %.*s in %s\n",
-								key.array.size, key.array.data, filePath);
-							return false;
-						}
-					}
+				} break;
+				default: {
+					// Uncomment for reverse engineering purposes
+					// LOG_INFO("Unhandled resource ID %x\n", resourceId);
 				} break;
 			}
 

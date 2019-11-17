@@ -463,12 +463,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	if (wasInteractKeyPressed) {
 		if (gameState->liftedObject.spritePtr == nullptr) {
-			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites =
-				levelData.sprites;
+			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites = levelData.sprites;
 			TextureWithPosition* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
 			for (uint64 i = 0; i < sprites.array.size; i++) {
-				TextureWithPosition* sprite = &sprites.array.data[i];
+				TextureWithPosition* sprite = const_cast<TextureWithPosition*>(&sprites[i]);
 				if (sprite->type != SPRITE_OBJECT) {
 					continue;
 				}
@@ -632,7 +631,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	{ // level sprites
 		for (uint64 i = 0; i < levelData.sprites.array.size; i++) {
-			TextureWithPosition* sprite = &levelData.sprites.array.data[i];
+			const TextureWithPosition* sprite = &levelData.sprites[i];
 			Vec2 pos;
 			Quat baseRot;
 			Quat rot;
