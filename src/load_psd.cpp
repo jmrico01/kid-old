@@ -536,8 +536,6 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 		uint64 resourceStart = parsedBytes;
 		switch (resourceId) {
-			case PsdImageResource::LAYER_GROUPS: {
-			} break;
 			case PsdImageResource::SLICES: {
 				int32 slicesVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
 				parsedBytes += 4;
@@ -814,12 +812,45 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					}
 					int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
+					LOG_INFO("layer \"%.*s\" ID: %d\n",
+						layerInfo.name.array.size, layerInfo.name.array.data, layerId);
+				}
+				else if (StringCompare(key.array, "lsct")) {
+					// section divider
+					int32 sectionDividerType = ReadBigEndianInt32(&psdData[parsedBytes]);
+					parsedBytes += 4;
+					// wow, nice... learned a lot about PSDs :/
+					// TODO 3 is layer group end, 1 or 2 is layer group start
+					switch (sectionDividerType) {
+						case 1: {
+							LOG_INFO("open folder\n");
+						} break;
+						case 2: {
+							LOG_INFO("closed folder\n");
+						} break;
+						case 3: {
+							LOG_INFO("bounding section divider, hidden in the UI\n");
+						} break;
+					}
+					if (addLayerInfoLength >= 12) {
+						signature = psdData.Slice(parsedBytes, parsedBytes + 4);
+						parsedBytes += 4;
+						if (!StringCompare(signature, "8BIM")) {
+							LOG_ERROR("Invalid section divider signature %.*s, expected 8BIM, file %s\n",
+								signature.size, signature.data, filePath);
+							return false;
+						}
+						const Array<char> dividerBlendModeKey = psdData.Slice(parsedBytes, parsedBytes + 4);
+						parsedBytes += 4;
+						if (addLayerInfoLength >= 16) {
+							int32 subType = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+						}
+					}
 				}
 				else if (StringCompare(key.array, "shmd")) {
 					int32 itemCount = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
-					LOG_INFO("layer \"%.*s\" shmd, %d items:\n",
-						layerInfo.name.array.size, layerInfo.name.array.data, itemCount);
 					for (int32 i = 0; i < itemCount; i++) {
 						signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 						parsedBytes += 4;
@@ -832,13 +863,19 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 						LOG_INFO("%.*s key %.*s cosd %d length %d, at %x\n",
 							signature.size, signature.data, metadataKey.size, metadataKey.data,
 							copyOnSheetDuplication, metadataLength, parsedBytes);
+						uint64 metadataStart = parsedBytes;
 
 						if (!StringCompare(signature, "8BIM")) {
 							// idk, spooky? skip!
 						}
 						else if (StringCompare(metadataKey, "tmln")) {
-							LOG_INFO("taking a big guess here. tmln descriptor:\n");
-							parsedBytes += 4; // there's a small number here, ~16 or something, not sure what it means yet
+							int32 descriptorVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
+							parsedBytes += 4;
+							if (descriptorVersion != 16) {
+								LOG_ERROR("tmln descriptor version %d, expected 16, file %s\n",
+									descriptorVersion, filePath);
+								return false;
+							}
 							PsdDescriptor descriptor;
 							uint64 descriptorBytes;
 							if (!descriptor.Load(psdData.SliceFrom(parsedBytes), &descriptorBytes)) {
@@ -846,10 +883,9 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 								return false;
 							}
 							parsedBytes += descriptorBytes;
-							LOG_INFO("parsed tmln as descriptor! WOOHOO! at %x\n", parsedBytes);
+							// TODO get that juicy animation timing information
 						}
-						// NOTE undocumented data here
-						parsedBytes += metadataLength; // TODO shouldn't do this anymore
+						parsedBytes = metadataStart + metadataLength;
 					}
 				}
 				else {
@@ -857,12 +893,6 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					// 	layerInfo.name.array.size, layerInfo.name.array.data,
 					// 	key[0], key[1], key[2], key[3]);
 				}
-/*
-luni (32 | 108/776)
-layer </Layer group> additional info lclr (8 | 192/776)
-layer </Layer group> additional info shmd (544 | 748/776)
-layer </Layer group> additional info fxrp (16 | 776/776)
-*/
 				parsedBytes = addLayerInfoStart + addLayerInfoLength;
 			}
 
