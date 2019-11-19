@@ -37,7 +37,7 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nex
 					break;
 				}
 				
-				int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
+				const int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
 				if (exitToFrame != nullptr) {
 					//Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
 					animTransition = true;
@@ -79,7 +79,7 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nex
 void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool32 flipHorizontal) const
 {
-	Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
+	const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
 	Vec2 animAnchor = anchor;
 	if (activeAnim->rootMotion) {
 		animAnchor = activeAnim->frameRootAnchor[activeFrame];
@@ -391,7 +391,7 @@ bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
 					continue;
 				}
 
-				int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
+				const int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
 				if (exitToFrame != nullptr && *exitToFrame >= 0) {
 					/* LOG_INFO("Animation transition: %.*s (%d) -> %.*s (%d)\n",
 						animKey->length, animKey->string, f,
