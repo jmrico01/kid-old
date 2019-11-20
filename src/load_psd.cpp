@@ -147,7 +147,6 @@ struct PsdDescriptor
 			}
 			keyString.WriteString(string.Slice(parsedBytes, parsedBytes + keyLength));
 			parsedBytes += keyLength;
-			LOG_INFO("key %.*s\n", keyString.string.array.size, keyString.string.array.data);
 
 			PsdDescriptorItem item;
 			uint64 itemBytes;
@@ -163,6 +162,37 @@ struct PsdDescriptor
 		*outParsedBytes = parsedBytes;
 		return true;
 	}
+
+	template <typename T>
+	const T* GetItemValue(const char* key) const;
+
+	template <>
+	const int32* GetItemValue<int32>(const char* key) const
+	{
+		const HashKey hashKey(key);
+		const PsdDescriptorItem* item = items.GetValue(hashKey);
+		if (item == nullptr) {
+			return nullptr;
+		}
+		if (item->type != PsdDescriptorItemType::INTEGER) {
+			return nullptr;
+		}
+		return &item->integer;
+	}
+
+	template <>
+	const PsdDescriptor* GetItemValue<PsdDescriptor>(const char* key) const
+	{
+		const HashKey hashKey(key);
+		const PsdDescriptorItem* item = items.GetValue(hashKey);
+		if (item == nullptr) {
+			return nullptr;
+		}
+		if (item->type != PsdDescriptorItemType::DESCRIPTOR) {
+			return nullptr;
+		}
+		return item->descriptorPtr;
+	}
 };
 
 bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
@@ -175,12 +205,10 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 		type = PsdDescriptorItemType::DESCRIPTOR;
 		descriptorPtr = new PsdDescriptor();
 		uint64 descriptorBytes;
-		LOG_INFO("descriptor {\n");
 		if (!descriptorPtr->Load(string.SliceFrom(parsedBytes), &descriptorBytes)) {
 			LOG_ERROR("failed to load descriptor in item\n");
 			return false;
 		}
-		LOG_INFO("}\n");
 		parsedBytes += descriptorBytes;
 	}
 	else if (StringCompare(typeString, "VlLs")) {
@@ -201,7 +229,6 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 		type = PsdDescriptorItemType::OTHER;
 		double doub = *((double*)&string[parsedBytes]);
 		parsedBytes += 8;
-		LOG_INFO("double %f\n", doub);
 	}
 	else if (StringCompare(typeString, "TEXT")) {
 		type = PsdDescriptorItemType::OTHER;
@@ -213,18 +240,15 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 			return false;
 		}
 		parsedBytes += stringBytes;
-		LOG_INFO("string %.*s\n", stringData.array.size, stringData.array.data);
 	}
 	else if (StringCompare(typeString, "long")) {
 		type = PsdDescriptorItemType::INTEGER;
 		integer = ReadBigEndianInt32(&string[parsedBytes]);
 		parsedBytes += 4;
-		LOG_INFO("integer %d\n", integer);
 	}
 	else if (StringCompare(typeString, "bool")) {
 		type = PsdDescriptorItemType::OTHER;
 		uint8 boolean = string[parsedBytes++];
-		LOG_INFO("boolean %d\n", boolean);
 	}
 	else {
 		type = PsdDescriptorItemType::OTHER;
@@ -236,27 +260,14 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	return true;
 }
 
-bool GetDoubleFromFractionDescriptor(const PsdDescriptor* descriptor, double* outValue)
+internal bool GetFractionDescriptorValue(const PsdDescriptor& descriptor, double* outValue)
 {
-	const HashKey numeratorKey("numerator");
-	const PsdDescriptorItem* numeratorItem = descriptor->items.GetValue(numeratorKey);
-	if (numeratorItem == nullptr) {
+	const int32* numerator = descriptor.GetItemValue<int32>("numerator");
+	const int32* denominator = descriptor.GetItemValue<int32>("denominator");
+	if (numerator == nullptr || denominator == nullptr || *denominator == 0) {
 		return false;
 	}
-	if (numeratorItem->type != PsdDescriptorItemType::INTEGER) {
-		return false;
-	}
-
-	const HashKey denominatorKey("denominator");
-	const PsdDescriptorItem* denominatorItem = descriptor->items.GetValue(denominatorKey);
-	if (denominatorItem == nullptr) {
-		return false;
-	}
-	if (denominatorItem->type != PsdDescriptorItemType::INTEGER) {
-		return false;
-	}
-
-	*outValue = (double)numeratorItem->integer / (double)denominatorItem->integer;
+	*outValue = (double)(*numerator) / (double)(*denominator);
 	return true;
 }
 
@@ -607,6 +618,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 		for (uint64 layerIndex = 0; layerIndex < outPsdFile->layers.array.size; layerIndex++) {
 			PsdLayerInfo& layerInfo = outPsdFile->layers[layerIndex];
+			layerInfo.inTimeline = false;
 			layerInfo.name.Init();
 			layerInfo.channels.Init();
 
@@ -739,8 +751,6 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					}
 					int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
-					LOG_INFO("layer \"%.*s\" ID: %d\n",
-						layerInfo.name.array.size, layerInfo.name.array.data, layerId);
 				}
 				else if (StringCompare(key.array, "lsct")) {
 					int32 sectionDividerType = ReadBigEndianInt32(&psdData[parsedBytes]);
@@ -798,38 +808,52 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 							}
 							parsedBytes += descriptorBytes;
 
-							const HashKey timeScopeKey("timeScope");
-							const PsdDescriptorItem* timeScopeItem = descriptor.items.GetValue(timeScopeKey);
-							if (timeScopeItem == nullptr) {
-								LOG_ERROR("No timeScope in tmln descriptor\n");
+							const PsdDescriptor* timeScope = descriptor.GetItemValue<PsdDescriptor>("timeScope");
+							if (timeScope == nullptr) {
+								LOG_ERROR("Failed to get timeScope in tmln descriptor\n");
 								return false;
 							}
-							if (timeScopeItem->type != PsdDescriptorItemType::DESCRIPTOR) {
-								LOG_ERROR("timeScope in tmln descriptor not of type descriptor\n");
-								return false;
-							}
-							const PsdDescriptor* timeScope = timeScopeItem->descriptorPtr;
 
-							const HashKey timeStartKey("Strt");
-							const PsdDescriptorItem* timeStartItem = timeScope->items.GetValue(timeStartKey);
-							if (timeStartItem == nullptr) {
-								LOG_ERROR("No time start in timeScope for tmln descriptor\n");
+							const PsdDescriptor* timeStart = timeScope->GetItemValue<PsdDescriptor>("Strt");
+							if (timeStart == nullptr) {
+								LOG_ERROR("Failed to get Strt in timeScope for tmln descriptor\n");
 								return false;
 							}
-							if (timeStartItem->type != PsdDescriptorItemType::DESCRIPTOR) {
-								LOG_ERROR("time start in timeScope for tmln descriptor not of type descriptor\n");
+							double startValue;
+							if (!GetFractionDescriptorValue(*timeStart, &startValue)) {
+								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
 								return false;
 							}
-							const PsdDescriptor* timeStart = timeStartItem->descriptorPtr;
+							layerInfo.timelineStart = startValue;
 
-							double start;
-							if (!GetDoubleFromFractionDescriptor(timeStart, &start)) {
-								LOG_ERROR("Failed to get double from time start fraction descriptor\n");
+							const PsdDescriptor* inTime = timeScope->GetItemValue<PsdDescriptor>("inTime");
+							if (inTime == nullptr) {
+								LOG_ERROR("Failed to get inTime in timeScope for tmln descriptor\n");
 								return false;
 							}
-							LOG_INFO("start: %f\n", start);
+							double inTimeValue;
+							if (!GetFractionDescriptorValue(*inTime, &inTimeValue)) {
+								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
+								return false;
+							}
+							const PsdDescriptor* outTime = timeScope->GetItemValue<PsdDescriptor>("outTime");
+							if (outTime == nullptr) {
+								LOG_ERROR("Failed to get outTime in timeScope for tmln descriptor\n");
+								return false;
+							}
+							double outTimeValue;
+							if (!GetFractionDescriptorValue(*outTime, &outTimeValue)) {
+								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
+								return false;
+							}
 
-							// Great! now just do inTime & outTime, and we are set
+							if (inTimeValue > outTimeValue) {
+								LOG_ERROR("inTime > outTime in tmln descriptor\n");
+								return false;
+							}
+							layerInfo.timelineDuration = outTimeValue - inTimeValue;
+
+							layerInfo.inTimeline = true;
 						}
 						parsedBytes = metadataStart + metadataLength;
 					}

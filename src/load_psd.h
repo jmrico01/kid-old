@@ -38,12 +38,15 @@ struct ImageData
 struct PsdLayerInfo
 {
 	FixedArray<char, PSD_LAYER_NAME_MAX_LENGTH> name;
-	uint64 parentIndex;
 	int left, right, top, bottom;
 	FixedArray<LayerChannelInfo, PSD_CHANNELS> channels;
 	uint8 opacity;
 	LayerBlendMode blendMode;
 	bool visible;
+	uint64 parentIndex;
+	bool inTimeline;
+	double timelineStart;
+	double timelineDuration;
 	uint64 dataStart;
 };
 
