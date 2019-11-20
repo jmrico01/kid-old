@@ -227,7 +227,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	}
 	else if (StringCompare(typeString, "doub")) {
 		type = PsdDescriptorItemType::OTHER;
-		double doub = *((double*)&string[parsedBytes]);
+		// float64 doub = *((float64*)&string[parsedBytes]);
 		parsedBytes += 8;
 	}
 	else if (StringCompare(typeString, "TEXT")) {
@@ -248,7 +248,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	}
 	else if (StringCompare(typeString, "bool")) {
 		type = PsdDescriptorItemType::OTHER;
-		uint8 boolean = string[parsedBytes++];
+		parsedBytes++; // uint8 boolean = string[parsedBytes++];
 	}
 	else {
 		type = PsdDescriptorItemType::OTHER;
@@ -260,14 +260,14 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	return true;
 }
 
-internal bool GetFractionDescriptorValue(const PsdDescriptor& descriptor, double* outValue)
+internal bool GetFractionDescriptorValue(const PsdDescriptor& descriptor, float32* outValue)
 {
 	const int32* numerator = descriptor.GetItemValue<int32>("numerator");
 	const int32* denominator = descriptor.GetItemValue<int32>("denominator");
 	if (numerator == nullptr || denominator == nullptr || *denominator == 0) {
 		return false;
 	}
-	*outValue = (double)(*numerator) / (double)(*denominator);
+	*outValue = (float32)(*numerator) / (float32)(*denominator);
 	return true;
 }
 
@@ -360,7 +360,7 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 }
 
 template <typename Allocator>
-bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
+bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allocator* allocator,
 	ImageData* outImageData)
 {
 	const PsdLayerInfo& layerInfo = layers[layerIndex];
@@ -426,13 +426,79 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerC
 }
 
 template <typename Allocator>
-bool PsdFile::LoadLayerTextureGL(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL)
+bool PsdFile::LoadLayerTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
+	GLint minFilter, GLint wrapS, GLint wrapT, Allocator* allocator, TextureGL* outTextureGL)
 {
+	const auto& allocatorState = allocator->SaveState();
+	defer (allocator->LoadState(allocatorState));
+
 	ImageData imageData;
-	if (!LoadLayerImageData(layerIndex, allocator, channel, &imageData)) {
+	if (!LoadLayerImageData(layerIndex, channel, allocator, &imageData)) {
 		LOG_ERROR("Failed to load layer image data");
 		return false;
+	}
+
+	GLenum formatGL;
+	if (imageData.channels == 4) {
+		formatGL = GL_RGBA;
+	}
+	else if (imageData.channels == 3) {
+		formatGL = GL_RGB;
+	}
+	else {
+		LOG_ERROR("Unsupported layer channel number for GL: %d\n", imageData.channels);
+		return false;
+	}
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, formatGL, imageData.size.x, imageData.size.y,
+		0, formatGL, GL_UNSIGNED_BYTE, (const GLvoid*)imageData.data);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
+
+	outTextureGL->textureID = textureID;
+	outTextureGL->size = imageData.size;
+	return true;
+}
+
+template <typename Allocator>
+bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
+	GLint minFilter, GLint wrapS, GLint wrapT, Allocator* allocator, TextureGL* outTextureGL)
+{
+	const auto& allocatorState = allocator->SaveState();
+	defer (allocator->LoadState(allocatorState));
+
+	ImageData imageDataSmall;
+	if (!LoadLayerImageData(layerIndex, channel, allocator, &imageDataSmall)) {
+		LOG_ERROR("Failed to load layer image data");
+		return false;
+	}
+
+	ImageData imageData;
+	imageData.size = size;
+	imageData.channels = imageDataSmall.channels;
+	uint64 sizeLayerData = size.x * size.y * imageDataSmall.channels;
+	imageData.data = (uint8*)allocator->Allocate(sizeLayerData);
+	if (!imageData.data) {
+		LOG_ERROR("Failed to allocate memory for full-size image data\n");
+		return false;
+	}
+	const PsdLayerInfo& layerInfo = layers[layerIndex];
+	for (int y = 0; y < size.y; y++) {
+		for (int x = 0; x < size.x; x++) {
+			int outPixelIndex = (y * size.x + x) * imageData.channels;
+			if (x < layerInfo.left || x >= layerInfo.right || y < layerInfo.top || y >= layerInfo.bottom) {
+				MemSet(&imageData.data[outPixelIndex], 0, imageData.channels);
+				continue;
+			}
+
+			int inPixelIndex = ((y - layerInfo.top) * (layerInfo.right - layerInfo.left) + x - layerInfo.left) * imageData.channels;
+			MemCopy(&imageData.data[outPixelIndex], &imageDataSmall.data[inPixelIndex], imageData.channels);
+		}
 	}
 
 	GLenum formatGL;
@@ -749,7 +815,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 							addLayerInfoLength);
 						return false;
 					}
-					int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
+					// int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 				}
 				else if (StringCompare(key.array, "lsct")) {
@@ -783,7 +849,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 						parsedBytes += 4;
 						const Array<char> metadataKey = psdData.Slice(parsedBytes, parsedBytes + 4);
 						parsedBytes += 4;
-						uint8 copyOnSheetDuplication = psdData[parsedBytes++];
+						parsedBytes++; // uint8 copyOnSheetDuplication = psdData[parsedBytes++];
 						parsedBytes += 3; // padding
 						int32 metadataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 						parsedBytes += 4;
@@ -819,7 +885,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 								LOG_ERROR("Failed to get Strt in timeScope for tmln descriptor\n");
 								return false;
 							}
-							double startValue;
+							float32 startValue;
 							if (!GetFractionDescriptorValue(*timeStart, &startValue)) {
 								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
 								return false;
@@ -831,7 +897,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 								LOG_ERROR("Failed to get inTime in timeScope for tmln descriptor\n");
 								return false;
 							}
-							double inTimeValue;
+							float32 inTimeValue;
 							if (!GetFractionDescriptorValue(*inTime, &inTimeValue)) {
 								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
 								return false;
@@ -841,7 +907,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 								LOG_ERROR("Failed to get outTime in timeScope for tmln descriptor\n");
 								return false;
 							}
-							double outTimeValue;
+							float32 outTimeValue;
 							if (!GetFractionDescriptorValue(*outTime, &outTimeValue)) {
 								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
 								return false;

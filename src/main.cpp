@@ -242,11 +242,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	const LevelData& levelData = gameState->levels[gameState->activeLevel];
 
-	HashKey ANIM_IDLE("Idle");
-	HashKey ANIM_WALK("Walk");
-	HashKey ANIM_JUMP("Jump");
-	HashKey ANIM_FALL("Fall");
-	HashKey ANIM_LAND("Land");
+	HashKey ANIM_IDLE("idle");
+	HashKey ANIM_WALK("walk");
+	HashKey ANIM_JUMP("jump");
+	HashKey ANIM_FALL("fall");
+	HashKey ANIM_LAND("land");
 
 	const float32 PLAYER_WALK_SPEED = 3.6f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
@@ -747,16 +747,16 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		LOG_INFO("Initialized global variables\n");
 	}
 
-	// TODO debug only
-	static bool testingOneTimeThing = true;
-	if (testingOneTimeThing) {
-		if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
-			DEBUG_PANIC("Failed to load kid animation sprite\n");
-		}
-		LOG_FLUSH();
-		testingOneTimeThing = false;
-	}
-	return;
+	// debug only
+	// static bool testingOneTimeThing = true;
+	// if (testingOneTimeThing) {
+	// 	if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
+	// 		DEBUG_PANIC("Failed to load kid animation sprite\n");
+	// 	}
+	// 	LOG_FLUSH();
+	// 	testingOneTimeThing = false;
+	// }
+	// return;
 
 	if (!memory->isInitialized) {
 		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
@@ -904,13 +904,13 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		if (!LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
-		gameState->spriteKid, memory->transient)) {
-			DEBUG_PANIC("Failed to load kid animation sprite\n");
-		}
-		// if (!gameState->spriteKid.Load(thread, "kid", &memory->transient)) {
+		// if (!LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
+		// gameState->spriteKid, memory->transient)) {
 		// 	DEBUG_PANIC("Failed to load kid animation sprite\n");
 		// }
+		if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
+			DEBUG_PANIC("Failed to load kid animation sprite\n");
+		}
 
 		gameState->kid.animatedSprite = &gameState->spriteKid;
 		gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;

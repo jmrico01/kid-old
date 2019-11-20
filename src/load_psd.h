@@ -45,8 +45,8 @@ struct PsdLayerInfo
 	bool visible;
 	uint64 parentIndex;
 	bool inTimeline;
-	double timelineStart;
-	double timelineDuration;
+	float32 timelineStart;
+	float32 timelineDuration;
 	uint64 dataStart;
 };
 
@@ -57,11 +57,16 @@ struct PsdFile
 	PlatformReadFileResult file;
 
 	template <typename Allocator>
-	bool LoadLayerImageData(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
+	bool LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allocator* allocator,
 		ImageData* outImageData);
 	template <typename Allocator>
-	bool LoadLayerTextureGL(uint64 layerIndex, Allocator* allocator, LayerChannelID channel,
-		GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);
+	bool LoadLayerTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
+		GLint minFilter, GLint wrapS, GLint wrapT, Allocator* allocator, TextureGL* outTextureGL);
+
+	// TODO temp?
+	template <typename Allocator>
+	bool LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
+		GLint minFilter, GLint wrapS, GLint wrapT, Allocator* allocator, TextureGL* outTextureGL);
 };
 
 template <typename Allocator>

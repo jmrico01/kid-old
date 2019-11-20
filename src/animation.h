@@ -18,6 +18,7 @@ struct Animation
     bool32 loop;
 	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
     int frameTiming[ANIMATION_MAX_FRAMES];
+    float32 frameTime[ANIMATION_MAX_FRAMES];
     HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
     bool32 rootMotion;
     bool32 rootFollow;
@@ -32,7 +33,7 @@ struct AnimatedSprite
     HashKey startAnimation;
 	Vec2Int textureSize;
 
-    bool Load(const ThreadContext* thread, const char* name, const MemoryBlock* transient);
+    bool Load(const ThreadContext* thread, const char* name, const MemoryBlock& transient);
 };
 
 struct AnimatedSpriteInstance
