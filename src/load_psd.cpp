@@ -322,11 +322,12 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 			else if (header < 0) {
 				uint8 data = inData[dataIndex + parsedData];
 				int repeats = 1 - header;
+				uint64 outIndex = (pixelY * width + pixelX) * numChannels + channelOffset;
 				for (int i = 0; i < repeats; i++) {
-					uint64 outIndex = (pixelY * width + pixelX) * numChannels + channelOffset;
 					outData[outIndex] = data;
-					pixelX++;
+					outIndex += numChannels;
 				}
+				pixelX += repeats;
 				if (++parsedData >= layerRowLengths[r]) {
 					break;
 				}
