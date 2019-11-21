@@ -311,6 +311,7 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 		uint64 pixelY = height - r - 1; // NOTE y-axis is inverted by this procedure
 		uint64 pixelX = 0;
 		while (true) {
+			// TODO this is the slowest part of the code, and it matters for iteration speed
 			int8 header = inData[dataIndex + parsedData];
 			if (++parsedData >= layerRowLengths[r]) {
 				break;
