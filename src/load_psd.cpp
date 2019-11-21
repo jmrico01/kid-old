@@ -491,12 +491,14 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 	for (int y = 0; y < size.y; y++) {
 		for (int x = 0; x < size.x; x++) {
 			int outPixelIndex = (y * size.x + x) * imageData.channels;
-			if (x < layerInfo.left || x >= layerInfo.right || y < layerInfo.top || y >= layerInfo.bottom) {
+			int layerBottom = size.y - layerInfo.bottom;
+			int layerTop = size.y - layerInfo.top;
+			if (x < layerInfo.left || x >= layerInfo.right || y < layerBottom || y >= layerTop) {
 				MemSet(&imageData.data[outPixelIndex], 0, imageData.channels);
 				continue;
 			}
 
-			int inPixelIndex = ((y - layerInfo.top) * (layerInfo.right - layerInfo.left) + x - layerInfo.left) * imageData.channels;
+			int inPixelIndex = ((y - layerBottom) * (layerInfo.right - layerInfo.left) + x - layerInfo.left) * imageData.channels;
 			MemCopy(&imageData.data[outPixelIndex], &imageDataSmall.data[inPixelIndex], imageData.channels);
 		}
 	}

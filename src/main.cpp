@@ -904,25 +904,18 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		// if (!LoadAnimatedSprite(thread, "data/animations/kid/kid.kma",
-		// gameState->spriteKid, memory->transient)) {
-		// 	DEBUG_PANIC("Failed to load kid animation sprite\n");
-		// }
 		if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
-
 		gameState->kid.animatedSprite = &gameState->spriteKid;
 		gameState->kid.activeAnimation = gameState->spriteKid.startAnimation;
 		gameState->kid.activeFrame = 0;
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
 
-		if (!LoadAnimatedSprite(thread, "data/animations/paper/paper.kma",
-		gameState->spritePaper, memory->transient)) {
+		if (!gameState->spritePaper.Load(thread, "paper", memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
-
 		gameState->paper.animatedSprite = &gameState->spritePaper;
 		gameState->paper.activeAnimation = gameState->spritePaper.startAnimation;
 		gameState->paper.activeFrame = 0;

@@ -51,7 +51,4 @@ struct AnimatedSpriteInstance
         float32 alpha, bool32 flipHorizontal) const;
 };
 
-bool32 LoadAnimatedSprite(const ThreadContext* thread, const char* filePath,
-	AnimatedSprite& outAnimatedSprite, MemoryBlock transient);
-
 void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite);
