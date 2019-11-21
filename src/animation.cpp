@@ -367,15 +367,14 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 	return true;
 }
 
-void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite)
+void AnimatedSprite::Unload()
 {
-	for (uint32 k = 0; k < animatedSprite.animations.capacity; k++) {
-		const HashKey& animationKey = animatedSprite.animations.pairs[k].key;
-		if (animationKey.string.array.size == 0) {
+	for (uint32 k = 0; k < animations.capacity; k++) {
+		if (animations.pairs[k].key.string.array.size == 0) {
 			continue;
 		}
 
-		const Animation& animation = animatedSprite.animations.pairs[k].value;
+		const Animation& animation = animations.pairs[k].value;
 		for (int i = 0; i < animation.numFrames; i++) {
 			UnloadTextureGL(animation.frameTextures[i]);
 		}

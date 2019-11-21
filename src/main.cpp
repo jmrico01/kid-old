@@ -41,6 +41,12 @@ global_var const char* LEVEL_NAMES[] = {
 	"castle"
 };
 
+global_var const char* KID_ANIMATION_IDLE = "idle";
+global_var const char* KID_ANIMATION_WALK = "walk";
+global_var const char* KID_ANIMATION_JUMP = "jump";
+global_var const char* KID_ANIMATION_FALL = "fall";
+global_var const char* KID_ANIMATION_LAND = "land";
+
 internal uint64 LevelNameToId(const Array<char>& name)
 {
 	uint64 numNames = C_ARRAY_LENGTH(LEVEL_NAMES);
@@ -165,7 +171,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	}
 	else {
 		gameState->playerState = PLAYER_STATE_GROUNDED;
-		gameState->kid.activeAnimation.WriteString("Idle");
+		gameState->kid.activeAnimation.WriteString(KID_ANIMATION_IDLE);
 		gameState->kid.activeFrame = 0;
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
@@ -242,11 +248,11 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	const LevelData& levelData = gameState->levels[gameState->activeLevel];
 
-	HashKey ANIM_IDLE("idle");
-	HashKey ANIM_WALK("walk");
-	HashKey ANIM_JUMP("jump");
-	HashKey ANIM_FALL("fall");
-	HashKey ANIM_LAND("land");
+	HashKey ANIM_IDLE(KID_ANIMATION_IDLE);
+	HashKey ANIM_WALK(KID_ANIMATION_WALK);
+	HashKey ANIM_JUMP(KID_ANIMATION_JUMP);
+	HashKey ANIM_FALL(KID_ANIMATION_FALL);
+	HashKey ANIM_LAND(KID_ANIMATION_LAND);
 
 	const float32 PLAYER_WALK_SPEED = 3.6f;
 	const float32 PLAYER_JUMP_HOLD_DURATION_MIN = 0.02f;
@@ -912,6 +918,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->kid.activeFrame = 0;
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
+		// TODO priming file changed... hmm
+		PlatformFileChanged(thread, "data/animations/kid/kid.kmkv");
+		PlatformFileChanged(thread, "data/animations/kid/kid.psd");
 
 		if (!gameState->spritePaper.Load(thread, "paper", memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
@@ -921,6 +930,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->paper.activeFrame = 0;
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
+		// TODO priming file changed... hmm
+		PlatformFileChanged(thread, "data/animations/paper/paper.kmkv");
+		PlatformFileChanged(thread, "data/animations/paper/paper.psd");
 
 		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frame)) {
@@ -977,6 +989,13 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (!SetActiveLevel(thread, gameState, activeLevelName,
 		gameState->playerCoords, &memory->transient)) {
 			DEBUG_PANIC("Failed to reload level %s\n", activeLevelName);
+		}
+	}
+	if (PlatformFileChanged(thread, "data/animations/kid/kid.kmkv") || PlatformFileChanged(thread, "data/animations/kid/kid.psd")) {
+		LOG_INFO("reloading kid animation sprite\n");
+		gameState->spriteKid.Unload();
+		if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
+			DEBUG_PANIC("Failed to reload kid animation sprite\n");
 		}
 	}
 

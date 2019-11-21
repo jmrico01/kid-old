@@ -34,6 +34,7 @@ struct AnimatedSprite
 	Vec2Int textureSize;
 
     bool Load(const ThreadContext* thread, const char* name, const MemoryBlock& transient);
+    void Unload();
 };
 
 struct AnimatedSpriteInstance
@@ -50,5 +51,3 @@ struct AnimatedSpriteInstance
     void Draw(SpriteDataGL* spriteDataGL, Vec2 pos, Vec2 size, Vec2 anchor, Quat rot,
         float32 alpha, bool32 flipHorizontal) const;
 };
-
-void UnloadAnimatedSpriteOpenGL(const AnimatedSprite& animatedSprite);
