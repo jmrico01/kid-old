@@ -19,7 +19,7 @@ void Panel::Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int po
 		switch (renderCommands[i].type) {
 			case PanelRenderCommandType::TEXT: {
 				const PanelRenderCommandText& commandText = renderCommands[i].commandText;
-				DrawText(textGL, *commandText.face, screenInfo, commandText.text.array,
+				DrawText(textGL, *commandText.face, screenInfo, commandText.text.ToArray(),
 					position, anchor, commandText.color, transient);
 				position.y -= (int)(commandText.face->height * MARGIN_FRACTION.y);
 			} break;
@@ -37,9 +37,8 @@ void Panel::Text(const FontFace& face, Array<char> text, Vec4 color)
 	command->type = PanelRenderCommandType::TEXT;
 	command->commandText.face = &face;
 	uint64 textLength = MinUInt64(text.size, TEXT_BUFFER_MAX);
-	command->commandText.text.Init();
-	MemCopy(command->commandText.text.array.data, text.data, textLength);
-	command->commandText.text.array.size = textLength;
+	MemCopy(command->commandText.text.data, text.data, textLength);
+	command->commandText.text.size = textLength;
 	command->commandText.color = color;
 }
 

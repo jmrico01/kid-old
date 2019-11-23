@@ -104,15 +104,11 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 		return false;
 	}
 
-	animations.Init();
-
 	Array<char> fileString;
 	fileString.size = animFile.size;
 	fileString.data = (char*)animFile.data;
 	FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-	keyword.Init();
 	FixedArray<char, VALUE_MAX_LENGTH> value;
-	value.Init();
 	HashKey currentAnimKey;
 	Animation* currentAnim = nullptr;
 	while (true) {
@@ -128,8 +124,8 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 		fileString.data += read;
 
 		// TODO catch error in keyword order (e.g. anim should always be first)
-		if (StringCompare(keyword.array, "anim")) {
-			currentAnimKey.WriteString(value.array);
+		if (StringCompare(keyword.ToArray(), "anim")) {
+			currentAnimKey.WriteString(value.ToArray());
 			animations.Add(currentAnimKey, {});
 			currentAnim = animations.GetValue(currentAnimKey);
 
@@ -142,17 +138,17 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			uint64 frame = 0;
 			float64 lastFrameStart = -1.0f;
 			while (true) {
-				uint64 nextLayerIndex = psdFile.layers.array.size;
+				uint64 nextLayerIndex = psdFile.layers.size;
 				float64 earliestFrameStart = 1e6;
-				for (uint64 i = 0; i < psdFile.layers.array.size; i++) {
+				for (uint64 i = 0; i < psdFile.layers.size; i++) {
 					if (!psdFile.layers[i].inTimeline) {
 						continue;
 					}
-					if (psdFile.layers[i].parentIndex == psdFile.layers.array.size) {
+					if (psdFile.layers[i].parentIndex == psdFile.layers.size) {
 						continue;
 					}
 					uint64 parentIndex = psdFile.layers[i].parentIndex;
-					if (!StringCompare(psdFile.layers[parentIndex].name.array, value.array)) {
+					if (!StringCompare(psdFile.layers[parentIndex].name.ToArray(), value.ToArray())) {
 						continue;
 					}
 					float64 start = psdFile.layers[i].timelineStart;
@@ -161,7 +157,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 						nextLayerIndex = i;
 					}
 				}
-				if (nextLayerIndex == psdFile.layers.array.size) {
+				if (nextLayerIndex == psdFile.layers.size) {
 					break;
 				}
 
@@ -175,7 +171,6 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				}
 				currentAnim->frameTextures[frame] = frameTextureGL;
 				currentAnim->frameTime[frame] = frameLayer.timelineDuration;
-				currentAnim->frameExitTo[frame].Init();
 				currentAnim->frameRootAnchor[frame] = Vec2::zero;
 				currentAnim->frameRootMotion[frame] = Vec2::zero;
 				currentAnim->numFrames++;
@@ -192,9 +187,9 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				currentAnim->frameTime[0] = 0.0f;
 			}
 		}
-		else if (StringCompare(keyword.array, "fps")) { // TODO won't need this anymore
+		else if (StringCompare(keyword.ToArray(), "fps")) { // TODO won't need this anymore
 			int fps;
-			if (!StringToIntBase10(value.array, &fps)) {
+			if (!StringToIntBase10(value.ToArray(), &fps)) {
 				LOG_ERROR("Animation file fps parse failed (%s)\n", filePath);
 				return false;
 			}
@@ -204,16 +199,16 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			}
 			currentAnim->fps = fps;
 		}
-		else if (StringCompare(keyword.array, "loop")) {
+		else if (StringCompare(keyword.ToArray(), "loop")) {
 			currentAnim->loop = true;
 		}
-		else if (StringCompare(keyword.array, "exit")) {
-			if (value.array.size == 0) {
+		else if (StringCompare(keyword.ToArray(), "exit")) {
+			if (value.size == 0) {
 				LOG_ERROR("Animation file missing exit information (%s)\n", filePath);
 				return false;
 			}
 
-			Array<char> element = value.array;
+			Array<char> element = value.ToArray();
 			Array<char> next;
 			ReadElementInSplitString(&element, &next, ' ');
 			int exitFromFrame;
@@ -260,17 +255,17 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
-		else if (StringCompare(keyword.array, "rootfollow")) {
+		else if (StringCompare(keyword.ToArray(), "rootfollow")) {
 			currentAnim->rootFollow = true;
 		}
-		else if (StringCompare(keyword.array, "rootfollowendloop")) {
+		else if (StringCompare(keyword.ToArray(), "rootfollowendloop")) {
 			currentAnim->rootFollowEndLoop = true;
 		}
-		else if (StringCompare(keyword.array, "rootmotion")) {
+		else if (StringCompare(keyword.ToArray(), "rootmotion")) {
 			currentAnim->rootMotion = true;
 
 			Vec2 rootPosWorld0 = Vec2::zero;
-			Array<char> element = value.array;
+			Array<char> element = value.ToArray();
 			for (int i = 0; i < currentAnim->numFrames; i++) {
 				// Read root motion coordinate pair
 				Array<char> next;
@@ -315,17 +310,17 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword.array, "start")) {
+		else if (StringCompare(keyword.ToArray(), "start")) {
 			HashKey startAnim;
-			startAnim.WriteString(value.array);
+			startAnim.WriteString(value.ToArray());
 			startAnimation = startAnim;
 		}
-		else if (StringCompare(keyword.array, "//")) {
+		else if (StringCompare(keyword.ToArray(), "//")) {
 			// Comment, ignore
 		}
 		else {
 			LOG_ERROR("Animation file with unknown keyword: %.*s (%s)\n",
-				keyword.array.size, &keyword[0], filePath);
+				keyword.size, keyword.data, filePath);
 			return false;
 		}
 	}
@@ -333,7 +328,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 	// TODO maybe provide a friendlier way of iterating through HashTable
 	for (uint32 k = 0; k < animations.capacity; k++) {
 		const HashKey* animKey = &animations.pairs[k].key;
-		if (animKey->string.array.size == 0) {
+		if (animKey->string.size == 0) {
 			continue;
 		}
 
@@ -342,7 +337,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
 			for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
 				const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
-				if (toAnimKey->string.array.size == 0) {
+				if (toAnimKey->string.size == 0) {
 					continue;
 				}
 
@@ -351,7 +346,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 					const Animation* toAnim = animations.GetValue(*toAnimKey);
 					if (toAnim == nullptr) {
 						LOG_ERROR("Animation file non-existent exit-to animation %.*s (%s)\n",
-							toAnimKey->string.array.size, toAnimKey->string.array.data, filePath);
+							toAnimKey->string.size, toAnimKey->string.data, filePath);
 						return false;
 					}
 					if (*exitToFrame >= toAnim->numFrames) {
@@ -370,7 +365,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 void AnimatedSprite::Unload()
 {
 	for (uint32 k = 0; k < animations.capacity; k++) {
-		if (animations.pairs[k].key.string.array.size == 0) {
+		if (animations.pairs[k].key.string.size == 0) {
 			continue;
 		}
 

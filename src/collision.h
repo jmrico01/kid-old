@@ -41,9 +41,9 @@ struct LineColliderIntersect
 	const LineCollider* collider;
 };
 
-void GetLineColliderIntersections(const Array<LineCollider>& lineColliders,
-	Vec2 pos, Vec2 deltaPos, float32 movementMargin,
-	Array<LineColliderIntersect>* intersects);
+template <uint64 S>
+void GetLineColliderIntersections(const Array<LineCollider>& lineColliders, Vec2 pos, Vec2 deltaPos,
+	float32 movementMargin, FixedArray<LineColliderIntersect, S>* outIntersects);
 
 bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
 	const FloorCollider& floorCollider, float32 coordX,

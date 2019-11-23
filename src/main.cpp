@@ -229,7 +229,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
-		for (uint64 i = 0; i < levelData.levelTransitions.array.size; i++) {
+		for (uint64 i = 0; i < levelData.levelTransitions.size; i++) {
 			Vec2 toPlayer = WrappedWorldOffset(
 				gameState->playerCoords, levelData.levelTransitions[i].coords,
 				levelData.floor.length); 
@@ -334,8 +334,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	FixedArray<HashKey, 4> nextAnimations;
-	nextAnimations.Init();
-	nextAnimations.array.size = 0;
+	nextAnimations.size = 0;
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		if (!KeyCompare(gameState->kid.activeAnimation, ANIM_JUMP)) {
 			nextAnimations.Append(ANIM_JUMP);
@@ -365,7 +364,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
 	}
-	Vec2 rootMotion = gameState->kid.Update(animDeltaTime, nextAnimations.array);
+	Vec2 rootMotion = gameState->kid.Update(animDeltaTime, nextAnimations.ToArray());
 	if (gameState->playerState == PLAYER_STATE_JUMPING) {
 		rootMotion *= gameState->playerJumpMag;
 	}
@@ -384,11 +383,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	Vec2 deltaPos = playerPosNew - playerPos;
 
 	FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
-	intersects.Init();
-	GetLineColliderIntersections(levelData.lineColliders.array,
-		playerPos, deltaPos, LINE_COLLIDER_MARGIN,
-		&intersects.array);
-	for (uint64 i = 0; i < intersects.array.size; i++) {
+	GetLineColliderIntersections(levelData.lineColliders.ToArray(), playerPos, deltaPos,
+		LINE_COLLIDER_MARGIN, &intersects);
+	for (uint64 i = 0; i < intersects.size; i++) {
 		if (gameState->currentPlatform == intersects[i].collider) {
 			continue;
 		}
@@ -450,8 +447,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	if (isInteractKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
 		FixedArray<GrabbedObjectInfo, 10> candidates;
-		candidates.Init();
-		candidates.array.size = 0;
+		candidates.size = 0;
 		Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
 		float32 rockRadius = rockSize.y / 2.0f * 0.8f;
 		candidates.Append({
@@ -459,7 +455,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			Vec2 { rockRadius * 1.2f, rockRadius * 1.7f },
 			Vec2 { 0.0f, rockRadius * 2.0f }
 		});
-		for (uint64 i = 0; i < candidates.array.size; i++) {
+		for (uint64 i = 0; i < candidates.size; i++) {
 			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floor.length)) {
 				gameState->grabbedObject = candidates[i];
 				break;
@@ -472,7 +468,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites = levelData.sprites;
 			TextureWithPosition* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
-			for (uint64 i = 0; i < sprites.array.size; i++) {
+			for (uint64 i = 0; i < sprites.size; i++) {
 				TextureWithPosition* sprite = const_cast<TextureWithPosition*>(&sprites[i]);
 				if (sprite->type != SPRITE_OBJECT) {
 					continue;
@@ -636,7 +632,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 		1.0f, !gameState->facingRight);
 
 	{ // level sprites
-		for (uint64 i = 0; i < levelData.sprites.array.size; i++) {
+		for (uint64 i = 0; i < levelData.sprites.size; i++) {
 			const TextureWithPosition* sprite = &levelData.sprites[i];
 			Vec2 pos;
 			Quat baseRot;
@@ -783,6 +779,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		//glCullFace(GL_BACK);
 
 		glLineWidth(1.0f);
+
+		// Execute constructors for everything in GameState
+		gameState = new (memory->permanent.memory) GameState();
 
 		if (!InitAudioState(thread, &allocator, &gameState->audioState, audio)) {
 			DEBUG_PANIC("Failed to init audio state\n");
@@ -1185,7 +1184,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		textPosRight.y -= textFont.height;
 		HashKey& kidActiveAnim = gameState->kid.activeAnimation;
 		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.*s -- ANIM",
-			(int)kidActiveAnim.string.array.size, kidActiveAnim.string.array.data);
+			(int)kidActiveAnim.string.size, kidActiveAnim.string.data);
 		DrawText(gameState->textGL, textFont, screenInfo,
 			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
 
@@ -1226,7 +1225,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		}
 
 		// sprites
-		for (uint64 i = 0; i < levelData.sprites.array.size; i++) {
+		for (uint64 i = 0; i < levelData.sprites.size; i++) {
 			if (levelData.sprites[i].type != SPRITE_OBJECT) {
 				continue;
 			}
@@ -1291,10 +1290,10 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
 			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
 				levelData.lineColliders;
-			for (uint64 i = 0; i < lineColliders.array.size; i++) {
+			for (uint64 i = 0; i < lineColliders.size; i++) {
 				const LineCollider& lineCollider = lineColliders[i];
-				lineData->count = (int)lineCollider.line.array.size;
-				for (uint64 v = 0; v < lineCollider.line.array.size; v++) {
+				lineData->count = (int)lineCollider.line.size;
+				for (uint64 v = 0; v < lineCollider.line.size; v++) {
 					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
 				}
 				DrawLine(gameState->lineGL, viewProjection, lineData, lineColliderColor);
@@ -1306,7 +1305,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			const FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX>& transitions =
 				levelData.levelTransitions;
 			lineData->count = 5;
-			for (uint64 i = 0; i < transitions.array.size; i++) {
+			for (uint64 i = 0; i < transitions.size; i++) {
 				Vec2 coords = transitions[i].coords;
 				Vec2 range = transitions[i].range;
 				lineData->pos[0] = ToVec3(coords - range, 0.0f);
@@ -1389,7 +1388,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 				(int)(BOX_SIZE.y * BOX_ANCHOR.y)
 			};
 			Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
-			for (uint64 i = 0; i < floor.line.array.size; i++) {
+			for (uint64 i = 0; i < floor.line.size; i++) {
 				Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
 					gameState->cameraPos, gameState->cameraRot,
 					ScaleExponentToWorldScale(gameState->editorScaleExponent));
@@ -1452,11 +1451,10 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
 			if (gameState->floorVertexSelected == -1) {
 				floor.line.Append(mouseWorldPosEnd);
-				gameState->floorVertexSelected = (int)(floor.line.array.size - 1);
+				gameState->floorVertexSelected = (int)(floor.line.size - 1);
 			}
 			else {
-				floor.line.AppendAfter(mouseWorldPosEnd,
-					gameState->floorVertexSelected);
+				floor.line.AppendAfter(mouseWorldPosEnd, gameState->floorVertexSelected);
 				gameState->floorVertexSelected += 1;
 			}
 			floor.PrecomputeSampleVerticesFromLine();

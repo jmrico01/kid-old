@@ -23,16 +23,14 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 	const Vec2Int PIXEL_NULL = Vec2Int { -1, -1 };
 
 	FixedArray<Vec2Int, 4> neighborOffsets4;
-	neighborOffsets4.array.size = 0;
-	neighborOffsets4.Init();
+	neighborOffsets4.size = 0;
 	neighborOffsets4.Append(Vec2Int { -1,  0 });
 	neighborOffsets4.Append(Vec2Int {  0,  1 });
 	neighborOffsets4.Append(Vec2Int {  1,  0 });
 	neighborOffsets4.Append(Vec2Int {  0, -1 });
 
 	FixedArray<Vec2Int, 8> neighborOffsets8;
-	neighborOffsets8.array.size = 0;
-	neighborOffsets8.Init();
+	neighborOffsets8.size = 0;
 	neighborOffsets8.Append(Vec2Int { -1,  0 });
 	neighborOffsets8.Append(Vec2Int { -1,  1 });
 	neighborOffsets8.Append(Vec2Int {  0,  1 });
@@ -66,7 +64,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 				continue;
 			}
 			bool hasZeroNeighbor = false;
-			for (uint64 o = 0; o < neighborOffsets4.array.size; o++) {
+			for (uint64 o = 0; o < neighborOffsets4.size; o++) {
 				Vec2Int neighbor = pixel + neighborOffsets4[o];
 				if (!PixelInBounds(neighbor, imageAlpha.size)) {
 					hasZeroNeighbor = true;
@@ -99,7 +97,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 		Vec2Int next = PIXEL_NULL;
 		while (true) {
 			uint8 offsetIndex = neighborsVisited[index];
-			if (offsetIndex >= neighborOffsets8.array.size) {
+			if (offsetIndex >= neighborOffsets8.size) {
 				break;
 			}
 			neighborsVisited[index]++;
@@ -172,17 +170,10 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 {
 	DEBUG_ASSERT(!loaded);
 
-	sprites.Init();
-	sprites.array.size = 0;
-
-	levelTransitions.Init();
-	levelTransitions.array.size = 0;
-
-	lineColliders.Init();
-	lineColliders.array.size = 0;
-
-	floor.line.Init();
-	floor.line.array.size = 0;
+	sprites.size = 0;
+	levelTransitions.size = 0;
+	lineColliders.size = 0;
+	floor.line.size = 0;
 
 	lockedCamera = false;
 	bounded = false;
@@ -197,7 +188,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		return false;
 	}
 
-	for (uint64 i = 0; i < psdFile.layers.array.size; i++) {
+	for (uint64 i = 0; i < psdFile.layers.size; i++) {
 		PsdLayerInfo& layer = psdFile.layers[i];
 		if (!layer.visible) {
 			continue;
@@ -206,16 +197,16 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		const auto& allocatorState = allocator.SaveState();
 		defer (allocator.LoadState(allocatorState));
 
-		if (StringContains(layer.name.array, "ground_")) {
-			if (floor.line.array.size > 0) {
+		if (StringContains(layer.name.ToArray(), "ground_")) {
+			if (floor.line.size > 0) {
 				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %s\n",
-					layer.name.array.size, layer.name.array.data, filePath);
+					layer.name.size, layer.name.data, filePath);
 				return false;
 			}
 			ImageData imageAlpha;
 			if (!psdFile.LoadLayerImageData(i, LayerChannelID::ALPHA, &allocator, &imageAlpha)) {
 				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
-					layer.name.array.size, layer.name.array.data, filePath);
+					layer.name.size, layer.name.data, filePath);
 				return false;
 			}
 
@@ -243,23 +234,23 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		}
 
 		SpriteType spriteType = SPRITE_BACKGROUND;
-		if (StringContains(layer.name.array, "obj_")) {
+		if (StringContains(layer.name.ToArray(), "obj_")) {
 			spriteType = SPRITE_OBJECT;
 		}
-		else if (StringContains(layer.name.array, "label_")) {
+		else if (StringContains(layer.name.ToArray(), "label_")) {
 			spriteType = SPRITE_LABEL;
 		}
-		else if (StringContains(layer.name.array, "x_")) {
+		else if (StringContains(layer.name.ToArray(), "x_")) {
 			continue;
 		}
 
-		sprites.array.size++;
-		TextureWithPosition& sprite = sprites[sprites.array.size - 1];
+		sprites.size++;
+		TextureWithPosition& sprite = sprites[sprites.size - 1];
 
 		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite.texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
-				layer.name.array.size, layer.name.array.data, filePath);
+				layer.name.size, layer.name.data, filePath);
 			return false;
 		}
 
@@ -284,11 +275,9 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 	Array<char> fileString;
 	fileString.size = levelFile.size;
 	fileString.data = (char*)levelFile.data;
+	FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
+	FixedArray<char, VALUE_MAX_LENGTH> value;
 	while (true) {
-		FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-		keyword.Init();
-		FixedArray<char, VALUE_MAX_LENGTH> value;
-		value.Init();
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
 			LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", filePath);
@@ -300,52 +289,50 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		fileString.size -= read;
 		fileString.data += read;
 
-		if (StringCompare(keyword.array, "bounds")) {
+		if (StringCompare(keyword.ToArray(), "bounds")) {
 			Vec2 parsedBounds;
 			int parsedElements;
-			if (!StringToElementArray(value.array, ' ', true,
+			if (!StringToElementArray(value.ToArray(), ' ', true,
 			StringToFloat32, 2, parsedBounds.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level bounds %.*s (%s)\n",
-					value.array.size, value.array.data, filePath);
+					value.size, value.data, filePath);
 				return false;
 			}
 			if (parsedElements != 2) {
 				LOG_ERROR("Not enough coordinates in level bounds %.*s (%s)\n",
-					value.array.size, value.array.data, filePath);
+					value.size, value.data, filePath);
 				return false;
 			}
 
 			bounded = true;
 			bounds = parsedBounds;
 		}
-		else if (StringCompare(keyword.array, "lockcamera")) {
+		else if (StringCompare(keyword.ToArray(), "lockcamera")) {
 			Vec2 coords;
 			int parsedElements;
-			if (!StringToElementArray(value.array, ' ', true,
+			if (!StringToElementArray(value.ToArray(), ' ', true,
 			StringToFloat32, 2, coords.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level lock camera coords %.*s (%s)\n",
-					value.array.size, value.array.data, filePath);
+					value.size, value.data, filePath);
 				return false;
 			}
 			if (parsedElements != 2) {
 				LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%s)\n",
-					value.array.size, value.array.data, filePath);
+					value.size, value.data, filePath);
 				return false;
 			}
 
 			lockedCamera = true;
 			cameraCoords = coords;
 		}
-		else if (StringCompare(keyword.array, "transition")) {
-			DEBUG_ASSERT(levelTransitions.array.size < LEVEL_TRANSITIONS_MAX);
-			LevelTransition* transition = &levelTransitions[levelTransitions.array.size++];
+		else if (StringCompare(keyword.ToArray(), "transition")) {
+			DEBUG_ASSERT(levelTransitions.size < LEVEL_TRANSITIONS_MAX);
+			LevelTransition* transition = &levelTransitions[levelTransitions.size++];
 
-			Array<char> transitionString = value.array;
+			Array<char> transitionString = value.ToArray();
+			FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
+			FixedArray<char, VALUE_MAX_LENGTH> valueTransition;
 			while (true) {
-				FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
-				keywordTransition.Init();
-				FixedArray<char, VALUE_MAX_LENGTH> valueTransition;
-				valueTransition.Init();
 				int readTransition = ReadNextKeywordValue(transitionString,
 					&keywordTransition, &valueTransition);
 				if (readTransition < 0) {
@@ -358,62 +345,62 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				transitionString.size -= readTransition;
 				transitionString.data += readTransition;
 
-				if (StringCompare(keywordTransition.array, "coords")) {
+				if (StringCompare(keywordTransition.ToArray(), "coords")) {
 					Vec2 coords;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.array, ' ', true,
+					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, coords.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition coords %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 					if (parsedElements != 2) {
 						LOG_ERROR("Not enough coordinates in transition coords %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 
 					transition->coords = coords;
 				}
-				else if (StringCompare(keywordTransition.array, "range")) {
+				else if (StringCompare(keywordTransition.ToArray(), "range")) {
 					Vec2 range;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.array, ' ', true,
+					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, range.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition range %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 					if (parsedElements != 2) {
 						LOG_ERROR("Not enough coordinates in transition range %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 
 					transition->range = range;
 				}
-				else if (StringCompare(keywordTransition.array, "tolevel")) {
-					uint64 toLevel = LevelNameToId(valueTransition.array);
+				else if (StringCompare(keywordTransition.ToArray(), "tolevel")) {
+					uint64 toLevel = LevelNameToId(valueTransition.ToArray());
 					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
 						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 
 					transition->toLevel = toLevel;
 				}
-				else if (StringCompare(keywordTransition.array, "tocoords")) {
+				else if (StringCompare(keywordTransition.ToArray(), "tocoords")) {
 					Vec2 toCoords;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.array, ' ', true,
+					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, toCoords.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition to-coords %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 					if (parsedElements != 2) {
 						LOG_ERROR("Not enough coordinates in transition to-coords %.*s (%s)\n",
-							valueTransition.array.size, valueTransition.array.data, filePath);
+							valueTransition.size, valueTransition.data, filePath);
 						return false;
 					}
 
@@ -421,19 +408,18 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				}
 				else {
 					LOG_ERROR("Level file unsupported transition keyword %.*s (%s)\n",
-						keywordTransition.array.size, &keywordTransition[0], filePath);
+						keywordTransition.size, keywordTransition.data, filePath);
 					return false;
 				}
 			}
 		}
-		else if (StringCompare(keyword.array, "line")) {
-			DEBUG_ASSERT(lineColliders.array.size < LINE_COLLIDERS_MAX);
+		else if (StringCompare(keyword.ToArray(), "line")) {
+			DEBUG_ASSERT(lineColliders.size < LINE_COLLIDERS_MAX);
 
-			LineCollider* lineCollider = &lineColliders[lineColliders.array.size++];
-			lineCollider->line.array.size = 0;
-			lineCollider->line.Init();
+			LineCollider* lineCollider = &lineColliders[lineColliders.size++];
+			lineCollider->line.size = 0;
 
-			Array<char> element = value.array;
+			Array<char> element = value.ToArray();
 			while (true) {
 				Array<char> next;
 				ReadElementInSplitString(&element, &next, '\n');
@@ -463,17 +449,17 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword.array, "//")) {
+		else if (StringCompare(keyword.ToArray(), "//")) {
 			// comment, ignore
 		}
 		else {
 			LOG_ERROR("Level file unsupported keyword %.*s (%s)\n",
-				keyword.array.size, &keyword[0], filePath);
+				keyword.size, keyword.data, filePath);
 			return false;
 		}
 	}
 
-	for (uint64 i = 0; i < sprites.array.size; i++) {
+	for (uint64 i = 0; i < sprites.size; i++) {
 		TextureWithPosition* sprite = &sprites[i];
 		if (sprite->type == SPRITE_OBJECT) {
 			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
@@ -500,7 +486,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 void LevelData::Unload()
 {
-	for (uint64 i = 0; i < sprites.array.size; i++) {
+	for (uint64 i = 0; i < sprites.size; i++) {
 		UnloadTextureGL(sprites[i].texture);
 	}
 	loaded = false;

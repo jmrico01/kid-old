@@ -60,8 +60,8 @@ internal int ReadPascalString(const Array<char>& string, FixedArray<char, S>* ou
 	if (string.size < length) {
 		length = (uint8)string.size;
 	}
-	MemCopy(outString->array.data, &string[1], length);
-	outString->array.size = length;
+	MemCopy(outString->data, &string[1], length);
+	outString->size = length;
 	return length + 1;
 }
 
@@ -75,8 +75,8 @@ internal int ReadUnicodeString(const Array<char>& string, FixedArray<char, S>* o
 		LOG_ERROR("unicode string too long (%d, max %d)\n", stringLength, S);
 		return -1;
 	}
-	outString->array.size = stringLength;
-	for (uint64 c = 0; c < outString->array.size; c++) {
+	outString->size = stringLength;
+	for (uint64 c = 0; c < outString->size; c++) {
 		int16 unicodeChar = ReadBigEndianInt16(&string[parsedBytes]);
 		parsedBytes += 2;
 		(*outString)[c] = (char)unicodeChar;
@@ -116,7 +116,6 @@ struct PsdDescriptor
 	{
 		uint64 parsedBytes = 0;
 
-		name.Init();
 		int nameBytes = ReadUnicodeString(string.SliceFrom(parsedBytes), &name);
 		if (nameBytes < 0) {
 			LOG_ERROR("Failed to parse descriptor name\n");
@@ -133,7 +132,6 @@ struct PsdDescriptor
 
 		int32 descriptorItems = ReadBigEndianInt32(&string[parsedBytes]);
 		parsedBytes += 4;
-		items.Init();
 		for (int32 i = 0; i < descriptorItems; i++) {
 			int32 keyLength = ReadBigEndianInt32(&string[parsedBytes]);
 			parsedBytes += 4;
@@ -233,7 +231,6 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	else if (StringCompare(typeString, "TEXT")) {
 		type = PsdDescriptorItemType::OTHER;
 		FixedArray<char, STRING_MAX_SIZE> stringData;
-		stringData.Init();
 		int stringBytes = ReadUnicodeString(string.SliceFrom(parsedBytes), &stringData);
 		if (stringBytes < 0) {
 			LOG_ERROR("Failed to parse string in descriptor\n");
@@ -366,7 +363,7 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allo
 	ImageData* outImageData)
 {
 	const PsdLayerInfo& layerInfo = layers[layerIndex];
-	uint8 numChannelsDest = (uint8)layerInfo.channels.array.size;
+	uint8 numChannelsDest = (uint8)layerInfo.channels.size;
 	if (channel != LayerChannelID::ALL) {
 		numChannelsDest = 1;
 	}
@@ -386,7 +383,7 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allo
 	};
 	uint64 psdDataIndex = layerInfo.dataStart;
 
-	for (uint8 c = 0; c < layerInfo.channels.array.size; c++) {
+	for (uint8 c = 0; c < layerInfo.channels.size; c++) {
 		const LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
 		int channelOffsetDest = (int)layerChannelInfo.channelID;
 		if (channel != LayerChannelID::ALL) {
@@ -614,7 +611,6 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 		parsedBytes += 2;
 
 		FixedArray<char, 255> resourceName;
-		resourceName.Init();
 		int nameBytes = ReadPascalString(psdData.SliceFrom(parsedBytes), &resourceName);
 		if (nameBytes == 0) {
 			nameBytes = 2;
@@ -666,8 +662,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 	int32 layerAndMaskInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	// uint64 layerAndMaskInfoStart = parsedBytes;
-	outPsdFile->layers.Init();
-	outPsdFile->layers.array.size = 0;
+	outPsdFile->layers.size = 0;
 	if (layerAndMaskInfoLength > 0) {
 		int32 layerInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 		parsedBytes += 4;
@@ -683,14 +678,12 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 			LOG_ERROR("PSD too many layers: %d, max %d\n", layerCount, PSD_MAX_LAYERS);
 			return false;
 		}
-		outPsdFile->layers.array.size = layerCount;
-		uint64 currentGroupEnd = outPsdFile->layers.array.size;
+		outPsdFile->layers.size = layerCount;
+		uint64 currentGroupEnd = outPsdFile->layers.size;
 
-		for (uint64 layerIndex = 0; layerIndex < outPsdFile->layers.array.size; layerIndex++) {
+		for (uint64 layerIndex = 0; layerIndex < outPsdFile->layers.size; layerIndex++) {
 			PsdLayerInfo& layerInfo = outPsdFile->layers[layerIndex];
 			layerInfo.inTimeline = false;
-			layerInfo.name.Init();
-			layerInfo.channels.Init();
 
 			int32 top = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
@@ -712,7 +705,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					layerChannels);
 				return false;
 			}
-			layerInfo.channels.array.size = layerChannels;
+			layerInfo.channels.size = layerChannels;
 
 			for (int16 c = 0; c < layerChannels; c++) {
 				LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
@@ -795,13 +788,10 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				if (!StringCompare(signature, "8BIM") && !StringCompare(signature, "8B64")) {
 					LOG_ERROR("Invalid additional layer info, signature %.*s, expected 8BIM or 8B64, layer %.*s, file %.*s\n",
 						signature.size, signature.data,
-						layerInfo.name.array.size, layerInfo.name.array.data, filePath);
+						layerInfo.name.size, layerInfo.name.data, filePath);
 					return false;
 				}
-				FixedArray<char, 4> key;
-				key.Init();
-				key.array.size = 4;
-				MemCopy(key.array.data, &psdData[parsedBytes], 4);
+				const Array<char> key = psdData.Slice(parsedBytes, parsedBytes + 4);
 				parsedBytes += 4;
 
 				int32 addLayerInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
@@ -812,23 +802,23 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				}
 				uint64 addLayerInfoStart = parsedBytes;
 
-				if (StringCompare(key.array, "lyid")) {
+				if (StringCompare(key, "lyid")) {
 					if (addLayerInfoLength != 4) {
 						LOG_ERROR("layer \"%.*s\" ID length %d, expected 4\n",
-							layerInfo.name.array.size, layerInfo.name.array.data,
+							layerInfo.name.size, layerInfo.name.data,
 							addLayerInfoLength);
 						return false;
 					}
 					// int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 				}
-				else if (StringCompare(key.array, "lsct")) {
+				else if (StringCompare(key, "lsct")) {
 					int32 sectionDividerType = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					switch (sectionDividerType) {
 						case 1:
 						case 2: {
-							if (currentGroupEnd == outPsdFile->layers.array.size) {
+							if (currentGroupEnd == outPsdFile->layers.size) {
 								LOG_ERROR("Layer group start without end for file %s\n", filePath);
 								return false;
 							}
@@ -837,7 +827,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 									outPsdFile->layers[l].parentIndex = layerIndex;
 								}
 							}
-							currentGroupEnd = outPsdFile->layers.array.size;
+							currentGroupEnd = outPsdFile->layers.size;
 						} break;
 						case 3: {
 							currentGroupEnd = layerIndex;
@@ -845,7 +835,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					}
 					// Ignored data here
 				}
-				else if (StringCompare(key.array, "shmd")) {
+				else if (StringCompare(key, "shmd")) {
 					int32 itemCount = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					for (int32 i = 0; i < itemCount; i++) {
@@ -929,10 +919,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					}
 				}
 				else {
-					// Uncomment for reverse engineering
-					// LOG_INFO("layer %.*s unhandled additional info %c%c%c%c\n",
-					// 	layerInfo.name.array.size, layerInfo.name.array.data,
-					// 	key[0], key[1], key[2], key[3]);
+					// All other keywords, print if you're curious
 				}
 				parsedBytes = addLayerInfoStart + addLayerInfoLength;
 			}
@@ -945,14 +932,14 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				layerInfo.parentIndex = currentGroupEnd;
 			}
 			else {
-				layerInfo.parentIndex = outPsdFile->layers.array.size;
+				layerInfo.parentIndex = outPsdFile->layers.size;
 			}
 		}
 
-		for (uint64 l = 0; l < outPsdFile->layers.array.size; l++) {
+		for (uint64 l = 0; l < outPsdFile->layers.size; l++) {
 			PsdLayerInfo& layerInfo = outPsdFile->layers[l];
 			layerInfo.dataStart = parsedBytes;
-			for (uint64 c = 0; c < layerInfo.channels.array.size; c++) {
+			for (uint64 c = 0; c < layerInfo.channels.size; c++) {
 				parsedBytes += layerInfo.channels[c].dataSize;
 			}
 		}
