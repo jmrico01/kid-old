@@ -1066,9 +1066,10 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		Panel testPanel;
 		testPanel.Begin();
 
-		testPanel.Text("Hello, sailor");
+		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor");
 
-		testPanel.End();
+		testPanel.Draw(screenInfo, gameState->rectGL, gameState->textGL,
+			Vec2Int { 100, 100 }, Vec2 { 0.0f, 0.0f });
 	}
 
 #if GAME_INTERNAL

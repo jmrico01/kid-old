@@ -2,18 +2,20 @@
 
 #include <km_common/km_lib.h>
 
+const uint64 TEXT_BUFFER_MAX = 256;
 const uint64 INPUT_BUFFER_MAX = 256;
 
 typedef FixedArray<char, INPUT_BUFFER_MAX> InputString;
 
 enum class PanelRenderCommandType
 {
-	DRAW_TEXT
+	TEXT
 };
 
-struct PanelRenderCommandDataText
+struct PanelRenderCommandText
 {
-	FontFace* face;
+	FixedArray<char, TEXT_BUFFER_MAX> text;
+	const FontFace* face;
 };
 
 struct PanelRenderCommand
@@ -21,7 +23,7 @@ struct PanelRenderCommand
 	PanelRenderCommandType type;
 	union
 	{
-		PanelRenderCommandDataText dataText;
+		PanelRenderCommandText commandText;
 	};
 };
 
@@ -33,11 +35,12 @@ struct PanelRenderInfo
 struct Panel
 {
 	Vec2Int size;
+	PanelRenderInfo renderInfo;
 
 	void Begin();
-	void End(); // draw here?
+	void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int position, Vec2 anchor);
 
-	void Text(const char* text);
+	void Text(const FontFace& face, const char* text);
 
 	bool ButtonToggle();
 	bool ButtonTrigger();

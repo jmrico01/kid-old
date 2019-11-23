@@ -283,12 +283,12 @@ FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
     return face;
 }
 
-int GetTextWidth(const FontFace& face, const char* text)
+int GetTextWidth(const FontFace& face, Array<char> text)
 {
     float x = 0.0f;
     float y = 0.0f;
-    for (const char* p = text; *p != 0; p++) {
-        GlyphInfo glyphInfo = face.glyphInfo[*p];
+    for (uint64 i = 0; i < text.size; i++) {
+        GlyphInfo glyphInfo = face.glyphInfo[text[i]];
         x += (float)glyphInfo.advanceX / 64.0f;
         y += (float)glyphInfo.advanceY / 64.0f;
     }
@@ -297,11 +297,11 @@ int GetTextWidth(const FontFace& face, const char* text)
 }
 
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    const char* text,
+    Array<char> text,
     Vec2Int pos, Vec4 color,
     MemoryBlock transient)
 {
-    DEBUG_ASSERT(StringLength(text) <= GLYPH_BATCH_SIZE);
+    DEBUG_ASSERT(text.size <= GLYPH_BATCH_SIZE);
     DEBUG_ASSERT(transient.size >= sizeof(TextDataGL));
 
     TextDataGL* dataGL = (TextDataGL*)transient.memory;
@@ -320,8 +320,8 @@ void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
 
     int x = 0, y = 0;
     int count = 0;
-    for (const char* p = text; *p != '\0'; p++) {
-        GlyphInfo glyphInfo = face.glyphInfo[*p];
+    for (uint64 i = 0; i < text.size; i++) {
+        GlyphInfo glyphInfo = face.glyphInfo[text[i]];
         Vec2Int glyphPos = pos;
         glyphPos.x += x + glyphInfo.offsetX;
         glyphPos.y += y + glyphInfo.offsetY;
@@ -360,9 +360,20 @@ void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
     glBindVertexArray(0);
 }
 
-// Anchor is in range (0-1, 0-1).
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
     const char* text,
+    Vec2Int pos, Vec4 color,
+    MemoryBlock transient)
+{
+    const Array<char> textArray = {
+        .size = StringLength(text),
+        .data = (char*)text
+    };
+    DrawText(textGL, face, screenInfo, textArray, pos, color, transient);
+}
+
+void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
+    Array<char> text,
     Vec2Int pos, Vec2 anchor, Vec4 color,
     MemoryBlock transient)
 {
@@ -371,4 +382,16 @@ void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
     pos.y -= (int)(anchor.y * face.height);
 
     DrawText(textGL, face, screenInfo, text, pos, color, transient);
+}
+
+void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
+    const char* text,
+    Vec2Int pos, Vec2 anchor, Vec4 color,
+    MemoryBlock transient)
+{
+    const Array<char> textArray = {
+        .size = StringLength(text),
+        .data = (char*)text
+    };
+    DrawText(textGL, face, screenInfo, textArray, pos, anchor, color, transient);
 }
