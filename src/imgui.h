@@ -16,6 +16,7 @@ struct PanelRenderCommandText
 {
 	FixedArray<char, TEXT_BUFFER_MAX> text;
 	const FontFace* face;
+	Vec4 color;
 };
 
 struct PanelRenderCommand
@@ -27,20 +28,17 @@ struct PanelRenderCommand
 	};
 };
 
-struct PanelRenderInfo
-{
-	DynamicArray<PanelRenderCommand> renderCommands;
-};
-
 struct Panel
 {
 	Vec2Int size;
-	PanelRenderInfo renderInfo;
+	DynamicArray<PanelRenderCommand> renderCommands;
 
 	void Begin();
-	void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int position, Vec2 anchor);
+	void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int position, Vec2 anchor,
+		MemoryBlock transient);
 
-	void Text(const FontFace& face, const char* text);
+	void Text(const FontFace& face, Array<char> text, Vec4 color);
+	void Text(const FontFace& face, const char* text, Vec4 color);
 
 	bool ButtonToggle();
 	bool ButtonTrigger();

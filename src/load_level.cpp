@@ -93,8 +93,8 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 	Vec2Int pixel = startPixel;
 	outLoop->Append(startPixel);
 	do {
-		DEBUG_ASSERT(outLoop->array.size > 0);
-		Vec2Int prev = outLoop->array.data[outLoop->array.size - 1];
+		DEBUG_ASSERT(outLoop->size > 0);
+		Vec2Int prev = outLoop->data[outLoop->size - 1];
 		int index = ToFlatIndex(pixel, imageAlpha.size);
 		Vec2Int next = PIXEL_NULL;
 		while (true) {
@@ -226,16 +226,16 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				return false;
 			}
 
-			DownsampleLoop(&loop.array, 10);
-			if (!IsLoopClockwise(loop.array)) {
-				InvertLoop(&loop.array);
+			DownsampleLoop(&loop.ToArray(), 10);
+			if (!IsLoopClockwise(loop.ToArray())) {
+				InvertLoop(&loop.ToArray());
 			}
 
 			Vec2Int origin = Vec2Int {
 				layer.left,
 				psdFile.size.y - layer.bottom
 			};
-			for (uint64 v = 0; v < loop.array.size; v++) {
+			for (uint64 v = 0; v < loop.size; v++) {
 				Vec2 pos = ToVec2(loop[v] + origin) / REF_PIXELS_PER_UNIT;
 				floor.line.Append(pos);
 			}

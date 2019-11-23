@@ -1066,10 +1066,28 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		Panel testPanel;
 		testPanel.Begin();
 
-		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor");
+		Vec4 textColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
+		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "Well... hello", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "How's it going?", textColor);
 
 		testPanel.Draw(screenInfo, gameState->rectGL, gameState->textGL,
-			Vec2Int { 100, 100 }, Vec2 { 0.0f, 0.0f });
+			Vec2Int { 100, 100 }, Vec2 { 0.0f, 1.0f }, memory->transient);
+	}
+
+	{
+		Panel testPanel;
+		testPanel.Begin();
+
+		Vec4 textColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
+		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "Well... hello", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "", textColor);
+		testPanel.Text(gameState->fontFaceSmall, "How's it going?", textColor);
+
+		testPanel.Draw(screenInfo, gameState->rectGL, gameState->textGL,
+			Vec2Int { screenInfo.size.x - 100, 100 }, Vec2 { 1.0f, 1.0f }, memory->transient);
 	}
 
 #if GAME_INTERNAL
