@@ -9,13 +9,24 @@ typedef FixedArray<char, INPUT_BUFFER_MAX> InputString;
 
 enum class PanelRenderCommandType
 {
+	RECT,
 	TEXT
+};
+
+struct PanelRenderCommandRect
+{
+	Vec2Int position;
+	Vec2 anchor;
+	Vec2Int size;
+	Vec4 color;
 };
 
 struct PanelRenderCommandText
 {
-	FixedArray<char, TEXT_BUFFER_MAX> text;
-	const FontFace* face;
+	Array<char> text; // NOTE we don't own this data
+	const FontFace* font;
+	Vec2Int position;
+	Vec2 anchor;
 	Vec4 color;
 };
 
@@ -24,24 +35,27 @@ struct PanelRenderCommand
 	PanelRenderCommandType type;
 	union
 	{
+		PanelRenderCommandRect commandRect;
 		PanelRenderCommandText commandText;
 	};
 };
 
 struct Panel
 {
+	Vec2Int position;
+	Vec2Int positionCurrent;
+	Vec2 anchor;
 	Vec2Int size;
 	DynamicArray<PanelRenderCommand> renderCommands;
+	const GameInput* input;
+	const FontFace* fontDefault;
 
-	void Begin();
-	void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int position, Vec2 anchor,
-		MemoryBlock transient);
+	void Begin(const GameInput* input, const FontFace* fontDefault, Vec2Int position, Vec2 anchor);
 
-	void Text(const FontFace& face, Array<char> text, Vec4 color);
-	void Text(const FontFace& face, const char* text, Vec4 color);
+	void Text(Array<char> text, Vec4 color, const FontFace* font = nullptr);
 
-	bool ButtonToggle();
-	bool ButtonTrigger();
+	bool Button(Array<char> text, Vec4 color, const FontFace* font = nullptr);
+	bool Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* font = nullptr);
 
 	float32 InputFloat32();
 	float32 InputSliderFloat32();
@@ -52,4 +66,8 @@ struct Panel
 	Vec4 InputVec4();
 	Vec4 InputColor();
 	void InputText(InputString* outText);
+
+	template <typename Allocator>
+	void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec4 backgroundColor,
+		Allocator* allocator);
 };

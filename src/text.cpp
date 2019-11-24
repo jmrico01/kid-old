@@ -296,15 +296,15 @@ int GetTextWidth(const FontFace& face, Array<char> text)
     return (int)x;
 }
 
+template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    Array<char> text,
-    Vec2Int pos, Vec4 color,
-    MemoryBlock transient)
+    Array<char> text, Vec2Int pos, Vec4 color,
+    Allocator* allocator)
 {
     DEBUG_ASSERT(text.size <= GLYPH_BATCH_SIZE);
-    DEBUG_ASSERT(transient.size >= sizeof(TextDataGL));
 
-    TextDataGL* dataGL = (TextDataGL*)transient.memory;
+    TextDataGL* dataGL = (TextDataGL*)allocator->Allocate(sizeof(TextDataGL));
+    DEBUG_ASSERT(dataGL != nullptr);
 
     GLint loc;
     glUseProgram(textGL.programID);
@@ -360,38 +360,14 @@ void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
     glBindVertexArray(0);
 }
 
+template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    const char* text,
-    Vec2Int pos, Vec4 color,
-    MemoryBlock transient)
-{
-    const Array<char> textArray = {
-        .size = StringLength(text),
-        .data = (char*)text
-    };
-    DrawText(textGL, face, screenInfo, textArray, pos, color, transient);
-}
-
-void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    Array<char> text,
-    Vec2Int pos, Vec2 anchor, Vec4 color,
-    MemoryBlock transient)
+    Array<char> text, Vec2Int pos, Vec2 anchor, Vec4 color,
+    Allocator* allocator)
 {
     int textWidth = GetTextWidth(face, text);
     pos.x -= (int)(anchor.x * textWidth);
     pos.y -= (int)(anchor.y * face.height);
 
-    DrawText(textGL, face, screenInfo, text, pos, color, transient);
-}
-
-void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-    const char* text,
-    Vec2Int pos, Vec2 anchor, Vec4 color,
-    MemoryBlock transient)
-{
-    const Array<char> textArray = {
-        .size = StringLength(text),
-        .data = (char*)text
-    };
-    DrawText(textGL, face, screenInfo, textArray, pos, anchor, color, transient);
+    DrawText(textGL, face, screenInfo, text, pos, color, allocator);
 }

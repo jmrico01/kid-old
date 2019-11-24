@@ -750,7 +750,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	}
 
 	// debug only
-	// static bool testingOneTimeThing = true;
+	// local_persist bool testingOneTimeThing = true;
 	// if (testingOneTimeThing) {
 	// 	if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
 	// 		DEBUG_PANIC("Failed to load kid animation sprite\n");
@@ -1061,34 +1061,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 	OutputAudio(audio, gameState, input, memory->transient);
 
-	{
-		Panel testPanel;
-		testPanel.Begin();
-
-		Vec4 textColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
-		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "Well... hello", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "How's it going?", textColor);
-
-		testPanel.Draw(screenInfo, gameState->rectGL, gameState->textGL,
-			Vec2Int { 100, 100 }, Vec2 { 0.0f, 1.0f }, memory->transient);
-	}
-
-	{
-		Panel testPanel;
-		testPanel.Begin();
-
-		Vec4 textColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
-		testPanel.Text(gameState->fontFaceSmall, "Hello, sailor", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "Well... hello", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "", textColor);
-		testPanel.Text(gameState->fontFaceSmall, "How's it going?", textColor);
-
-		testPanel.Draw(screenInfo, gameState->rectGL, gameState->textGL,
-			Vec2Int { screenInfo.size.x - 100, 100 }, Vec2 { 1.0f, 1.0f }, memory->transient);
-	}
-
 #if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
 	int pillarboxWidth = GetPillarboxWidth(screenInfo);
@@ -1108,272 +1080,269 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	const Vec2Int MARGIN = { 30, 45 };
 
 	if (gameState->debugView) {
+		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
+
 		const Mat4 viewProjection = projection * view;
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
 
-		const FontFace& textFont = gameState->fontFaceSmall;
-		const FontFace& textFontSmall = gameState->fontFaceSmall;
-		const int TEXT_STR_LENGTH = 128;
-		char textStr[TEXT_STR_LENGTH];
-		Vec2Int textPosLeft = {
-			pillarboxWidth + MARGIN.x,
-			screenInfo.size.y - MARGIN.y,
-		};
-		Vec2Int textPosRight = {
-			screenInfo.size.x - pillarboxWidth - MARGIN.x,
-			screenInfo.size.y - MARGIN.y,
-		};
+		const FontFace& fontMedium = gameState->fontFaceMedium;
+		const FontFace& fontSmall = gameState->fontFaceSmall;
 
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[G] to toggle debug view");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		Panel panelHotkeys;
+		panelHotkeys.Begin(input, &fontSmall,
+			Vec2Int { pillarboxWidth + MARGIN.x, screenInfo.size.y - MARGIN.y },
+			Vec2 { 0.0f, 1.0f });
 
-		textPosLeft.y -= textFontSmall.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[K] to toggle km key");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelHotkeys.Text(ToString("[G]   toggle debug view"),        DEBUG_FONT_COLOR);
+		panelHotkeys.Text(ToString("[K]   toggle km key"),            DEBUG_FONT_COLOR);
+		panelHotkeys.Text(ToString("[H]   toggle debug audio view"),  DEBUG_FONT_COLOR);
+		panelHotkeys.Text(ToString("[M]   toggle global audio mute"), DEBUG_FONT_COLOR);
+		panelHotkeys.Text(ToString("[F11] toggle fullscreen"),        DEBUG_FONT_COLOR);
 
-		textPosLeft.y -= textFontSmall.height;
-		textPosLeft.y -= textFontSmall.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[H] to toggle debug audio view");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelHotkeys.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
+			&tempAllocator);
 
-		textPosLeft.y -= textFontSmall.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[M] to toggle global audio mute");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		Panel panelDebug;
+		panelDebug.Begin(input, &fontSmall,
+			Vec2Int { screenInfo.size.x - pillarboxWidth - MARGIN.x, screenInfo.size.y - MARGIN.y },
+			Vec2 { 1.0f, 1.0f });
 
-		textPosLeft.y -= textFontSmall.height;
-		textPosLeft.y -= textFontSmall.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "[F11] to toggle fullscreen");
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, textPosLeft, Vec2 { 0.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime),
+			DEBUG_FONT_COLOR);
 
-		float32 fps = 1.0f / deltaTime;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f --- FPS", fps);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
 
-		textPosRight.y -= textFont.height;
-		textPosRight.y -= textFont.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f -- CRDS",
-			gameState->playerCoords.x, gameState->playerCoords.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
-
-		textPosRight.y -= textFont.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - CMCRD",
-			gameState->cameraCoords.x, gameState->cameraCoords.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
-
-		textPosRight.y -= textFont.height;
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
+				gameState->playerCoords.x, gameState->playerCoords.y),
+			DEBUG_FONT_COLOR);
 		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f --- POS",
-			playerPosWorld.x, playerPosWorld.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f --- POS",
+				playerPosWorld.x, playerPosWorld.y),
+			DEBUG_FONT_COLOR);
 
-		textPosRight.y -= textFont.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%d - STATE", gameState->playerState);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
 
-		textPosRight.y -= textFont.height;
-		HashKey& kidActiveAnim = gameState->kid.activeAnimation;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.*s -- ANIM",
-			(int)kidActiveAnim.string.size, kidActiveAnim.string.data);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f - CMCRD",
+				gameState->cameraCoords.x, gameState->cameraCoords.y),
+			DEBUG_FONT_COLOR);
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f - CMPOS",
+				gameState->cameraPos.x, gameState->cameraPos.y),
+			DEBUG_FONT_COLOR);
 
-		textPosRight.y -= textFont.height;
-		textPosRight.y -= textFont.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f --- CAM",
-			gameState->cameraPos.x, gameState->cameraPos.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
 
-		textPosRight.y -= textFont.height;
-		textPosRight.y -= textFont.height;
 		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent));
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - MOUSE", mouseWorld.x, mouseWorld.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
-
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f - MSPOS", mouseWorld.x, mouseWorld.y),
+			DEBUG_FONT_COLOR);
 		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
-		textPosRight.y -= textFont.height;
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "%.2f|%.2f - MSCRD",
-			mouseCoords.x, mouseCoords.y);
-		DrawText(gameState->textGL, textFont, screenInfo,
-			textStr, textPosRight, Vec2 { 1.0f, 1.0f }, DEBUG_FONT_COLOR, memory->transient);
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y),
+			DEBUG_FONT_COLOR);
 
-		DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
-		LineGLData* lineData = (LineGLData*)memory->transient.memory;
+		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
 
-		{ // mouse
-			Vec2 floorPos, floorNormal;
-			floor.GetInfoFromCoordX(mouseCoords.x, &floorPos, &floorNormal);
-			lineData->count = 2;
-			lineData->pos[0] = ToVec3(floorPos, 0.0f);
-			lineData->pos[1] = ToVec3(floorPos + floorNormal * mouseCoords.y, 0.0f);
-			DrawLine(gameState->lineGL, viewProjection, lineData,
-				Vec4 { 0.5f, 0.4f, 0.0f, 0.25f });
-		}
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%d - STATE", gameState->playerState),
+			DEBUG_FONT_COLOR);
+		const HashKey& kidActiveAnim = gameState->kid.activeAnimation;
+		panelDebug.Text(
+			AllocPrintf(&tempAllocator, "%.*s -- ANIM",
+				(int)kidActiveAnim.string.size, kidActiveAnim.string.data),
+			DEBUG_FONT_COLOR);
 
-		// sprites
-		for (uint64 i = 0; i < levelData.sprites.size; i++) {
-			if (levelData.sprites[i].type != SPRITE_OBJECT) {
-				continue;
-			}
-			const float32 POINT_CROSS_OFFSET = 0.05f;
-			Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
-			Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
-			const TextureWithPosition& sprite = levelData.sprites[i];
-			lineData->count = 2;
-			Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
-			Vec3 pos = ToVec3(worldPos, 0.0f);
-			lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
-			lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
-			DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
-			lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
-			lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
-			DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
-			Vec2 worldSize = ToVec2(sprite.texture.size) / REF_PIXELS_PER_UNIT;
-			Vec2 anchorOffset = Vec2 {
-				sprite.anchor.x * worldSize.x,
-				sprite.anchor.y * worldSize.y
-			};
-			Vec3 origin = ToVec3(worldPos - anchorOffset, 0.0f);
-			// TODO rotate sprite box
-			lineData->count = 5;
-			lineData->pos[0] = origin;
-			lineData->pos[1] = origin;
-			lineData->pos[1].x += worldSize.x;
-			lineData->pos[2] = origin + ToVec3(worldSize, 0.0f);
-			lineData->pos[3] = origin;
-			lineData->pos[3].y += worldSize.y;
-			lineData->pos[4] = lineData->pos[0];
-			DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
-		}
+		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
+			&tempAllocator);
 
-		{ // floor
-			Vec4 floorSmoothColorMax = { 0.4f, 0.4f, 0.5f, 1.0f };
-			Vec4 floorSmoothColorMin = { 0.4f, 0.4f, 0.5f, 0.2f };
-			const float32 FLOOR_SMOOTH_STEPS = 0.2f;
-			const int FLOOR_HEIGHT_NUM_STEPS = 10;
-			const float32 FLOOR_HEIGHT_STEP = 0.5f;
-			const float32 FLOOR_NORMAL_LENGTH = FLOOR_HEIGHT_STEP;
-			const float32 FLOOR_LENGTH = floor.length;
-			for (int i = 0; i < FLOOR_HEIGHT_NUM_STEPS; i++) {
-				float32 height = i * FLOOR_HEIGHT_STEP;
-				lineData->count = 0;
-				for (float32 floorX = 0.0f; floorX < FLOOR_LENGTH; floorX += FLOOR_SMOOTH_STEPS) {
-					Vec2 fPos, fNormal;
-					floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
-					Vec2 pos = fPos + fNormal * height;
-					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
-					lineData->pos[lineData->count++] = ToVec3(
-						pos + fNormal * FLOOR_NORMAL_LENGTH, 0.0f);
-					lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
-				}
-				DrawLine(gameState->lineGL, viewProjection, lineData,
-					Lerp(floorSmoothColorMax, floorSmoothColorMin,
-						(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
-			}
-		}
+		local_persist bool showThings = false;
 
-		{ // line colliders
-			Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
-			const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
-				levelData.lineColliders;
-			for (uint64 i = 0; i < lineColliders.size; i++) {
-				const LineCollider& lineCollider = lineColliders[i];
-				lineData->count = (int)lineCollider.line.size;
-				for (uint64 v = 0; v < lineCollider.line.size; v++) {
-					lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
-				}
-				DrawLine(gameState->lineGL, viewProjection, lineData, lineColliderColor);
-			}
-		}
+		Panel panelGeometry;
+		panelGeometry.Begin(input, &fontSmall,
+			Vec2Int { pillarboxWidth + MARGIN.x, MARGIN.y },
+			Vec2 { 0.0f, 0.0f });
 
-		{ // level transitions
-			Vec4 levelTransitionColor = { 0.1f, 0.3f, 1.0f, 1.0f };
-			const FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX>& transitions =
-				levelData.levelTransitions;
-			lineData->count = 5;
-			for (uint64 i = 0; i < transitions.size; i++) {
-				Vec2 coords = transitions[i].coords;
-				Vec2 range = transitions[i].range;
-				lineData->pos[0] = ToVec3(coords - range, 0.0f);
-				lineData->pos[1] = lineData->pos[0];
-				lineData->pos[1].x += range.x * 2.0f;
-				lineData->pos[2] = ToVec3(coords + range, 0.0f);
-				lineData->pos[3] = lineData->pos[0];
-				lineData->pos[3].y += range.y * 2.0f;
-				lineData->pos[4] = lineData->pos[0];
-				for (int p = 0; p < 5; p++) {
-					Vec2 worldPos = floor.GetWorldPosFromCoords(ToVec2(lineData->pos[p]));
-					lineData->pos[p] = ToVec3(worldPos, 0.0f);
-				}
-				DrawLine(gameState->lineGL, viewProjection, lineData, levelTransitionColor);
-			}
-		}
+		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), DEBUG_FONT_COLOR);
 
-		{ // bounds
-			Vec4 boundsColor = { 1.0f, 0.2f, 0.3f, 1.0f };
-			if (levelData.bounded) {
+		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL,Vec4::zero,
+			&tempAllocator);
+
+		if (showThings) {
+			DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
+			LineGLData* lineData = (LineGLData*)memory->transient.memory;
+
+			{ // mouse
+				Vec2 floorPos, floorNormal;
+				floor.GetInfoFromCoordX(mouseCoords.x, &floorPos, &floorNormal);
 				lineData->count = 2;
+				lineData->pos[0] = ToVec3(floorPos, 0.0f);
+				lineData->pos[1] = ToVec3(floorPos + floorNormal * mouseCoords.y, 0.0f);
+				DrawLine(gameState->lineGL, viewProjection, lineData,
+					Vec4 { 0.5f, 0.4f, 0.0f, 0.25f });
+			}
 
-				Vec2 boundLeftPos, boundLeftNormal;
-				floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
-				Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
-				lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
-				lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
-				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
-
-				Vec2 boundRightPos, boundRightNormal;
-				floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
-				lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
-				lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
+			// sprites
+			for (uint64 i = 0; i < levelData.sprites.size; i++) {
+				if (levelData.sprites[i].type != SPRITE_OBJECT) {
+					continue;
+				}
+				const float32 POINT_CROSS_OFFSET = 0.05f;
+				Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
+				Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
+				const TextureWithPosition& sprite = levelData.sprites[i];
+				lineData->count = 2;
+				Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
+				Vec3 pos = ToVec3(worldPos, 0.0f);
+				lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
+				lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
+				DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
+				lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
+				lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
+				DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
+				Vec2 worldSize = ToVec2(sprite.texture.size) / REF_PIXELS_PER_UNIT;
+				Vec2 anchorOffset = Vec2 {
+					sprite.anchor.x * worldSize.x,
+					sprite.anchor.y * worldSize.y
+				};
+				Vec3 origin = ToVec3(worldPos - anchorOffset, 0.0f);
+				// TODO rotate sprite box
+				lineData->count = 5;
+				lineData->pos[0] = origin;
+				lineData->pos[1] = origin;
+				lineData->pos[1].x += worldSize.x;
+				lineData->pos[2] = origin + ToVec3(worldSize, 0.0f);
+				lineData->pos[3] = origin;
+				lineData->pos[3].y += worldSize.y;
+				lineData->pos[4] = lineData->pos[0];
 				DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 			}
-		}
 
-		{ // player
-			const float32 CROSS_RADIUS = 0.2f;
-			Vec4 playerColor = { 1.0f, 0.2f, 0.2f, 1.0f };
-			Vec3 playerPosWorld3 = ToVec3(playerPosWorld, 0.0f);
-			lineData->count = 2;
-			lineData->pos[0] = playerPosWorld3 - Vec3::unitX * CROSS_RADIUS;
-			lineData->pos[1] = playerPosWorld3 + Vec3::unitX * CROSS_RADIUS;
-			DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
-			lineData->pos[0] = playerPosWorld3 - Vec3::unitY * CROSS_RADIUS;
-			lineData->pos[1] = playerPosWorld3 + Vec3::unitY * CROSS_RADIUS;
-			DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
+			{ // floor
+				Vec4 floorSmoothColorMax = { 0.4f, 0.4f, 0.5f, 1.0f };
+				Vec4 floorSmoothColorMin = { 0.4f, 0.4f, 0.5f, 0.2f };
+				const float32 FLOOR_SMOOTH_STEPS = 0.2f;
+				const int FLOOR_HEIGHT_NUM_STEPS = 10;
+				const float32 FLOOR_HEIGHT_STEP = 0.5f;
+				const float32 FLOOR_NORMAL_LENGTH = FLOOR_HEIGHT_STEP;
+				const float32 FLOOR_LENGTH = floor.length;
+				for (int i = 0; i < FLOOR_HEIGHT_NUM_STEPS; i++) {
+					float32 height = i * FLOOR_HEIGHT_STEP;
+					lineData->count = 0;
+					for (float32 floorX = 0.0f; floorX < FLOOR_LENGTH; floorX += FLOOR_SMOOTH_STEPS) {
+						Vec2 fPos, fNormal;
+						floor.GetInfoFromCoordX(floorX, &fPos, &fNormal);
+						Vec2 pos = fPos + fNormal * height;
+						lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
+						lineData->pos[lineData->count++] = ToVec3(
+							pos + fNormal * FLOOR_NORMAL_LENGTH, 0.0f);
+						lineData->pos[lineData->count++] = ToVec3(pos, 0.0f);
+					}
+					DrawLine(gameState->lineGL, viewProjection, lineData,
+						Lerp(floorSmoothColorMax, floorSmoothColorMin,
+							(float32)i / (FLOOR_HEIGHT_NUM_STEPS - 1)));
+				}
+			}
+
+			{ // line colliders
+				Vec4 lineColliderColor = { 0.0f, 0.6f, 0.6f, 1.0f };
+				const FixedArray<LineCollider, LINE_COLLIDERS_MAX>& lineColliders =
+					levelData.lineColliders;
+				for (uint64 i = 0; i < lineColliders.size; i++) {
+					const LineCollider& lineCollider = lineColliders[i];
+					lineData->count = (int)lineCollider.line.size;
+					for (uint64 v = 0; v < lineCollider.line.size; v++) {
+						lineData->pos[v] = ToVec3(lineCollider.line[v], 0.0f);
+					}
+					DrawLine(gameState->lineGL, viewProjection, lineData, lineColliderColor);
+				}
+			}
+
+			{ // level transitions
+				Vec4 levelTransitionColor = { 0.1f, 0.3f, 1.0f, 1.0f };
+				const FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX>& transitions =
+					levelData.levelTransitions;
+				lineData->count = 5;
+				for (uint64 i = 0; i < transitions.size; i++) {
+					Vec2 coords = transitions[i].coords;
+					Vec2 range = transitions[i].range;
+					lineData->pos[0] = ToVec3(coords - range, 0.0f);
+					lineData->pos[1] = lineData->pos[0];
+					lineData->pos[1].x += range.x * 2.0f;
+					lineData->pos[2] = ToVec3(coords + range, 0.0f);
+					lineData->pos[3] = lineData->pos[0];
+					lineData->pos[3].y += range.y * 2.0f;
+					lineData->pos[4] = lineData->pos[0];
+					for (int p = 0; p < 5; p++) {
+						Vec2 worldPos = floor.GetWorldPosFromCoords(ToVec2(lineData->pos[p]));
+						lineData->pos[p] = ToVec3(worldPos, 0.0f);
+					}
+					DrawLine(gameState->lineGL, viewProjection, lineData, levelTransitionColor);
+				}
+			}
+
+			{ // bounds
+				Vec4 boundsColor = { 1.0f, 0.2f, 0.3f, 1.0f };
+				if (levelData.bounded) {
+					lineData->count = 2;
+
+					Vec2 boundLeftPos, boundLeftNormal;
+					floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
+					Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
+					lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
+					lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
+					DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
+
+					Vec2 boundRightPos, boundRightNormal;
+					floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
+					lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
+					lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
+					DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
+				}
+			}
+
+			{ // player
+				const float32 CROSS_RADIUS = 0.2f;
+				Vec4 playerColor = { 1.0f, 0.2f, 0.2f, 1.0f };
+				Vec3 playerPosWorld3 = ToVec3(playerPosWorld, 0.0f);
+				lineData->count = 2;
+				lineData->pos[0] = playerPosWorld3 - Vec3::unitX * CROSS_RADIUS;
+				lineData->pos[1] = playerPosWorld3 + Vec3::unitX * CROSS_RADIUS;
+				DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
+				lineData->pos[0] = playerPosWorld3 - Vec3::unitY * CROSS_RADIUS;
+				lineData->pos[1] = playerPosWorld3 + Vec3::unitY * CROSS_RADIUS;
+				DrawLine(gameState->lineGL, viewProjection, lineData, playerColor);
+			}
 		}
 	}
 	if (gameState->kmKey) {
+		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
+
 		FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
 
-		const FontFace& textFont = gameState->fontFaceMedium;
-		const FontFace& textFontSmall = gameState->fontFaceSmall;
+		const FontFace& fontMedium = gameState->fontFaceMedium;
+		const FontFace& fontSmall = gameState->fontFaceSmall;
 
 		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
 
 		Vec2Int kmKeyStringPos = { MARGIN.x, MARGIN.y, };
-		DrawText(gameState->textGL, textFont, screenInfo,
-			"KM KEY", kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor, memory->transient);
+		DrawText(gameState->textGL, fontMedium, screenInfo,
+			ToString("KM KEY"), kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor,
+			&tempAllocator);
 
-		kmKeyStringPos.y += textFont.height * 2;
+		kmKeyStringPos.y += fontMedium.height * 2;
 		const int TEXT_STR_LENGTH = 128;
 		char textStr[TEXT_STR_LENGTH];
 		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "LEVEL: %s", LEVEL_NAMES[gameState->activeLevel]);
-		DrawText(gameState->textGL, textFontSmall, screenInfo,
-			textStr, kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor, memory->transient);
+		DrawText(gameState->textGL, fontSmall, screenInfo,
+			ToString(textStr), kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor,
+			&tempAllocator);
 
 		bool32 newVertexPressed = false;
 		{

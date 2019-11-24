@@ -47,19 +47,11 @@ FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
 	FT_Library library, const char* path, uint32 height);
 
 int GetTextWidth(const FontFace& face, Array<char> text);
+template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	Array<char> text,
-	Vec2Int pos, Vec4 color,
-	MemoryBlock transient);
+	Array<char> text, Vec2Int pos, Vec4 color,
+	Allocator* allocator);
+template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	const char* text,
-	Vec2Int pos, Vec4 color,
-	MemoryBlock transient);
-void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	Array<char> text,
-	Vec2Int pos, Vec2 anchor, Vec4 color,
-	MemoryBlock transient);
-void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	const char* text,
-	Vec2Int pos, Vec2 anchor, Vec4 color,
-	MemoryBlock transient);
+	Array<char> text, Vec2Int pos, Vec2 anchor, Vec4 color,
+	Allocator* allocator);

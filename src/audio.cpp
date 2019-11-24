@@ -148,6 +148,8 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 	}
 
 	if (audioState->debugView) {
+		LinearAllocator tempAllocator(transient.size, transient.memory);
+
 		const int PILLARBOX_WIDTH = GetPillarboxWidth(screenInfo);
 		const Vec2Int MARGIN = { 30, 45 };
 		const Vec2 TEXT_ANCHOR = { 1.0f, 0.0f };
@@ -163,30 +165,30 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 			MARGIN.y + AbsInt(audioInfoStride.y) * 4
 		};
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-			"Audio Engine", audioInfoPos, TEXT_ANCHOR,
+			ToString("Audio Engine"), audioInfoPos, TEXT_ANCHOR,
 			debugFontColor,
-			transient
+			&tempAllocator
 		);
 		const char* muteStr = audioState->globalMute ? "Global Mute: ON" : "Global Mute: OFF";
 		audioInfoPos += audioInfoStride;
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-			muteStr, audioInfoPos, TEXT_ANCHOR,
+			ToString(muteStr), audioInfoPos, TEXT_ANCHOR,
 			debugFontColor,
-			transient
+			&tempAllocator
 		);
 		stbsp_snprintf(strBuf, STR_BUF_LENGTH, "Sample Rate: %d", audio->sampleRate);
 		audioInfoPos += audioInfoStride;
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-			strBuf, audioInfoPos, TEXT_ANCHOR,
+			ToString(strBuf), audioInfoPos, TEXT_ANCHOR,
 			debugFontColor,
-			transient
+			&tempAllocator
 		);
 		stbsp_snprintf(strBuf, STR_BUF_LENGTH, "Channels: %d", audio->channels);
 		audioInfoPos += audioInfoStride;
 		DrawText(gameState->textGL, gameState->fontFaceSmall, screenInfo,
-			strBuf, audioInfoPos, TEXT_ANCHOR,
+			ToString(strBuf), audioInfoPos, TEXT_ANCHOR,
 			debugFontColor,
-			transient
+			&tempAllocator
 		);
 
 		DrawAudioBuffer(gameState, audio,
