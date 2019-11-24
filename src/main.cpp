@@ -263,75 +263,76 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	float32 speedMultiplier = 1.0f;
 
 	gameState->playerVel.x = 0.0f;
-	bool skipPlayerInput = false;
+
 #if GAME_INTERNAL
-	if (gameState->kmKey) {
-		skipPlayerInput = true;
-	}
+	// Skip player input on INTERNAL build if kmKey flag is on
+	if (!gameState->kmKey) {
 #endif
 
-	if (!skipPlayerInput) {
-		float32 speed = PLAYER_WALK_SPEED * speedMultiplier;
-		if (gameState->playerState == PLAYER_STATE_JUMPING) {
-			speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
-		}
+	float32 speed = PLAYER_WALK_SPEED * speedMultiplier;
+	if (gameState->playerState == PLAYER_STATE_JUMPING) {
+		speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
+	}
 
-		if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+	if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+		gameState->playerVel.x = -speed;
+		gameState->facingRight = false;
+	}
+	if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+		gameState->playerVel.x = speed;
+		gameState->facingRight = true;
+	}
+	if (input->controllers[0].isConnected) {
+		float32 leftStickX = input->controllers[0].leftEnd.x;
+		if (leftStickX < 0.0f) {
 			gameState->playerVel.x = -speed;
 			gameState->facingRight = false;
 		}
-		if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+		else if (leftStickX > 0.0f) {
 			gameState->playerVel.x = speed;
 			gameState->facingRight = true;
 		}
-		if (input->controllers[0].isConnected) {
-			float32 leftStickX = input->controllers[0].leftEnd.x;
-			if (leftStickX < 0.0f) {
-				gameState->playerVel.x = -speed;
-				gameState->facingRight = false;
-			}
-			else if (leftStickX > 0.0f) {
-				gameState->playerVel.x = speed;
-				gameState->facingRight = true;
-			}
-		}
+	}
 
-		bool fallPressed = IsKeyPressed(input, KM_KEY_S)
-			|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
-			|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
-		if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
-		&& gameState->currentPlatform != nullptr) {
-			gameState->playerState = PLAYER_STATE_FALLING;
-			gameState->currentPlatform = nullptr;
-			gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
-		}
+	bool fallPressed = IsKeyPressed(input, KM_KEY_S)
+		|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
+		|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
+	if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
+	&& gameState->currentPlatform != nullptr) {
+		gameState->playerState = PLAYER_STATE_FALLING;
+		gameState->currentPlatform = nullptr;
+		gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
+	}
 
-		bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
-			|| IsKeyPressed(input, KM_KEY_ARROW_UP)
-			|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
-		if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
-		&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
-			gameState->playerState = PLAYER_STATE_JUMPING;
-			gameState->currentPlatform = nullptr;
-			gameState->playerJumpHolding = true;
-			gameState->playerJumpHold = 0.0f;
-			gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
-			gameState->audioState.soundJump.playing = true;
-			gameState->audioState.soundJump.sampleIndex = 0;
-		}
+	bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
+		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
+		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
+	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
+	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
+		gameState->playerState = PLAYER_STATE_JUMPING;
+		gameState->currentPlatform = nullptr;
+		gameState->playerJumpHolding = true;
+		gameState->playerJumpHold = 0.0f;
+		gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
+		gameState->audioState.soundJump.playing = true;
+		gameState->audioState.soundJump.sampleIndex = 0;
+	}
 
-		if (gameState->playerJumpHolding) {
-			gameState->playerJumpHold += deltaTime;
-			if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
-				gameState->playerJumpHolding = false;
-				float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
-					/ (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
-				timeT = ClampFloat32(timeT, 0.0f, 1.0f);
-				timeT = sqrtf(timeT);
-				gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
-			}
+	if (gameState->playerJumpHolding) {
+		gameState->playerJumpHold += deltaTime;
+		if (gameState->playerState == PLAYER_STATE_JUMPING && !jumpPressed) {
+			gameState->playerJumpHolding = false;
+			float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
+				/ (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
+			timeT = ClampFloat32(timeT, 0.0f, 1.0f);
+			timeT = sqrtf(timeT);
+			gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
 		}
 	}
+
+#if GAME_INTERNAL
+	}
+#endif
 
 	FixedArray<HashKey, 4> nextAnimations;
 	nextAnimations.size = 0;
@@ -1094,11 +1095,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			Vec2Int { pillarboxWidth + MARGIN.x, screenInfo.size.y - MARGIN.y },
 			Vec2 { 0.0f, 1.0f });
 
+		panelHotkeys.Text(ToString("[F11] toggle fullscreen"),        DEBUG_FONT_COLOR);
 		panelHotkeys.Text(ToString("[G]   toggle debug view"),        DEBUG_FONT_COLOR);
 		panelHotkeys.Text(ToString("[K]   toggle km key"),            DEBUG_FONT_COLOR);
-		panelHotkeys.Text(ToString("[H]   toggle debug audio view"),  DEBUG_FONT_COLOR);
-		panelHotkeys.Text(ToString("[M]   toggle global audio mute"), DEBUG_FONT_COLOR);
-		panelHotkeys.Text(ToString("[F11] toggle fullscreen"),        DEBUG_FONT_COLOR);
 
 		panelHotkeys.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
