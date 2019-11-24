@@ -1,6 +1,0 @@
-- Generate ground from PSD layer with single loop
-	1. Find outer+inner boundaries of loop using flood fill thing, get list of pixels.
-	2. Somehow average/smooth these list of pixels, assuming they form lines ish.
-	3. $$$
-
-- KM Immediate Mode GUI library
