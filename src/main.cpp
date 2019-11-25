@@ -1087,7 +1087,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
 
-		const FontFace& fontMedium = gameState->fontFaceMedium;
+		// const FontFace& fontMedium = gameState->fontFaceMedium;
 		const FontFace& fontSmall = gameState->fontFaceSmall;
 
 		Panel panelHotkeys;
@@ -1170,7 +1170,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), DEBUG_FONT_COLOR);
 
-		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL,Vec4::zero,
+		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
 		if (showThings) {
@@ -1330,17 +1330,17 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
 
-		Vec2Int kmKeyStringPos = { MARGIN.x, MARGIN.y, };
-		DrawText(gameState->textGL, fontMedium, screenInfo,
-			ToString("KM KEY"), kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor,
-			&tempAllocator);
+		Panel panelKmKey;
+		panelKmKey.Begin(input, &fontSmall,
+			Vec2Int { MARGIN.x, MARGIN.y }, Vec2 { 0.0f, 0.0f }, false);
 
-		kmKeyStringPos.y += fontMedium.height * 2;
-		const int TEXT_STR_LENGTH = 128;
-		char textStr[TEXT_STR_LENGTH];
-		stbsp_snprintf(textStr, TEXT_STR_LENGTH, "LEVEL: %s", LEVEL_NAMES[gameState->activeLevel]);
-		DrawText(gameState->textGL, fontSmall, screenInfo,
-			ToString(textStr), kmKeyStringPos, Vec2 { 0.0f, 0.0f }, kmKeyFontColor,
+		panelKmKey.Text(ToString("KM KEY"), kmKeyFontColor, &fontMedium);
+		panelKmKey.Text(ToString(""), kmKeyFontColor);
+		panelKmKey.Text(
+			AllocPrintf(&tempAllocator, "Level: %s", LEVEL_NAMES[gameState->activeLevel]),
+			kmKeyFontColor);
+
+		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
 		bool32 newVertexPressed = false;

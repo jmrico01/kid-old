@@ -5,7 +5,8 @@
 
 global_var const float32 MARGIN_FRACTION = 1.1f;
 
-void Panel::Begin(const GameInput* input, const FontFace* fontDefault, Vec2Int position, Vec2 anchor)
+void Panel::Begin(const GameInput* input, const FontFace* fontDefault,
+	Vec2Int position, Vec2 anchor, bool growDownwards)
 {
 	DEBUG_ASSERT(input != nullptr);
 	DEBUG_ASSERT(fontDefault != nullptr);
@@ -14,6 +15,7 @@ void Panel::Begin(const GameInput* input, const FontFace* fontDefault, Vec2Int p
 	this->positionCurrent = position;
 	this->anchor = anchor;
 	this->size = Vec2Int::zero;
+	this->growDownwards = growDownwards;
 	this->input = input;
 	this->fontDefault = fontDefault;
 }
@@ -55,7 +57,12 @@ void Panel::Text(Array<char> text, Vec4 color, const FontFace* font)
 
 	int sizeX = (int)(GetTextWidth(*fontToUse, text) * MARGIN_FRACTION);
 	int sizeY = (int)(fontToUse->height * MARGIN_FRACTION);
-	positionCurrent.y -= sizeY;
+	if (growDownwards) {
+		positionCurrent.y -= sizeY;
+	}
+	else {
+		positionCurrent.y += sizeY;
+	}
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
 }
@@ -102,7 +109,12 @@ bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* 
 
 	int sizeX = (int)(GetTextWidth(*fontToUse, text) * MARGIN_FRACTION) + fontHeight;
 	int sizeY = (int)(fontHeight * MARGIN_FRACTION);
-	positionCurrent.y -= sizeY;
+	if (growDownwards) {
+		positionCurrent.y -= sizeY;
+	}
+	else {
+		positionCurrent.y += sizeY;
+	}
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
 
