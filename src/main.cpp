@@ -1331,8 +1331,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
 
 		Panel panelKmKey;
-		panelKmKey.Begin(input, &fontSmall,
-			Vec2Int { MARGIN.x, MARGIN.y }, Vec2 { 0.0f, 0.0f }, false);
+		panelKmKey.Begin(input, &fontSmall, Vec2Int { MARGIN.x, MARGIN.y },
+			Vec2 { 0.0f, 0.0f }, false);
 
 		panelKmKey.Text(ToString("KM KEY"), kmKeyFontColor, &fontMedium);
 		panelKmKey.Text(ToString(""), kmKeyFontColor);
@@ -1343,52 +1343,16 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		bool32 newVertexPressed = false;
-		{
-			const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
-			const float32 IDLE_ALPHA = 0.5f;
-			const float32 HOVER_ALPHA = 0.8f;
-			const float32 SELECTED_ALPHA = 1.0f;
-			const Vec2Int BOX_SIZE = Vec2Int { 20, 20 };
-			const Vec2 BOX_ANCHOR = Vec2::one / 2.0f;
-			const Vec2Int ANCHOR_OFFSET = Vec2Int {
-				(int)(BOX_SIZE.x * BOX_ANCHOR.x),
-				(int)(BOX_SIZE.y * BOX_ANCHOR.y)
-			};
-			Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
-			for (uint64 i = 0; i < floor.line.size; i++) {
-				Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
-					gameState->cameraPos, gameState->cameraRot,
-					ScaleExponentToWorldScale(gameState->editorScaleExponent));
+		local_persist bool editCollision = false;
 
-				Vec4 boxColor = BOX_COLOR_BASE;
-				boxColor.a = IDLE_ALPHA;
-				if ((mousePosPlusAnchor.x >= boxPos.x
-				&& mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
-				(mousePosPlusAnchor.y >= boxPos.y
-				&& mousePosPlusAnchor.y <= boxPos.y + BOX_SIZE.y)) {
-					if (input->mouseButtons[0].isDown
-					&& input->mouseButtons[0].transitions == 1) {
-						newVertexPressed = true;
-						gameState->floorVertexSelected = (int)i;
-					}
-					else {
-						boxColor.a = HOVER_ALPHA;
-					}
-				}
-				if ((int)i == gameState->floorVertexSelected) {
-					boxColor.a = SELECTED_ALPHA;
-				}
+		Panel panelOptions;
+		panelOptions.Begin(input, &fontSmall, Vec2Int { screenInfo.size.x - MARGIN.x, MARGIN.y },
+			Vec2 { 1.0f, 0.0f }, false);
 
-				DrawRect(gameState->rectGL, screenInfo,
-					boxPos, BOX_ANCHOR, BOX_SIZE, boxColor);
-			}
-		}
+		panelOptions.Checkbox(&editCollision, ToString("Ground editor"), DEBUG_FONT_COLOR);
 
-		if (input->mouseButtons[0].isDown && input->mouseButtons[0].transitions == 1
-		&& !newVertexPressed) {
-			gameState->floorVertexSelected = -1;
-		}
+		panelOptions.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
+			&tempAllocator);
 
 		Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
@@ -1398,39 +1362,95 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			ScaleExponentToWorldScale(gameState->editorScaleExponent));
 		Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
 
-		if (input->mouseButtons[0].isDown) {
-			if (gameState->floorVertexSelected == -1) {
-				gameState->cameraPos -= mouseWorldDelta;
-			}
-			else {
-				floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
-				floor.PrecomputeSampleVerticesFromLine();
-			}
-		}
+		if (editCollision) {
+			bool32 newVertexPressed = false;
+			{
+				const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
+				const float32 IDLE_ALPHA = 0.5f;
+				const float32 HOVER_ALPHA = 0.8f;
+				const float32 SELECTED_ALPHA = 1.0f;
+				const Vec2Int BOX_SIZE = Vec2Int { 20, 20 };
+				const Vec2 BOX_ANCHOR = Vec2::one / 2.0f;
+				const Vec2Int ANCHOR_OFFSET = Vec2Int {
+					(int)(BOX_SIZE.x * BOX_ANCHOR.x),
+					(int)(BOX_SIZE.y * BOX_ANCHOR.y)
+				};
+				Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
+				for (uint64 i = 0; i < floor.line.size; i++) {
+					Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
+						gameState->cameraPos, gameState->cameraRot,
+						ScaleExponentToWorldScale(gameState->editorScaleExponent));
 
-		if (gameState->floorVertexSelected != -1) {
-			if (WasKeyPressed(input, KM_KEY_R)) {
-				floor.line.Remove(gameState->floorVertexSelected);
-				floor.PrecomputeSampleVerticesFromLine();
+					Vec4 boxColor = BOX_COLOR_BASE;
+					boxColor.a = IDLE_ALPHA;
+					if ((mousePosPlusAnchor.x >= boxPos.x
+					&& mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
+					(mousePosPlusAnchor.y >= boxPos.y
+					&& mousePosPlusAnchor.y <= boxPos.y + BOX_SIZE.y)) {
+						if (input->mouseButtons[0].isDown
+						&& input->mouseButtons[0].transitions == 1) {
+							newVertexPressed = true;
+							gameState->floorVertexSelected = (int)i;
+						}
+						else {
+							boxColor.a = HOVER_ALPHA;
+						}
+					}
+					if ((int)i == gameState->floorVertexSelected) {
+						boxColor.a = SELECTED_ALPHA;
+					}
+
+					DrawRect(gameState->rectGL, screenInfo,
+						boxPos, BOX_ANCHOR, BOX_SIZE, boxColor);
+				}
+			}
+
+			if (input->mouseButtons[0].isDown && input->mouseButtons[0].transitions == 1
+			&& !newVertexPressed) {
 				gameState->floorVertexSelected = -1;
 			}
-		}
 
-		if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
-			if (gameState->floorVertexSelected == -1) {
-				floor.line.Append(mouseWorldPosEnd);
-				gameState->floorVertexSelected = (int)(floor.line.size - 1);
+			if (input->mouseButtons[0].isDown) {
+				if (gameState->floorVertexSelected == -1) {
+					gameState->cameraPos -= mouseWorldDelta;
+				}
+				else {
+					floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
+					floor.PrecomputeSampleVerticesFromLine();
+				}
 			}
-			else {
-				floor.line.AppendAfter(mouseWorldPosEnd, gameState->floorVertexSelected);
-				gameState->floorVertexSelected += 1;
+
+			if (gameState->floorVertexSelected != -1) {
+				if (WasKeyPressed(input, KM_KEY_R)) {
+					floor.line.Remove(gameState->floorVertexSelected);
+					floor.PrecomputeSampleVerticesFromLine();
+					gameState->floorVertexSelected = -1;
+				}
 			}
-			floor.PrecomputeSampleVerticesFromLine();
+
+			if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
+				if (gameState->floorVertexSelected == -1) {
+					floor.line.Append(mouseWorldPosEnd);
+					gameState->floorVertexSelected = (int)(floor.line.size - 1);
+				}
+				else {
+					floor.line.AppendAfter(mouseWorldPosEnd, gameState->floorVertexSelected);
+					gameState->floorVertexSelected += 1;
+				}
+				floor.PrecomputeSampleVerticesFromLine();
+			}
+		}
+		else {
+			if (input->mouseButtons[0].isDown) {
+				gameState->cameraPos -= mouseWorldDelta;
+			}
 		}
 
 		if (input->mouseButtons[2].isDown) {
-			Vec2Int screenCenterToMouse = input->mousePos - screenInfo.size / 2;
-			// TODO rotate camera
+			Vec2Int centerToMousePrev = (input->mousePos - input->mouseDelta) - screenInfo.size / 2;
+			Vec2Int centerToMouse = input->mousePos - screenInfo.size / 2;
+			float32 angle = AngleBetween(ToVec2(centerToMousePrev), ToVec2(centerToMouse));
+			gameState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * gameState->cameraRot;
 		}
 
 		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
