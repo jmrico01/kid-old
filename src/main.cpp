@@ -1492,7 +1492,6 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 #define STB_SPRINTF_IMPLEMENTATION
 #include <stb_sprintf.h>
 
-#include <km_common/km_debug.cpp>
 #include <km_common/km_input.cpp>
 #include <km_common/km_lib.cpp>
 #include <km_common/km_log.cpp>
