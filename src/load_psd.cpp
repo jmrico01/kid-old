@@ -4,7 +4,7 @@
 
 #define PSD_COLOR_MODE_RGB 3
 
-static const uint64 STRING_MAX_SIZE = 1024;
+global_var const uint64 STRING_MAX_SIZE = 1024;
 
 enum class PsdCompression
 {
@@ -167,8 +167,7 @@ struct PsdDescriptor
 	template <>
 	const int32* GetItemValue<int32>(const char* key) const
 	{
-		const HashKey hashKey(key);
-		const PsdDescriptorItem* item = items.GetValue(hashKey);
+		const PsdDescriptorItem* item = items.GetValue(key);
 		if (item == nullptr) {
 			return nullptr;
 		}
@@ -181,8 +180,7 @@ struct PsdDescriptor
 	template <>
 	const PsdDescriptor* GetItemValue<PsdDescriptor>(const char* key) const
 	{
-		const HashKey hashKey(key);
-		const PsdDescriptorItem* item = items.GetValue(hashKey);
+		const PsdDescriptorItem* item = items.GetValue(key);
 		if (item == nullptr) {
 			return nullptr;
 		}
@@ -201,7 +199,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	parsedBytes += 4;
 	if (StringCompare(typeString, "Objc")) {
 		type = PsdDescriptorItemType::DESCRIPTOR;
-		descriptorPtr = new PsdDescriptor();
+		descriptorPtr = new PsdDescriptor(); // TODO hmmm
 		uint64 descriptorBytes;
 		if (!descriptorPtr->Load(string.SliceFrom(parsedBytes), &descriptorBytes)) {
 			LOG_ERROR("failed to load descriptor in item\n");

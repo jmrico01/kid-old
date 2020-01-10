@@ -6,6 +6,9 @@
 
 #include "main.h"
 
+global_var const uint64 KEYWORD_MAX_LENGTH = 32;
+global_var const uint64 VALUE_MAX_LENGTH = 4096;
+
 const char KEYWORD_ANIM             [KEYWORD_MAX_LENGTH] = "anim";
 const char KEYWORD_DIR              [KEYWORD_MAX_LENGTH] = "dir";
 const char KEYWORD_FPS              [KEYWORD_MAX_LENGTH] = "fps";
