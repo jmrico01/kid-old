@@ -211,7 +211,6 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			}
 
 			DynamicArray<Vec2Int> loop;
-			defer (loop.Free());
 			if (!GetLoop(imageAlpha, &allocator, &loop)) {
 				LOG_ERROR("Failed to get loop from ground edges\n");
 				return false;

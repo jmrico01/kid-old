@@ -135,15 +135,14 @@ struct PsdDescriptor
 		for (int32 i = 0; i < descriptorItems; i++) {
 			int32 keyLength = ReadBigEndianInt32(&string[parsedBytes]);
 			parsedBytes += 4;
-			if (keyLength > STRING_KEY_MAX_LENGTH) {
-				LOG_ERROR("key string too big (%d, max is %d)\n", keyLength, STRING_KEY_MAX_LENGTH);
-				return false;
-			}
 			HashKey keyString;
 			if (keyLength == 0) {
 				keyLength = 4;
 			}
-			keyString.WriteString(string.Slice(parsedBytes, parsedBytes + keyLength));
+			if (!keyString.WriteString(string.Slice(parsedBytes, parsedBytes + keyLength))) {
+				LOG_ERROR("key string too big (%d)\n", keyLength);
+				return false;
+			}
 			parsedBytes += keyLength;
 
 			PsdDescriptorItem item;
