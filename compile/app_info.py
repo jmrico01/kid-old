@@ -9,6 +9,11 @@ class LibExternal:
 
 PROJECT_NAME = "kid"
 
+COPY_DIRS = {
+	"/data": "/data",
+	"/src/shaders": "/shaders"
+}
+
 DEPLOY_FILES = [
 	"data",
 	"logs",
