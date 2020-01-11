@@ -739,18 +739,16 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				return false;
 			}
 
-			uint8 blendModeKey[4];
-			MemCopy(blendModeKey, &psdData[parsedBytes], 4);
+			Array<char> blendModeKey = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
-			if (StringCompare((const char*)blendModeKey, "norm", 4)) {
+			if (StringCompare(blendModeKey, "norm")) {
 				layerInfo.blendMode = LayerBlendMode::NORMAL;
 			}
-			else if (StringCompare((const char*)blendModeKey, "mul", 3)) {
+			else if (StringCompare(blendModeKey, "mul ")) { // TODO trailing space is eh...
 				layerInfo.blendMode = LayerBlendMode::MULTIPLY;
 			}
 			else {
-				LOG_ERROR("Unsupported blend mode %c%c%c%c\n",
-					blendModeKey[0], blendModeKey[1], blendModeKey[2], blendModeKey[3]);
+				LOG_ERROR("Unsupported blend mode %.*s\n", blendModeKey.size, blendModeKey.data);
 				return false;
 			}
 
