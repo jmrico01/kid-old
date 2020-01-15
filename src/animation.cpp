@@ -1,8 +1,8 @@
 #include "animation.h"
 
 #include <km_common/km_debug.h>
+#include <km_common/km_kmkv.h>
 #include <km_common/km_memory.h>
-#include <km_common/km_string.h>
 
 #include "main.h"
 
