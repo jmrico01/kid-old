@@ -111,7 +111,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 	fileString.size = animFile.size;
 	fileString.data = (char*)animFile.data;
 	FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-	FixedArray<char, VALUE_MAX_LENGTH> value;
+	DynamicArray<char> value;
 	HashKey currentAnimKey;
 	Animation* currentAnim = nullptr;
 	while (true) {

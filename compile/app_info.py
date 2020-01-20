@@ -26,8 +26,9 @@ LIBS_EXTERNAL = [
 		"debug":   "freetype281MTd.lib",
 		"release": "freetype281MT.lib"
 	}),
-	LibExternal("stbimage", "stb_image-2.23"),
-	LibExternal("stbsprintf", "stb_sprintf-1.06")
+	LibExternal("stbimage",   "stb_image-2.23"),
+	LibExternal("stbsprintf", "stb_sprintf-1.06"),
+	LibExternal("utf8proc",   "utf8proc")
 ]
 
 PATHS = {

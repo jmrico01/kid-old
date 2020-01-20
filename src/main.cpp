@@ -11,7 +11,6 @@
 #undef internal
 #include <random>
 #define internal static
-#undef STB_SPRINTF_IMPLEMENTATION
 #include <stb_sprintf.h>
 
 #include "imgui.h"
@@ -1491,6 +1490,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 #include <stb_image.h>
 #define STB_SPRINTF_IMPLEMENTATION
 #include <stb_sprintf.h>
+#undef STB_SPRINTF_IMPLEMENTATION
 
 #include <km_common/km_input.cpp>
 #include <km_common/km_kmkv.cpp>

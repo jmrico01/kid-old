@@ -1,6 +1,6 @@
 #include "load_level.h"
 
-#undef STB_SPRINTF_IMPLEMENTATION
+#include <km_common/km_kmkv.h>
 #include <stb_sprintf.h>
 
 #include <queue> // TODO implement in km_lib?
@@ -275,7 +275,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 	fileString.size = levelFile.size;
 	fileString.data = (char*)levelFile.data;
 	FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-	FixedArray<char, VALUE_MAX_LENGTH> value;
+	DynamicArray<char> value;
 	while (true) {
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
@@ -330,7 +330,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 			Array<char> transitionString = value.ToArray();
 			FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
-			FixedArray<char, VALUE_MAX_LENGTH> valueTransition;
+			DynamicArray<char> valueTransition;
 			while (true) {
 				int readTransition = ReadNextKeywordValue(transitionString,
 					&keywordTransition, &valueTransition);
