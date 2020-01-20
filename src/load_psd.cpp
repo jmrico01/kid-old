@@ -196,7 +196,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 
 	const Array<char> typeString = string.Slice(parsedBytes, parsedBytes + 4);
 	parsedBytes += 4;
-	if (StringCompare(typeString, "Objc")) {
+	if (StringEquals(typeString, ToString("Objc"))) {
 		type = PsdDescriptorItemType::DESCRIPTOR;
 		descriptorPtr = new PsdDescriptor(); // TODO hmmm
 		uint64 descriptorBytes;
@@ -206,7 +206,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 		}
 		parsedBytes += descriptorBytes;
 	}
-	else if (StringCompare(typeString, "VlLs")) {
+	else if (StringEquals(typeString, ToString("VlLs"))) {
 		type = PsdDescriptorItemType::OTHER;
 		int32 listLength = ReadBigEndianInt32(&string[parsedBytes]);
 		parsedBytes += 4;
@@ -220,12 +220,12 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 			parsedBytes += listItemBytes;
 		}
 	}
-	else if (StringCompare(typeString, "doub")) {
+	else if (StringEquals(typeString, ToString("doub"))) {
 		type = PsdDescriptorItemType::OTHER;
 		// float64 doub = *((float64*)&string[parsedBytes]);
 		parsedBytes += 8;
 	}
-	else if (StringCompare(typeString, "TEXT")) {
+	else if (StringEquals(typeString, ToString("TEXT"))) {
 		type = PsdDescriptorItemType::OTHER;
 		FixedArray<char, STRING_MAX_SIZE> stringData;
 		int stringBytes = ReadUnicodeString(string.SliceFrom(parsedBytes), &stringData);
@@ -235,12 +235,12 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 		}
 		parsedBytes += stringBytes;
 	}
-	else if (StringCompare(typeString, "long")) {
+	else if (StringEquals(typeString, ToString("long"))) {
 		type = PsdDescriptorItemType::INTEGER;
 		integer = ReadBigEndianInt32(&string[parsedBytes]);
 		parsedBytes += 4;
 	}
-	else if (StringCompare(typeString, "bool")) {
+	else if (StringEquals(typeString, ToString("bool"))) {
 		type = PsdDescriptorItemType::OTHER;
 		parsedBytes++; // uint8 boolean = string[parsedBytes++];
 	}
@@ -545,7 +545,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 	const Array<char> psdSignature = psdData.Slice(parsedBytes, parsedBytes + 4);
 	parsedBytes += 4;
-	if (!StringCompare(psdSignature, "8BPS")) {
+	if (!StringEquals(psdSignature, ToString("8BPS"))) {
 		LOG_ERROR("Invalid PSD signature %.*s, expected 8BPS, on file %s\n",
 			psdSignature.size, psdSignature.data, filePath);
 		return false;
@@ -599,7 +599,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 	while (parsedBytes < imageResourcesStart + imageResourcesLength) {
 		const Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 		parsedBytes += 4;
-		if (!StringCompare(signature, "8BIM")) {
+		if (!StringEquals(signature, ToString("8BIM"))) {
 			LOG_ERROR("Invalid image resource signature %.*s, expected 8BIM, on file %s\n",
 				signature.size, signature.data, filePath);
 			return false;
@@ -733,7 +733,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 			Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
-			if (!StringCompare(signature, "8BIM")) {
+			if (!StringEquals(signature, ToString("8BIM"))) {
 				LOG_ERROR("Invalid blend mode signature %.*s, expected 8BIM, on file %s\n",
 					signature.size, signature.data, filePath);
 				return false;
@@ -741,10 +741,10 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 
 			Array<char> blendModeKey = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
-			if (StringCompare(blendModeKey, "norm")) {
+			if (StringEquals(blendModeKey, ToString("norm"))) {
 				layerInfo.blendMode = LayerBlendMode::NORMAL;
 			}
-			else if (StringCompare(blendModeKey, "mul ")) { // TODO trailing space is eh...
+			else if (StringEquals(blendModeKey, ToString("mul "))) { // TODO trailing space is eh...
 				layerInfo.blendMode = LayerBlendMode::MULTIPLY;
 			}
 			else {
@@ -780,7 +780,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 			while (parsedBytes < extraDataStart + extraDataLength) {
 				signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 				parsedBytes += 4;
-				if (!StringCompare(signature, "8BIM") && !StringCompare(signature, "8B64")) {
+				if (!StringEquals(signature, ToString("8BIM")) && !StringEquals(signature, ToString("8B64"))) {
 					LOG_ERROR("Invalid additional layer info, signature %.*s, expected 8BIM or 8B64, layer %.*s, file %.*s\n",
 						signature.size, signature.data,
 						layerInfo.name.size, layerInfo.name.data, filePath);
@@ -797,7 +797,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				}
 				uint64 addLayerInfoStart = parsedBytes;
 
-				if (StringCompare(key, "lyid")) {
+				if (StringEquals(key, ToString("lyid"))) {
 					if (addLayerInfoLength != 4) {
 						LOG_ERROR("layer \"%.*s\" ID length %d, expected 4\n",
 							layerInfo.name.size, layerInfo.name.data,
@@ -807,7 +807,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					// int32 layerId = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 				}
-				else if (StringCompare(key, "lsct")) {
+				else if (StringEquals(key, ToString("lsct"))) {
 					int32 sectionDividerType = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					switch (sectionDividerType) {
@@ -830,7 +830,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 					}
 					// Ignored data here
 				}
-				else if (StringCompare(key, "shmd")) {
+				else if (StringEquals(key, ToString("shmd"))) {
 					int32 itemCount = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					for (int32 i = 0; i < itemCount; i++) {
@@ -844,10 +844,10 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 						parsedBytes += 4;
 
 						uint64 metadataStart = parsedBytes;
-						if (!StringCompare(signature, "8BIM")) {
+						if (!StringEquals(signature, ToString("8BIM"))) {
 							// idk, spooky? skip!
 						}
-						else if (StringCompare(metadataKey, "tmln")) {
+						else if (StringEquals(metadataKey, ToString("tmln"))) {
 							int32 descriptorVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
 							parsedBytes += 4;
 							if (descriptorVersion != 16) {

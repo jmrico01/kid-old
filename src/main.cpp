@@ -50,7 +50,7 @@ internal uint64 LevelNameToId(const Array<char>& name)
 {
 	uint64 numNames = C_ARRAY_LENGTH(LEVEL_NAMES);
 	for (uint64 i = 0; i < numNames; i++) {
-		if (StringCompare(name, LEVEL_NAMES[i])) {
+		if (StringEquals(name, ToString(LEVEL_NAMES[i]))) {
 			return i;
 		}
 	}

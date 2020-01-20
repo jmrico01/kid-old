@@ -197,7 +197,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		const auto& allocatorState = allocator.SaveState();
 		defer (allocator.LoadState(allocatorState));
 
-		if (StringContains(layer.name.ToArray(), "ground_")) {
+		if (StringContains(layer.name.ToArray(), ToString("ground_"))) {
 			if (floor.line.size > 0) {
 				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %s\n",
 					layer.name.size, layer.name.data, filePath);
@@ -233,13 +233,13 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		}
 
 		SpriteType spriteType = SPRITE_BACKGROUND;
-		if (StringContains(layer.name.ToArray(), "obj_")) {
+		if (StringContains(layer.name.ToArray(), ToString("obj_"))) {
 			spriteType = SPRITE_OBJECT;
 		}
-		else if (StringContains(layer.name.ToArray(), "label_")) {
+		else if (StringContains(layer.name.ToArray(), ToString("label_"))) {
 			spriteType = SPRITE_LABEL;
 		}
-		else if (StringContains(layer.name.ToArray(), "x_")) {
+		else if (StringContains(layer.name.ToArray(), ToString("x_"))) {
 			continue;
 		}
 
@@ -288,7 +288,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		fileString.size -= read;
 		fileString.data += read;
 
-		if (StringCompare(keyword.ToArray(), "bounds")) {
+		if (StringEquals(keyword.ToArray(), ToString("bounds"))) {
 			Vec2 parsedBounds;
 			int parsedElements;
 			if (!StringToElementArray(value.ToArray(), ' ', true,
@@ -306,7 +306,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			bounded = true;
 			bounds = parsedBounds;
 		}
-		else if (StringCompare(keyword.ToArray(), "lockcamera")) {
+		else if (StringEquals(keyword.ToArray(), ToString("lockcamera"))) {
 			Vec2 coords;
 			int parsedElements;
 			if (!StringToElementArray(value.ToArray(), ' ', true,
@@ -324,7 +324,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			lockedCamera = true;
 			cameraCoords = coords;
 		}
-		else if (StringCompare(keyword.ToArray(), "transition")) {
+		else if (StringEquals(keyword.ToArray(), ToString("transition"))) {
 			DEBUG_ASSERT(levelTransitions.size < LEVEL_TRANSITIONS_MAX);
 			LevelTransition* transition = &levelTransitions[levelTransitions.size++];
 
@@ -344,7 +344,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				transitionString.size -= readTransition;
 				transitionString.data += readTransition;
 
-				if (StringCompare(keywordTransition.ToArray(), "coords")) {
+				if (StringEquals(keywordTransition.ToArray(), ToString("coords"))) {
 					Vec2 coords;
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
@@ -361,7 +361,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 					transition->coords = coords;
 				}
-				else if (StringCompare(keywordTransition.ToArray(), "range")) {
+				else if (StringEquals(keywordTransition.ToArray(), ToString("range"))) {
 					Vec2 range;
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
@@ -378,7 +378,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 					transition->range = range;
 				}
-				else if (StringCompare(keywordTransition.ToArray(), "tolevel")) {
+				else if (StringEquals(keywordTransition.ToArray(), ToString("tolevel"))) {
 					uint64 toLevel = LevelNameToId(valueTransition.ToArray());
 					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
 						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%s)\n",
@@ -388,7 +388,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 					transition->toLevel = toLevel;
 				}
-				else if (StringCompare(keywordTransition.ToArray(), "tocoords")) {
+				else if (StringEquals(keywordTransition.ToArray(), ToString("tocoords"))) {
 					Vec2 toCoords;
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
@@ -412,7 +412,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				}
 			}
 		}
-		else if (StringCompare(keyword.ToArray(), "line")) {
+		else if (StringEquals(keyword.ToArray(), ToString("line"))) {
 			DEBUG_ASSERT(lineColliders.size < LINE_COLLIDERS_MAX);
 
 			LineCollider* lineCollider = &lineColliders[lineColliders.size++];
@@ -448,7 +448,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword.ToArray(), "//")) {
+		else if (StringEquals(keyword.ToArray(), ToString("//"))) {
 			// comment, ignore
 		}
 		else {

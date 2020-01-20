@@ -127,7 +127,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 		fileString.data += read;
 
 		// TODO catch error in keyword order (e.g. anim should always be first)
-		if (StringCompare(keyword.ToArray(), "anim")) {
+		if (StringEquals(keyword.ToArray(), ToString("anim"))) {
 			currentAnimKey.WriteString(value.ToArray());
 			animations.Add(currentAnimKey, {});
 			currentAnim = animations.GetValue(currentAnimKey);
@@ -151,7 +151,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 						continue;
 					}
 					uint64 parentIndex = psdFile.layers[i].parentIndex;
-					if (!StringCompare(psdFile.layers[parentIndex].name.ToArray(), value.ToArray())) {
+					if (!StringEquals(psdFile.layers[parentIndex].name.ToArray(), value.ToArray())) {
 						continue;
 					}
 					float64 start = psdFile.layers[i].timelineStart;
@@ -190,7 +190,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				currentAnim->frameTime[0] = 0.0f;
 			}
 		}
-		else if (StringCompare(keyword.ToArray(), "fps")) { // TODO won't need this anymore
+		else if (StringEquals(keyword.ToArray(), ToString("fps"))) { // TODO won't need this anymore
 			int fps;
 			if (!StringToIntBase10(value.ToArray(), &fps)) {
 				LOG_ERROR("Animation file fps parse failed (%s)\n", filePath);
@@ -202,10 +202,10 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			}
 			currentAnim->fps = fps;
 		}
-		else if (StringCompare(keyword.ToArray(), "loop")) {
+		else if (StringEquals(keyword.ToArray(), ToString("loop"))) {
 			currentAnim->loop = true;
 		}
-		else if (StringCompare(keyword.ToArray(), "exit")) {
+		else if (StringEquals(keyword.ToArray(), ToString("exit"))) {
 			if (value.size == 0) {
 				LOG_ERROR("Animation file missing exit information (%s)\n", filePath);
 				return false;
@@ -258,13 +258,13 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				currentAnim->frameExitTo[exitFromFrame].Add(exitToAnim, exitToFrame);
 			}
 		}
-		else if (StringCompare(keyword.ToArray(), "rootfollow")) {
+		else if (StringEquals(keyword.ToArray(), ToString("rootfollow"))) {
 			currentAnim->rootFollow = true;
 		}
-		else if (StringCompare(keyword.ToArray(), "rootfollowendloop")) {
+		else if (StringEquals(keyword.ToArray(), ToString("rootfollowendloop"))) {
 			currentAnim->rootFollowEndLoop = true;
 		}
-		else if (StringCompare(keyword.ToArray(), "rootmotion")) {
+		else if (StringEquals(keyword.ToArray(), ToString("rootmotion"))) {
 			currentAnim->rootMotion = true;
 
 			Vec2 rootPosWorld0 = Vec2::zero;
@@ -313,12 +313,12 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				element = next;
 			}
 		}
-		else if (StringCompare(keyword.ToArray(), "start")) {
+		else if (StringEquals(keyword.ToArray(), ToString("start"))) {
 			HashKey startAnim;
 			startAnim.WriteString(value.ToArray());
 			startAnimation = startAnim;
 		}
-		else if (StringCompare(keyword.ToArray(), "//")) {
+		else if (StringEquals(keyword.ToArray(), ToString("//"))) {
 			// Comment, ignore
 		}
 		else {
