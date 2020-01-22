@@ -14,6 +14,8 @@ COPY_DIRS = {
 	"/src/shaders": "/shaders"
 }
 
+DEFINES = []
+
 DEPLOY_FILES = [
 	"data",
 	"logs",
