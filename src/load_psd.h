@@ -2,6 +2,8 @@
 
 #include "load_png.h"
 
+#include <km_common/km_lib.h>
+
 #define PSD_CHANNELS 4
 #define PSD_MAX_LAYERS 64
 #define PSD_LAYER_NAME_MAX_LENGTH 256
@@ -54,7 +56,7 @@ struct PsdFile
 {
 	Vec2Int size;
 	FixedArray<PsdLayerInfo, PSD_MAX_LAYERS> layers;
-	PlatformReadFileResult file;
+	Array<uint8> file;
 
 	template <typename Allocator>
 	bool LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allocator* allocator,
@@ -70,8 +72,8 @@ struct PsdFile
 };
 
 template <typename Allocator>
-bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
-	const char* filePath, PsdFile* outPsdFile);
+bool OpenPSD(const ThreadContext* thread, Allocator* allocator, const Array<char>& filePath,
+	PsdFile* outPsdFile);
 
 template <typename Allocator>
 void ClosePSD(const ThreadContext* thread, Allocator* allocator, PsdFile* psdFile);

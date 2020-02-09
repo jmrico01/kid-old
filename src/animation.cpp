@@ -3,6 +3,7 @@
 #include <km_common/km_debug.h>
 #include <km_common/km_kmkv.h>
 #include <km_common/km_memory.h>
+#include <km_common/km_os.h>
 
 #include "main.h"
 
@@ -86,24 +87,35 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
-bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const MemoryBlock& transient)
+bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name,
+	const MemoryBlock& transient)
 {
 	LinearAllocator allocator(transient.size, transient.memory);
 
+	FixedArray<char, PATH_MAX_LENGTH> filePath;
+	filePath.Clear();
+	filePath.Append(ToString("data/animations/"));
+	filePath.Append(name);
+	filePath.Append('/');
+	filePath.Append(name);
+	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
-	char filePath[PATH_MAX_LENGTH];
-	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/animations/%s/%s.psd", name, name);
-	if (!OpenPSD(thread, &allocator, filePath, &psdFile)) {
-		LOG_ERROR("Failed to open and parse level PSD file %s\n", filePath);
+	if (!OpenPSD(thread, &allocator, filePath.ToArray(), &psdFile)) {
+		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 
 	textureSize = psdFile.size;
 
-	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/animations/%s/%s.kmkv", name, name);
-	PlatformReadFileResult animFile = PlatformReadFile(thread, &allocator, filePath);
+	filePath.Clear();
+	filePath.Append(ToString("data/animations/"));
+	filePath.Append(name);
+	filePath.Append('/');
+	filePath.Append(name);
+	filePath.Append(ToString(".kmkv"));
+	Array<uint8> animFile = LoadEntireFile(filePath.ToArray(), &allocator);
 	if (!animFile.data) {
-		LOG_ERROR("Failed to open animation file at: %s\n", filePath);
+		LOG_ERROR("Failed to open animation file at: %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 
@@ -183,7 +195,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			}
 
 			if (currentAnim->numFrames == 0) {
-				LOG_ERROR("Animation with no frames (%s)\n", filePath);
+				LOG_ERROR("Animation with no frames (%.*s)\n", filePath.size, filePath.data);
 				return false;
 			}
 			else if (currentAnim->numFrames == 1) {
@@ -193,11 +205,11 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 		else if (StringEquals(keyword.ToArray(), ToString("fps"))) { // TODO won't need this anymore
 			int fps;
 			if (!StringToIntBase10(value.ToArray(), &fps)) {
-				LOG_ERROR("Animation file fps parse failed (%s)\n", filePath);
+				LOG_ERROR("Animation file fps parse failed (%.*s)\n", filePath.size, filePath.data);
 				return false;
 			}
 			if (fps < 0 && fps != -1) {
-				LOG_ERROR("Animation file invalid fps %d (%s)\n", fps, filePath);
+				LOG_ERROR("Animation file invalid fps %d (%.*s)\n", fps, filePath.size, filePath.data);
 				return false;
 			}
 			currentAnim->fps = fps;
@@ -207,7 +219,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 		}
 		else if (StringEquals(keyword.ToArray(), ToString("exit"))) {
 			if (value.size == 0) {
-				LOG_ERROR("Animation file missing exit information (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit information (%.*s)\n", filePath.size, filePath.data);
 				return false;
 			}
 
@@ -221,13 +233,15 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			}
 			else {
 				if (!StringToIntBase10(element, &exitFromFrame)) {
-					LOG_ERROR("Animation file invalid exit-from frame (%s)\n", filePath);
+					LOG_ERROR("Animation file invalid exit-from frame (%.*s)\n",
+						filePath.size, filePath.data);
 					return false;
 				}
 			}
 
 			if (next.size == 0) {
-				LOG_ERROR("Animation file missing exit-to animation (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit-to animation (%.*s)\n",
+					filePath.size, filePath.data);
 				return false;
 			}
 			element = next;
@@ -236,7 +250,8 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			exitToAnim.WriteString(element);
 
 			if (next.size == 0) {
-				LOG_ERROR("Animation file missing exit-to frame (%s)\n", filePath);
+				LOG_ERROR("Animation file missing exit-to frame (%.*s)\n",
+					filePath.size, filePath.data);
 				return false;
 			}
 			element = next;
@@ -244,7 +259,8 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			int exitToFrame;
 			{
 				if (!StringToIntBase10(element, &exitToFrame)) {
-					LOG_ERROR("Animation file invalid exit-to frame (%s)\n", filePath);
+					LOG_ERROR("Animation file invalid exit-to frame (%.*s)\n",
+						filePath.size, filePath.data);
 					return false;
 				}
 			}
@@ -282,13 +298,13 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				int parsedElements;
 				if (!StringToElementArray(trimmed, ' ', false,
 					StringToIntBase10, 2, rootPos.e, &parsedElements)) {
-					LOG_ERROR("Failed to parse root motion coordinates %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
+					LOG_ERROR("Failed to parse root motion coordinates %.*s (%.*s)\n",
+						trimmed.size, trimmed.data, filePath.size, filePath.data);
 					return false;
 				}
 				if (parsedElements != 2) {
-					LOG_ERROR("Not enough coordinates in root motion %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
+					LOG_ERROR("Not enough coordinates in root motion %.*s (%.*s)\n",
+						trimmed.size, trimmed.data, filePath.size, filePath.data);
 					return false;
 				}
 
@@ -322,8 +338,8 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 			// Comment, ignore
 		}
 		else {
-			LOG_ERROR("Animation file with unknown keyword: %.*s (%s)\n",
-				keyword.size, keyword.data, filePath);
+			LOG_ERROR("Animation file with unknown keyword: %.*s (%.*s)\n",
+				keyword.size, keyword.data, filePath.size, filePath.data);
 			return false;
 		}
 	}
@@ -348,13 +364,13 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const char* name, const M
 				if (exitToFrame != nullptr && *exitToFrame >= 0) {
 					const Animation* toAnim = animations.GetValue(*toAnimKey);
 					if (toAnim == nullptr) {
-						LOG_ERROR("Animation file non-existent exit-to animation %.*s (%s)\n",
-							toAnimKey->string.size, toAnimKey->string.data, filePath);
+						LOG_ERROR("Animation file non-existent exit-to animation %.*s (%.*s)\n",
+							toAnimKey->string.size, toAnimKey->string.data, filePath.size, filePath.data);
 						return false;
 					}
 					if (*exitToFrame >= toAnim->numFrames) {
-						LOG_ERROR("Animation file exit-to frame out of bounds %d (%s)\n",
-							*exitToFrame, filePath);
+						LOG_ERROR("Animation file exit-to frame out of bounds %d (%.*s)\n",
+							*exitToFrame, filePath.size, filePath.data);
 						return false;
 					}
 				}

@@ -1,5 +1,6 @@
 #include "load_psd.h"
 
+#include <km_common/km_os.h>
 #include <km_common/km_string.h>
 
 #define PSD_COLOR_MODE_RGB 3
@@ -529,12 +530,12 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
 template <typename Allocator>
-bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
-	const char* filePath, PsdFile* outPsdFile)
+bool OpenPSD(const ThreadContext* thread, Allocator* allocator, const Array<char>& filePath,
+	PsdFile* outPsdFile)
 {
-	outPsdFile->file = PlatformReadFile(thread, allocator, filePath);
-	if (!outPsdFile->file.data) {
-		LOG_ERROR("Failed to open PSD file at: %s\n", filePath);
+	outPsdFile->file = LoadEntireFile(filePath, allocator);
+	if (outPsdFile->file.data == nullptr) {
+		LOG_ERROR("Failed to open PSD file at: %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 	const Array<char> psdData = {
@@ -546,8 +547,8 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 	const Array<char> psdSignature = psdData.Slice(parsedBytes, parsedBytes + 4);
 	parsedBytes += 4;
 	if (!StringEquals(psdSignature, ToString("8BPS"))) {
-		LOG_ERROR("Invalid PSD signature %.*s, expected 8BPS, on file %s\n",
-			psdSignature.size, psdSignature.data, filePath);
+		LOG_ERROR("Invalid PSD signature %.*s, expected 8BPS, on file %.*s\n",
+			psdSignature.size, psdSignature.data, filePath.size, filePath.data);
 		return false;
 	}
 
@@ -600,8 +601,8 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 		const Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 		parsedBytes += 4;
 		if (!StringEquals(signature, ToString("8BIM"))) {
-			LOG_ERROR("Invalid image resource signature %.*s, expected 8BIM, on file %s\n",
-				signature.size, signature.data, filePath);
+			LOG_ERROR("Invalid image resource signature %.*s, expected 8BIM, on file %.*s\n",
+				signature.size, signature.data, filePath.size, filePath.data);
 			return false;
 		}
 		uint16 resourceId = ReadBigEndianInt16(&psdData[parsedBytes]);
@@ -633,14 +634,15 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				int32 descriptorVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
 				parsedBytes += 4;
 				if (descriptorVersion != 16) {
-					LOG_ERROR("descriptorVersion for %x not 16 %s\n", resourceId, filePath);
+					LOG_ERROR("descriptorVersion for %x not 16 %.*s\n", resourceId,
+						filePath.size, filePath.data);
 					return false;
 				}
 
 				PsdDescriptor descriptor;
 				uint64 descriptorBytes;
 				if (!descriptor.Load(psdData.SliceFrom(parsedBytes), &descriptorBytes)) {
-					LOG_ERROR("Failed to parse descriptor for %s\n", filePath);
+					LOG_ERROR("Failed to parse descriptor for %.*s\n", filePath.size, filePath.data);
 					return false;
 				}
 			} break;
@@ -734,8 +736,8 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 			Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
 			if (!StringEquals(signature, ToString("8BIM"))) {
-				LOG_ERROR("Invalid blend mode signature %.*s, expected 8BIM, on file %s\n",
-					signature.size, signature.data, filePath);
+				LOG_ERROR("Invalid blend mode signature %.*s, expected 8BIM, on file %.*s\n",
+					signature.size, signature.data, filePath.size, filePath.data);
 				return false;
 			}
 
@@ -783,7 +785,8 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 				if (!StringEquals(signature, ToString("8BIM")) && !StringEquals(signature, ToString("8B64"))) {
 					LOG_ERROR("Invalid additional layer info, signature %.*s, expected 8BIM or 8B64, layer %.*s, file %.*s\n",
 						signature.size, signature.data,
-						layerInfo.name.size, layerInfo.name.data, filePath);
+						layerInfo.name.size, layerInfo.name.data,
+						filePath.size, filePath.data);
 					return false;
 				}
 				const Array<char> key = psdData.Slice(parsedBytes, parsedBytes + 4);
@@ -851,8 +854,8 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 							int32 descriptorVersion = ReadBigEndianInt32(&psdData[parsedBytes]);
 							parsedBytes += 4;
 							if (descriptorVersion != 16) {
-								LOG_ERROR("tmln descriptor version %d, expected 16, file %s\n",
-									descriptorVersion, filePath);
+								LOG_ERROR("tmln descriptor version %d, expected 16, file %.*s\n",
+									descriptorVersion, filePath.size, filePath.data);
 								return false;
 							}
 							PsdDescriptor descriptor;
@@ -970,5 +973,5 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator,
 template <typename Allocator>
 void ClosePSD(const ThreadContext* thread, Allocator* allocator, PsdFile* psdFile)
 {
-	PlatformFreeFile(thread, allocator, &psdFile->file);
+	FreeFile(&psdFile->file, allocator);
 }

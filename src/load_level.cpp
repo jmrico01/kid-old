@@ -1,6 +1,7 @@
 #include "load_level.h"
 
 #include <km_common/km_kmkv.h>
+#include <km_common/km_os.h>
 #include <stb_sprintf.h>
 
 #include <queue> // TODO implement in km_lib?
@@ -166,9 +167,10 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, MemoryBlock* transient)
+bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
+	LinearAllocator allocator(transient->size, transient->memory);
 
 	sprites.size = 0;
 	levelTransitions.size = 0;
@@ -178,13 +180,17 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 	lockedCamera = false;
 	bounded = false;
 
-	LinearAllocator allocator(transient->size, transient->memory);
 
+	FixedArray<char, PATH_MAX_LENGTH> filePath;
+	filePath.Clear();
+	filePath.Append(ToString("data/levels/"));
+	filePath.Append(levelName);
+	filePath.Append('/');
+	filePath.Append(levelName);
+	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
-	char filePath[PATH_MAX_LENGTH];
-	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd", levelName, levelName);
-	if (!OpenPSD(thread, &allocator, filePath, &psdFile)) {
-		LOG_ERROR("Failed to open and parse level PSD file %s\n", filePath);
+	if (!OpenPSD(thread, &allocator, filePath.ToArray(), &psdFile)) {
+		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 
@@ -199,14 +205,14 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 		if (StringContains(layer.name.ToArray(), ToString("ground_"))) {
 			if (floor.line.size > 0) {
-				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %s\n",
-					layer.name.size, layer.name.data, filePath);
+				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %.*s\n",
+					layer.name.size, layer.name.data, filePath.size, filePath.data);
 				return false;
 			}
 			ImageData imageAlpha;
 			if (!psdFile.LoadLayerImageData(i, LayerChannelID::ALPHA, &allocator, &imageAlpha)) {
-				LOG_ERROR("Failed to load ground layer %.*s image data for %s\n",
-					layer.name.size, layer.name.data, filePath);
+				LOG_ERROR("Failed to load ground layer %.*s image data for %.*s\n",
+					layer.name.size, layer.name.data, filePath.size, filePath.data);
 				return false;
 			}
 
@@ -248,8 +254,8 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite.texture)) {
-			LOG_ERROR("Failed to load layer %.*s to OpenGL for %s\n",
-				layer.name.size, layer.name.data, filePath);
+			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
+				layer.name.size, layer.name.data, filePath.size, filePath.data);
 			return false;
 		}
 
@@ -264,10 +270,15 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 		sprite.flipped = false;
 	}
 
-	stbsp_snprintf(filePath, PATH_MAX_LENGTH, "data/levels/%s/%s.kmkv", levelName, levelName);
-	PlatformReadFileResult levelFile = PlatformReadFile(thread, &allocator, filePath);
+	filePath.Clear();
+	filePath.Append(ToString("data/levels/"));
+	filePath.Append(levelName);
+	filePath.Append('/');
+	filePath.Append(levelName);
+	filePath.Append(ToString(".kmkv"));
+	Array<uint8> levelFile = LoadEntireFile(filePath.ToArray(), &allocator);
 	if (!levelFile.data) {
-		LOG_ERROR("Failed to load level data file %s\n", filePath);
+		LOG_ERROR("Failed to load level data file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 
@@ -279,7 +290,8 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 	while (true) {
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
-			LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", filePath);
+			LOG_ERROR("Sprite metadata file keyword/value error (%.*s)\n",
+				filePath.size, filePath.data);
 			return false;
 		}
 		else if (read == 0) {
@@ -293,13 +305,13 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			int parsedElements;
 			if (!StringToElementArray(value.ToArray(), ' ', true,
 			StringToFloat32, 2, parsedBounds.e, &parsedElements)) {
-				LOG_ERROR("Failed to parse level bounds %.*s (%s)\n",
-					value.size, value.data, filePath);
+				LOG_ERROR("Failed to parse level bounds %.*s (%.*s)\n",
+					value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
 			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordinates in level bounds %.*s (%s)\n",
-					value.size, value.data, filePath);
+				LOG_ERROR("Not enough coordinates in level bounds %.*s (%.*s)\n",
+					value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
 
@@ -311,13 +323,13 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			int parsedElements;
 			if (!StringToElementArray(value.ToArray(), ' ', true,
 			StringToFloat32, 2, coords.e, &parsedElements)) {
-				LOG_ERROR("Failed to parse level lock camera coords %.*s (%s)\n",
-					value.size, value.data, filePath);
+				LOG_ERROR("Failed to parse level lock camera coords %.*s (%.*s)\n",
+					value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
 			if (parsedElements != 2) {
-				LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%s)\n",
-					value.size, value.data, filePath);
+				LOG_ERROR("Not enough coordinates in level lock camera coords %.*s (%.*s)\n",
+					value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
 
@@ -335,7 +347,8 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				int readTransition = ReadNextKeywordValue(transitionString,
 					&keywordTransition, &valueTransition);
 				if (readTransition < 0) {
-					LOG_ERROR("Sprite metadata file keyword/value error (%s)\n", filePath);
+					LOG_ERROR("Sprite metadata file keyword/value error (%.*s)\n",
+						filePath.size, filePath.data);
 					return false;
 				}
 				else if (readTransition == 0) {
@@ -349,13 +362,15 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, coords.e, &parsedElements)) {
-						LOG_ERROR("Failed to parse transition coords %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Failed to parse transition coords %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 					if (parsedElements != 2) {
-						LOG_ERROR("Not enough coordinates in transition coords %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Not enough coordinates in transition coords %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 
@@ -366,13 +381,15 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, range.e, &parsedElements)) {
-						LOG_ERROR("Failed to parse transition range %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Failed to parse transition range %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 					if (parsedElements != 2) {
-						LOG_ERROR("Not enough coordinates in transition range %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Not enough coordinates in transition range %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 
@@ -381,8 +398,9 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				else if (StringEquals(keywordTransition.ToArray(), ToString("tolevel"))) {
 					uint64 toLevel = LevelNameToId(valueTransition.ToArray());
 					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
-						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 
@@ -393,21 +411,24 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 					int parsedElements;
 					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
 					StringToFloat32, 2, toCoords.e, &parsedElements)) {
-						LOG_ERROR("Failed to parse transition to-coords %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Failed to parse transition to-coords %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 					if (parsedElements != 2) {
-						LOG_ERROR("Not enough coordinates in transition to-coords %.*s (%s)\n",
-							valueTransition.size, valueTransition.data, filePath);
+						LOG_ERROR("Not enough coordinates in transition to-coords %.*s (%.*s)\n",
+							valueTransition.size, valueTransition.data,
+							filePath.size, filePath.data);
 						return false;
 					}
 
 					transition->toCoords = toCoords;
 				}
 				else {
-					LOG_ERROR("Level file unsupported transition keyword %.*s (%s)\n",
-						keywordTransition.size, keywordTransition.data, filePath);
+					LOG_ERROR("Level file unsupported transition keyword %.*s (%.*s)\n",
+						keywordTransition.size, keywordTransition.data,
+						filePath.size, filePath.data);
 					return false;
 				}
 			}
@@ -433,13 +454,13 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 				int parsedElements;
 				if (!StringToElementArray(trimmed, ',', true,
 				StringToFloat32, 2, pos.e, &parsedElements)) {
-					LOG_ERROR("Failed to parse floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
+					LOG_ERROR("Failed to parse floor position %.*s (%.*s)\n",
+						trimmed.size, trimmed.data, filePath.size, filePath.data);
 					return false;
 				}
 				if (parsedElements != 2) {
-					LOG_ERROR("Not enough coordinates in floor position %.*s (%s)\n",
-						trimmed.size, trimmed.data, filePath);
+					LOG_ERROR("Not enough coordinates in floor position %.*s (%.*s)\n",
+						trimmed.size, trimmed.data, filePath.size, filePath.data);
 					return false;
 				}
 
@@ -452,8 +473,8 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 			// comment, ignore
 		}
 		else {
-			LOG_ERROR("Level file unsupported keyword %.*s (%s)\n",
-				keyword.size, keyword.data, filePath);
+			LOG_ERROR("Level file unsupported keyword %.*s (%.*s)\n",
+				keyword.size, keyword.data, filePath.size, filePath.data);
 			return false;
 		}
 	}
@@ -478,7 +499,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const char* levelName, Memor
 
 	loaded = true;
 
-	LOG_INFO("Loaded level data from file %s\n", filePath);
+	LOG_INFO("Loaded level data from file %.*s\n", filePath.size, filePath.data);
 
 	return true;
 }

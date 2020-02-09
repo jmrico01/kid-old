@@ -6,6 +6,7 @@
 #include <km_common/km_log.h>
 #include <km_common/km_math.h>
 #include <km_common/km_memory.h>
+#include <km_common/km_os.h>
 #include <km_common/km_string.h>
 #include <km_platform/main_platform.h>
 #undef internal
@@ -155,7 +156,8 @@ internal bool32 SetActiveLevel(const ThreadContext* thread,
 	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
-		if (!levelData->Load(thread, levelName, transient)) {
+		// TODO clean up? levelName string
+		if (!levelData->Load(thread, ToString(levelName), transient)) {
 			LOG_ERROR("Failed to load level data for level %s\n", levelName);
 			return false;
 		}
@@ -805,7 +807,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		char levelPsdPath[PATH_MAX_LENGTH];
 		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
 			FIRST_LEVEL, FIRST_LEVEL);
-		PlatformFileChanged(thread, levelPsdPath); // TODO hacky. move this to SetActiveLevel?
+		FileChangedSinceLastCall(ToString(levelPsdPath)); // TODO hacky. move this to SetActiveLevel?
 
 		gameState->grainTime = 0.0f;
 
@@ -909,7 +911,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
+		if (!gameState->spriteKid.Load(thread, ToString("kid"), memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 		gameState->kid.animatedSprite = &gameState->spriteKid;
@@ -918,10 +920,10 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->kid.activeFrameRepeat = 0;
 		gameState->kid.activeFrameTime = 0.0f;
 		// TODO priming file changed... hmm
-		PlatformFileChanged(thread, "data/animations/kid/kid.kmkv");
-		PlatformFileChanged(thread, "data/animations/kid/kid.psd");
+		FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"));
+		FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"));
 
-		if (!gameState->spritePaper.Load(thread, "paper", memory->transient)) {
+		if (!gameState->spritePaper.Load(thread, ToString("paper"), memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
 		gameState->paper.animatedSprite = &gameState->spritePaper;
@@ -930,8 +932,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->paper.activeFrameRepeat = 0;
 		gameState->paper.activeFrameTime = 0.0f;
 		// TODO priming file changed... hmm
-		PlatformFileChanged(thread, "data/animations/paper/paper.kmkv");
-		PlatformFileChanged(thread, "data/animations/paper/paper.psd");
+		FileChangedSinceLastCall(ToString("data/animations/paper/paper.kmkv"));
+		FileChangedSinceLastCall(ToString("data/animations/paper/paper.psd"));
 
 		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frame)) {
@@ -979,7 +981,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	char levelPsdPath[PATH_MAX_LENGTH];
 	stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
 		activeLevelName, activeLevelName);
-	if (PlatformFileChanged(thread, levelPsdPath)) {
+	if (FileChangedSinceLastCall(ToString(levelPsdPath))) { // TODO cleanup c string
 		LOG_INFO("reloading level %s\n", activeLevelName);
 		if (gameState->levels[gameState->activeLevel].loaded) {
 			gameState->levels[gameState->activeLevel].Unload();
@@ -990,10 +992,11 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to reload level %s\n", activeLevelName);
 		}
 	}
-	if (PlatformFileChanged(thread, "data/animations/kid/kid.kmkv") || PlatformFileChanged(thread, "data/animations/kid/kid.psd")) {
+	if (FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"))
+		|| FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"))) {
 		LOG_INFO("reloading kid animation sprite\n");
 		gameState->spriteKid.Unload();
-		if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
+		if (!gameState->spriteKid.Load(thread, ToString("kid"), memory->transient)) {
 			DEBUG_PANIC("Failed to reload kid animation sprite\n");
 		}
 	}
@@ -1497,6 +1500,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 #include <km_common/km_lib.cpp>
 #include <km_common/km_log.cpp>
 #include <km_common/km_memory.cpp>
+#include <km_common/km_os.cpp>
 #include <km_common/km_string.cpp>
 
 #if GAME_WIN32
