@@ -59,14 +59,6 @@ internal uint64 LevelNameToId(const Array<char>& name)
 	return numNames;
 }
 
-internal uint64 LevelNameToId(const char* name)
-{
-	Array<char> nameArray;
-	nameArray.data = (char*)name;
-	nameArray.size = StringLength(name);
-	return LevelNameToId(nameArray);
-}
-
 inline float32 RandFloat32()
 {
 	return (float32)rand() / RAND_MAX;
@@ -150,15 +142,15 @@ internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool32 SetActiveLevel(const ThreadContext* thread,
-	GameState* gameState, const char* levelName, Vec2 startCoords, MemoryBlock* transient)
+internal bool32 SetActiveLevel(const ThreadContext* thread, GameState* gameState,
+	const Array<char> levelName, Vec2 startCoords, MemoryBlock* transient)
 {
 	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
-		// TODO clean up? levelName string
-		if (!levelData->Load(thread, ToString(levelName), transient)) {
-			LOG_ERROR("Failed to load level data for level %s\n", levelName);
+		if (!levelData->Load(thread, levelName, transient)) {
+			LOG_ERROR("Failed to load level data for level %.*s\n",
+				(int)levelName.size, levelName.data);
 			return false;
 		}
 	}
@@ -238,8 +230,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
-				if (!SetActiveLevel(nullptr, gameState, LEVEL_NAMES[newLevel], startCoords,
-				&transient)) {
+				if (!SetActiveLevel(nullptr, gameState, ToString(LEVEL_NAMES[newLevel]),
+				startCoords, &transient)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
 				break;
@@ -800,7 +792,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const char* FIRST_LEVEL = "overworld";
+		const Array<char> FIRST_LEVEL = ToString("overworld");
 		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
@@ -977,19 +969,24 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		LOG_INFO("Updated screen-size-dependent info\n");
 	}
 
-	const char* activeLevelName = LEVEL_NAMES[gameState->activeLevel];
-	char levelPsdPath[PATH_MAX_LENGTH];
-	stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
-		activeLevelName, activeLevelName);
-	if (FileChangedSinceLastCall(ToString(levelPsdPath))) { // TODO cleanup c string
-		LOG_INFO("reloading level %s\n", activeLevelName);
+	const Array<char> activeLevelName = ToString(LEVEL_NAMES[gameState->activeLevel]);
+	FixedArray<char, PATH_MAX_LENGTH> levelPsdPath;
+	levelPsdPath.Clear();
+	levelPsdPath.Append(ToString("data/levels/"));
+	levelPsdPath.Append(activeLevelName);
+	levelPsdPath.Append('/');
+	levelPsdPath.Append(activeLevelName);
+	levelPsdPath.Append(ToString(".psd"));
+	if (FileChangedSinceLastCall(levelPsdPath.ToArray())) {
+		LOG_INFO("reloading level %.*s\n", (int)activeLevelName.size, activeLevelName.data);
 		if (gameState->levels[gameState->activeLevel].loaded) {
 			gameState->levels[gameState->activeLevel].Unload();
 		}
 
 		if (!SetActiveLevel(thread, gameState, activeLevelName,
-		gameState->playerCoords, &memory->transient)) {
-			DEBUG_PANIC("Failed to reload level %s\n", activeLevelName);
+			gameState->playerCoords, &memory->transient)) {
+			DEBUG_PANIC("Failed to reload level %.*s\n",
+				(int)activeLevelName.size, activeLevelName.data);
 		}
 	}
 	if (FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"))
