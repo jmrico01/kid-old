@@ -22,7 +22,6 @@
 #include "render.h"
 
 #define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
-#define CAMERA_WIDTH_UNITS ((CAMERA_HEIGHT_UNITS) * TARGET_ASPECT_RATIO)
 #define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 2.8f)
 #define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
 
@@ -610,7 +609,6 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	spriteDataGL->numSprites = 0;
 
-	//Vec2 pos = gameState->floor.GetWorldPosFromCoords(gameState->playerCoords);
 	Vec2 playerFloorPos, playerFloorNormal;
 	floor.GetInfoFromCoordX(gameState->playerCoords.x,
 		&playerFloorPos, &playerFloorNormal);
@@ -679,9 +677,6 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	spriteDataGL->numSprites = 0;
 
-	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
-	const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
-	const float32 marginX = (screenSizeWorld.x - CAMERA_WIDTH_UNITS) / 2.0f;
 
 #if GAME_INTERNAL
 	if (gameState->kmKey) {
@@ -690,6 +685,8 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 #endif
 
+	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
+	const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
 	gameState->paper.Draw(spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
