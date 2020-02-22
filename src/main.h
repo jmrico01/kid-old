@@ -56,6 +56,7 @@ struct GameState
 	Vec2 cameraPos;
 	Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
 	Vec2 cameraCoords;
+
 	float32 prevFloorCoordY;
     Vec2 playerCoords;
 	Vec2 playerVel;
@@ -65,6 +66,8 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
+
+    float32 cameraHeight;
 
     GrabbedObjectInfo grabbedObject;
     LiftedObjectInfo liftedObject;
