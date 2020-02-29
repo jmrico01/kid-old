@@ -12,15 +12,11 @@
 #include "opengl_base.h"
 #include "text.h"
 
-#define TARGET_ASPECT_RATIO     (4.0f / 3.0f)
-#define REF_PIXEL_SCREEN_HEIGHT 1440
-#define REF_PIXELS_PER_UNIT     120
-
 #define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
 #define NUM_FRAMEBUFFERS_COLOR        2
 #define NUM_FRAMEBUFFERS_GRAY         1
 
-int GetPillarboxWidth(ScreenInfo screenInfo);
+Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);
 
 enum PlayerState
 {
@@ -53,6 +49,11 @@ struct GameState
 {
 	AudioState audioState;
 
+    float32 aspectRatio;
+    int refPixelScreenHeight;
+    float32 refPixelsPerUnit;
+    float32 minBorderFrac;
+
 	Vec2 cameraPos;
 	Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
 	Vec2 cameraCoords;
@@ -66,8 +67,6 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
-
-    float32 cameraHeight;
 
     GrabbedObjectInfo grabbedObject;
     LiftedObjectInfo liftedObject;
@@ -102,7 +101,7 @@ struct GameState
     Rock rock;
     TextureGL rockTexture;
 
-    TextureGL frame;
+    TextureGL frameCorner;
     TextureGL pixelTexture;
 
     TextureGL lutBase;

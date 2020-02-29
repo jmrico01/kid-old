@@ -150,7 +150,8 @@ void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
 	if (audioState->debugView) {
 		LinearAllocator tempAllocator(transient.size, transient.memory);
 
-		const int PILLARBOX_WIDTH = GetPillarboxWidth(screenInfo);
+		const int PILLARBOX_WIDTH = GetBorderSize(screenInfo, gameState->aspectRatio,
+			gameState->minBorderFrac).x;
 		const Vec2Int MARGIN = { 30, 45 };
 		const Vec2 TEXT_ANCHOR = { 1.0f, 0.0f };
 

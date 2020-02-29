@@ -1,0 +1,61 @@
+0. facility, get suited up, briefed, etc.
+1. port in to kidz world, appear somewhere in the sky. fall down (planes, birds, clouds)
+2. splashdown, sink to the bottom of the ocean. submarine to the left, blocked, must walk right
+3. vertical water surface, first curve approaches. keep walking, world turns, you come out to land
+4. snow biome. there's an ingloo and a mining dude, a rock at the far right that blocks you.
+5. dude likes to mine things. you can grab him, take him to rock, and he will break it.
+6. you traverse the curve to the right and approach the town.
+7. it's extremely hot, the sun loves the smell of some lady's food coming out of the house. he's floating there - everyone is very bothered and can't go on with their lives in peace.
+
+after this, there will hopefully be several possible sequences events
+
+> freeze somebody
+
+
+> sad tony
+- sad guy with cloud following him
+1. you grab him, move him to town.
+2. put him on top of crops, cloud rains on them, they grow.
+3. move tony right below the sun, cloud vanishes, "sad" gets crossed out, he's ok again.
+
+> farmer guy
+- crops are all dried up, not enough water, too hot.
+- can't go upstairs in his house, he's sitting there depressed and watching the stairway.
+- when you water crops with sad tony's cloud, he goes outside and you can inspect his bedroom.
+- TODO there's something useful in his bedroom
+
+> lab
+- guys are plotting something, they need the Governor.
+- they can't show up in town because everyone knows them, they'll be captured/killed. they already sent one of their guys but he disappeared. they have his notes on what was happening for a few days.
+- they need you to lure out Governor and bring him.
+- they give you Rusty Key to start the mission??
+
+> TRANSITION. Governor + wife (requires Rusty Key)
+- wife downstairs cooking, can't be picked up (smacks you with a pan/pot).
+- there's a big pot, the source of the good smell, going up chimney and keeping the sun there.
+- Governor upstairs / in locked room, inaccessible. watching TV.
+1. shut down the generator/antenna/something outside that disconnects the TV.
+2. Governor comes downstairs and outside with a bat, "AHORA SI CAREPICHA"
+3/opt1. Governor doesn't see you, turns generator back on, goes back inside to watch TV. fin.
+3/opt2. you pick up Governor, wife starts chasing you with a pan, the whole town goes crazy.
+4. you take Governor away to the lab people, they drag him away, the town hates you. you can't come back.
+|
+| ... something something ...
+|
+5. you cross around the ocean, come back to snow biome.
+6. you enter unseen to the town, get the wife's pot, and take the sun away into the snow.
+7. everyone starts chasing you. scene is perfectly timed so that you have just enough time to melt the snow and drag the boat to the shore.
+8. you leave wife and pitchfork town people behind on the shore and sail away.
+- awkward possibilities of Governor chase scene:
+	- mob starts chasing you, there's a guy with a pitchfork in front. you have to stay some distance away from him or he'll kill you
+	- if you drop Governor on the way,  
+
+> SECRET ENDING
+- there's a way (idk how yet) to take the Governor past his wife and into the snow.
+1. shut down generator, Governor comes outside, you pick him up, take him to the snow.
+2. the wife and whole village follows you, they walk out into the snow and all freeze.
+3. you can now grab the pot and bring the sun over, sail away.
+
+RANDOM NOTES
+- sun's face is randomized?
+- choppy animations, low framerates. will that ever matter to gameplay? vs. foreign high-framerate

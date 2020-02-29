@@ -12,6 +12,7 @@
 #undef internal
 #include <random>
 #define internal static
+#include <stb_image.h>
 #include <stb_sprintf.h>
 
 #include "imgui.h"
@@ -21,9 +22,7 @@
 #include "post.h"
 #include "render.h"
 
-#define CAMERA_HEIGHT_UNITS ((REF_PIXEL_SCREEN_HEIGHT) / (REF_PIXELS_PER_UNIT))
-#define CAMERA_OFFSET_Y (-CAMERA_HEIGHT_UNITS / 2.8f)
-#define CAMERA_OFFSET_VEC3 (Vec3 { 0.0f, CAMERA_OFFSET_Y, 0.0f })
+#define CAMERA_OFFSET_VEC3(screenHeightUnits) (Vec3 { 0.0f, -(screenHeightUnits) / 2.8f, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
 #define PLAYER_HEIGHT 1.3f
@@ -86,56 +85,84 @@ internal float32 ScaleExponentToWorldScale(float32 exponent)
 }
 #endif
 
-int GetPillarboxWidth(ScreenInfo screenInfo)
+Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac)
 {
-	int targetWidth = (int)((float32)screenInfo.size.y * TARGET_ASPECT_RATIO);
-	return (screenInfo.size.x - targetWidth) / 2;
+	Vec2Int border = Vec2Int::zero;
+	float32 aspectRatio = (float32)screenInfo.size.x / (float32)screenInfo.size.y;
+	if (aspectRatio < targetAspectRatio) {
+		int targetHeight = (int)(screenInfo.size.x / targetAspectRatio);
+		border.y = (screenInfo.size.y - targetHeight) / 2;
+	}
+	else {
+		int targetWidth = (int)(screenInfo.size.y * targetAspectRatio);
+		border.x = (screenInfo.size.x - targetWidth) / 2;
+	}
+	int minBorderX = (int)(screenInfo.size.x * minBorderFrac);
+	if (border.x < minBorderX) {
+		border.x = minBorderX;
+	}
+	int minBorderY = (int)(screenInfo.size.y * minBorderFrac);
+	if (border.y < minBorderY) {
+		border.y = minBorderY;
+	}
+	return border;
 }
 
-internal Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo)
+// Scales world-space coordinates into NDC
+Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo,
+	int pixelScreenHeight, float32 pixelsPerUnit)
 {
+	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
 	Vec3 scaleToNDC = {
-		2.0f / (CAMERA_HEIGHT_UNITS * aspectRatio),
-		2.0f / CAMERA_HEIGHT_UNITS,
+		2.0f / (screenHeightUnits * aspectRatio),
+		2.0f / screenHeightUnits,
 		1.0f
 	};
 
 	return Scale(scaleToNDC);
 }
 
-internal Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot)
+Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot,
+	int pixelScreenHeight, float32 pixelsPerUnit)
 {
+	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	return Translate(ToVec3(cameraPos, 0.0f))
 		* UnitQuatToMat4(cameraRot)
-		* Translate(-CAMERA_OFFSET_VEC3);
+		* Translate(-CAMERA_OFFSET_VEC3(screenHeightUnits));
 }
 
-internal Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot)
+Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot,
+	int pixelScreenHeight, float32 pixelsPerUnit)
 {
-	return Translate(CAMERA_OFFSET_VEC3)
+	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
+	return Translate(CAMERA_OFFSET_VEC3(screenHeightUnits))
 		* UnitQuatToMat4(Inverse(cameraRot))
 		* Translate(ToVec3(-cameraPos, 0.0f));
 }
 
-internal Vec2Int WorldToScreen(Vec2 worldPos, ScreenInfo screenInfo,
-	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
+Vec2Int WorldToScreen(Vec2 worldPos, ScreenInfo screenInfo,
+	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale,
+	int pixelScreenHeight, float32 pixelsPerUnit)
 {
+	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	Vec2Int screenCenter = screenInfo.size / 2;
 	Vec4 afterView = Scale(editorWorldScale)
-		* CalculateViewMatrix(cameraPos, cameraRot)
+		* CalculateViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit)
 		* ToVec4(worldPos, 0.0f, 1.0f);
-	Vec2 result = Vec2 { afterView.x, afterView.y } / CAMERA_HEIGHT_UNITS * (float32)screenInfo.size.y;
+	Vec2 result = Vec2 { afterView.x, afterView.y } / screenHeightUnits * (float32)screenInfo.size.y;
 	return ToVec2Int(result) + screenCenter;
 }
 
-internal Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
-	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale)
+Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
+	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale,
+	int pixelScreenHeight, float32 pixelsPerUnit)
 {
+	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	Vec2Int screenCenter = screenInfo.size / 2;
 	Vec2 beforeView = ToVec2(screenPos - screenCenter) / (float32)screenInfo.size.y
-		* CAMERA_HEIGHT_UNITS;
-	Vec4 result = CalculateInverseViewMatrix(cameraPos, cameraRot)
+		* screenHeightUnits;
+	Vec4 result = CalculateInverseViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit)
 		* Scale(1.0f / editorWorldScale)
 		* ToVec4(beforeView, 0.0f, 1.0f);
 	return Vec2 { result.x, result.y };
@@ -147,7 +174,7 @@ internal bool32 SetActiveLevel(const ThreadContext* thread, GameState* gameState
 	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
-		if (!levelData->Load(thread, levelName, transient)) {
+		if (!levelData->Load(thread, levelName, gameState->refPixelsPerUnit, transient)) {
 			LOG_ERROR("Failed to load level data for level %.*s\n",
 				(int)levelName.size, levelName.data);
 			return false;
@@ -430,7 +457,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	{ // rock
-		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		Vec2 size = ToVec2(gameState->rockTexture.size) / gameState->refPixelsPerUnit;
 		float32 radius = size.y / 2.0f * 0.8f;
 		gameState->rock.angle = -gameState->rock.coords.x / radius;
 		gameState->rock.coords.y = radius;
@@ -441,7 +468,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (isInteractKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
 		FixedArray<GrabbedObjectInfo, 10> candidates;
 		candidates.size = 0;
-		Vec2 rockSize = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		Vec2 rockSize = ToVec2(gameState->rockTexture.size) / gameState->refPixelsPerUnit;
 		float32 rockRadius = rockSize.y / 2.0f * 0.8f;
 		candidates.Append({
 			&gameState->rock.coords,
@@ -618,7 +645,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 		playerAngle = -playerAngle;
 	}
 	Quat playerRot = QuatFromAngleUnitAxis(playerAngle, Vec3::unitZ);
-	Vec2 playerSize = ToVec2(gameState->kid.animatedSprite->textureSize) / REF_PIXELS_PER_UNIT;
+	Vec2 playerSize = ToVec2(gameState->kid.animatedSprite->textureSize) / gameState->refPixelsPerUnit;
 	Vec2 anchorUnused = Vec2::zero;
 	gameState->kid.Draw(spriteDataGL, playerPos, playerSize, anchorUnused, playerRot,
 		1.0f, !gameState->facingRight);
@@ -657,7 +684,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 					continue;
 				}
 			}
-			Vec2 size = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
+			Vec2 size = ToVec2(sprite->texture.size) / gameState->refPixelsPerUnit;
 			Mat4 transform = CalculateTransform(pos, size, sprite->anchor,
 				baseRot, rot, sprite->flipped);
 			PushSprite(spriteDataGL, transform, 1.0f, sprite->texture.textureID);
@@ -666,17 +693,17 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 
 	{ // rock
 		Vec2 pos = floor.GetWorldPosFromCoords(gameState->rock.coords);
-		Vec2 size = ToVec2(gameState->rockTexture.size) / REF_PIXELS_PER_UNIT;
+		Vec2 size = ToVec2(gameState->rockTexture.size) / gameState->refPixelsPerUnit;
 		Quat rot = QuatFromAngleUnitAxis(gameState->rock.angle, Vec3::unitZ);
 		Mat4 transform = CalculateTransform(pos, size, Vec2::one / 2.0f, rot, false);
 		PushSprite(spriteDataGL, transform, 1.0f, gameState->rockTexture.textureID);
 	}
 
-	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
+	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
+		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 	DrawSprites(gameState->renderState, *spriteDataGL, projection * view);
 
 	spriteDataGL->numSprites = 0;
-
 
 #if GAME_INTERNAL
 	if (gameState->kmKey) {
@@ -686,18 +713,11 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 #endif
 
 	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
-	const Vec2 screenSizeWorld = { CAMERA_HEIGHT_UNITS * aspectRatio, CAMERA_HEIGHT_UNITS };
+	const float32 screenHeightUnits = (float32)gameState->refPixelScreenHeight / gameState->refPixelsPerUnit;
+	const Vec2 screenSizeWorld = { screenHeightUnits * aspectRatio, screenHeightUnits };
 	gameState->paper.Draw(spriteDataGL,
 		Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
 		false);
-
-	{ // frame
-		// TODO this sounds like I need another batch transform matrix
-		float32 scale = (float32)REF_PIXEL_SCREEN_HEIGHT / gameState->frame.size.y;
-		Vec2 size = scale * ToVec2(gameState->frame.size) / REF_PIXELS_PER_UNIT;
-		Mat4 transform = CalculateTransform(Vec2::zero, size, Vec2::one / 2.0f, Quat::one, false);
-		PushSprite(spriteDataGL, transform, 1.0f, gameState->frame.textureID);
-	}
 
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
 }
@@ -741,11 +761,24 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	}
 
 	// debug only
-	// local_persist bool testingOneTimeThing = true;
+	// static bool testingOneTimeThing = true;
 	// if (testingOneTimeThing) {
-	// 	if (!gameState->spriteKid.Load(thread, "kid", memory->transient)) {
-	// 		DEBUG_PANIC("Failed to load kid animation sprite\n");
+	// 	LinearAllocator allocator(memory->transient.size, memory->transient.memory);
+	// 	Array<uint8> pngFile = LoadEntireFile(ToString("data/fonts/alphabet.png"), &allocator);
+	// 	if (!pngFile.data) {
+	// 		DEBUG_PANIC("Failed to open PNG file\n");
 	// 	}
+	// 	defer (FreeFile(pngFile, &allocator));
+
+	// 	int width, height, channels;
+	// 	stbi_set_flip_vertically_on_load(true);
+	// 	uint8* data = stbi_load_from_memory((const uint8*)pngFile.data, (int)pngFile.size,
+	// 		&width, &height, &channels, 0);
+	// 	if (data == NULL) {
+	// 		DEBUG_PANIC("Failed to STB load PNG file\n");
+	// 	}
+
+	// 	stbi_image_free(data);
 	// 	LOG_FLUSH();
 	// 	testingOneTimeThing = false;
 	// }
@@ -777,6 +810,11 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (!InitAudioState(thread, &allocator, &gameState->audioState, audio)) {
 			DEBUG_PANIC("Failed to init audio state\n");
 		}
+
+		gameState->aspectRatio = 4.0f / 3.0f;
+		gameState->refPixelScreenHeight = 1440;
+		gameState->refPixelsPerUnit = 120.0f;
+		gameState->minBorderFrac = 0.05f;
 
 		// Game data
 		gameState->playerVel = Vec2::zero;
@@ -900,7 +938,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		if (!gameState->spriteKid.Load(thread, ToString("kid"), memory->transient)) {
+		if (!gameState->spriteKid.Load(thread, ToString("kid"), gameState->refPixelsPerUnit,
+		memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 		gameState->kid.animatedSprite = &gameState->spriteKid;
@@ -912,7 +951,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"));
 
-		if (!gameState->spritePaper.Load(thread, ToString("paper"), memory->transient)) {
+		if (!gameState->spritePaper.Load(thread, ToString("paper"), gameState->refPixelsPerUnit,
+		memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
 		gameState->paper.animatedSprite = &gameState->spritePaper;
@@ -924,9 +964,9 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.psd"));
 
-		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frame)) {
-			DEBUG_PANIC("Failed to load frame\n");
+		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame-corner.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frameCorner)) {
+			DEBUG_PANIC("Failed to load frame corner texture\n");
 		}
 		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/pixel.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->pixelTexture)) {
@@ -990,7 +1030,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		|| FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"))) {
 		LOG_INFO("reloading kid animation sprite\n");
 		gameState->spriteKid.Unload();
-		if (!gameState->spriteKid.Load(thread, ToString("kid"), memory->transient)) {
+		if (!gameState->spriteKid.Load(thread, ToString("kid"), gameState->refPixelsPerUnit,
+		memory->transient)) {
 			DEBUG_PANIC("Failed to reload kid animation sprite\n");
 		}
 	}
@@ -1012,7 +1053,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	glBindFramebuffer(GL_FRAMEBUFFER, gameState->framebuffersColorDepth[0].framebuffer);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Mat4 projection = CalculateProjectionMatrix(screenInfo);
+	Mat4 projection = CalculateProjectionMatrix(screenInfo, gameState->refPixelScreenHeight,
+		gameState->refPixelsPerUnit);
 #if GAME_INTERNAL
 	if (gameState->kmKey) {
 		projection = projection * Scale(ScaleExponentToWorldScale(gameState->editorScaleExponent));
@@ -1023,6 +1065,32 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
 
 	DrawWorld(gameState, spriteDataGL, projection, screenInfo);
+
+	// Draw border
+	const Vec4 borderColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	Vec2Int borderSize = GetBorderSize(screenInfo, gameState->aspectRatio, gameState->minBorderFrac);
+	DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+		Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
+	DrawRect(gameState->rectGL, screenInfo, Vec2Int { screenInfo.size.x, 0 }, Vec2 { 1.0f, 0.0f },
+		Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
+	DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+		Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
+	DrawRect(gameState->rectGL, screenInfo, Vec2Int { 0, screenInfo.size.y }, Vec2 { 0.0f, 1.0f },
+		Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
+
+	const int cornerRadius = 100;
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		borderSize, Vec2 { 0.0f, 0.0f },
+		Vec2Int { cornerRadius, cornerRadius }, false, false, gameState->frameCorner.textureID);
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		Vec2Int { screenInfo.size.x - borderSize.x, borderSize.y }, Vec2 { 1.0f, 0.0f },
+		Vec2Int { cornerRadius, cornerRadius }, true, false, gameState->frameCorner.textureID);
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		Vec2Int { borderSize.x, screenInfo.size.y - borderSize.y }, Vec2 { 0.0f, 1.0f },
+		Vec2Int { cornerRadius, cornerRadius }, false, true, gameState->frameCorner.textureID);
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		screenInfo.size - borderSize, Vec2 { 1.0f, 1.0f },
+		Vec2Int { cornerRadius, cornerRadius }, true, true, gameState->frameCorner.textureID);
 
 	// ------------------------ Post processing passes ------------------------
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1059,8 +1127,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	OutputAudio(audio, gameState, input, memory->transient);
 
 #if GAME_INTERNAL
-	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot);
-	int pillarboxWidth = GetPillarboxWidth(screenInfo);
+	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
+		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 
 	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
 		|| (input->controllers[0].isConnected
@@ -1088,7 +1156,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		Panel panelHotkeys;
 		panelHotkeys.Begin(input, &fontSmall,
-			Vec2Int { pillarboxWidth + MARGIN.x, screenInfo.size.y - MARGIN.y },
+			Vec2Int { borderSize.x + MARGIN.x, screenInfo.size.y - MARGIN.y },
 			Vec2 { 0.0f, 1.0f });
 
 		panelHotkeys.Text(ToString("[F11] toggle fullscreen"),        DEBUG_FONT_COLOR);
@@ -1100,7 +1168,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		Panel panelDebug;
 		panelDebug.Begin(input, &fontSmall,
-			Vec2Int { screenInfo.size.x - pillarboxWidth - MARGIN.x, screenInfo.size.y - MARGIN.y },
+			Vec2Int { screenInfo.size.x - borderSize.x - MARGIN.x, screenInfo.size.y - MARGIN.y },
 			Vec2 { 1.0f, 1.0f });
 
 		panelDebug.Text(
@@ -1134,7 +1202,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
-			ScaleExponentToWorldScale(gameState->editorScaleExponent));
+			ScaleExponentToWorldScale(gameState->editorScaleExponent),
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 		panelDebug.Text(
 			AllocPrintf(&tempAllocator, "%.2f|%.2f - MSPOS", mouseWorld.x, mouseWorld.y),
 			DEBUG_FONT_COLOR);
@@ -1161,7 +1230,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		Panel panelGeometry;
 		panelGeometry.Begin(input, &fontSmall,
-			Vec2Int { pillarboxWidth + MARGIN.x, MARGIN.y },
+			Vec2Int { borderSize.x + MARGIN.x, MARGIN.y },
 			Vec2 { 0.0f, 0.0f });
 
 		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), DEBUG_FONT_COLOR);
@@ -1201,7 +1270,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 				lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
 				lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
 				DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
-				Vec2 worldSize = ToVec2(sprite.texture.size) / REF_PIXELS_PER_UNIT;
+				Vec2 worldSize = ToVec2(sprite.texture.size) / gameState->refPixelsPerUnit;
 				Vec2 anchorOffset = Vec2 {
 					sprite.anchor.x * worldSize.x,
 					sprite.anchor.y * worldSize.y
@@ -1283,6 +1352,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			}
 
 			{ // bounds
+				const float32 screenHeightUnits = (float32)gameState->refPixelScreenHeight / gameState->refPixelsPerUnit;
 				Vec4 boundsColor = { 1.0f, 0.2f, 0.3f, 1.0f };
 				if (levelData.bounded) {
 					lineData->count = 2;
@@ -1291,13 +1361,13 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 					floor.GetInfoFromCoordX(levelData.bounds.x, &boundLeftPos, &boundLeftNormal);
 					Vec2 boundLeft = floor.GetWorldPosFromCoords(Vec2 { levelData.bounds.x, 0.0f });
 					lineData->pos[0] = ToVec3(boundLeftPos, 0.0f);
-					lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * CAMERA_HEIGHT_UNITS, 0.0f);
+					lineData->pos[1] = ToVec3(boundLeftPos + boundLeftNormal * screenHeightUnits, 0.0f);
 					DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 
 					Vec2 boundRightPos, boundRightNormal;
 					floor.GetInfoFromCoordX(levelData.bounds.y, &boundRightPos, &boundRightNormal);
 					lineData->pos[0] = ToVec3(boundRightPos, 0.0f);
-					lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * CAMERA_HEIGHT_UNITS, 0.0f);
+					lineData->pos[1] = ToVec3(boundRightPos + boundRightNormal * screenHeightUnits, 0.0f);
 					DrawLine(gameState->lineGL, viewProjection, lineData, boundsColor);
 				}
 			}
@@ -1339,7 +1409,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		local_persist bool editCollision = false;
+		static bool editCollision = false;
 
 		Panel panelOptions;
 		panelOptions.Begin(input, &fontSmall, Vec2Int { screenInfo.size.x - MARGIN.x, MARGIN.y },
@@ -1352,10 +1422,12 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
-			ScaleExponentToWorldScale(gameState->editorScaleExponent));
+			ScaleExponentToWorldScale(gameState->editorScaleExponent),
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 		Vec2 mouseWorldPosEnd = ScreenToWorld(input->mousePos + input->mouseDelta, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
-			ScaleExponentToWorldScale(gameState->editorScaleExponent));
+			ScaleExponentToWorldScale(gameState->editorScaleExponent),
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 		Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
 
 		if (editCollision) {
@@ -1375,7 +1447,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 				for (uint64 i = 0; i < floor.line.size; i++) {
 					Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
 						gameState->cameraPos, gameState->cameraRot,
-						ScaleExponentToWorldScale(gameState->editorScaleExponent));
+						ScaleExponentToWorldScale(gameState->editorScaleExponent),
+						gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 
 					Vec4 boxColor = BOX_COLOR_BASE;
 					boxColor.a = IDLE_ALPHA;

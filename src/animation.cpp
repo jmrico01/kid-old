@@ -87,7 +87,7 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
-bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name,
+bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name, float32 pixelsPerUnit,
 	const MemoryBlock& transient)
 {
 	LinearAllocator allocator(transient.size, transient.memory);
@@ -310,8 +310,8 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name,
 
 				rootPos.y = textureSize.y - rootPos.y;
 				Vec2 rootPosWorld = {
-					(float32)rootPos.x / REF_PIXELS_PER_UNIT,
-					(float32)rootPos.y / REF_PIXELS_PER_UNIT
+					(float32)rootPos.x / pixelsPerUnit,
+					(float32)rootPos.y / pixelsPerUnit
 				};
 				currentAnim->frameRootAnchor[i] = {
 					(float32)rootPos.x / textureSize.x,

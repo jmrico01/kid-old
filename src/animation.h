@@ -33,7 +33,8 @@ struct AnimatedSprite
     HashKey startAnimation;
 	Vec2Int textureSize;
 
-    bool Load(const ThreadContext* thread, const Array<char>& name, const MemoryBlock& transient);
+    bool Load(const ThreadContext* thread, const Array<char>& name, float32 pixelsPerUnit,
+        const MemoryBlock& transient);
     void Unload();
 };
 

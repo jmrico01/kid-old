@@ -167,7 +167,7 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName, MemoryBlock* transient)
+bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
 	LinearAllocator allocator(transient->size, transient->memory);
@@ -232,7 +232,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName
 				psdFile.size.y - layer.bottom
 			};
 			for (uint64 v = 0; v < loop.size; v++) {
-				Vec2 pos = ToVec2(loop[v] + origin) / REF_PIXELS_PER_UNIT;
+				Vec2 pos = ToVec2(loop[v] + origin) / pixelsPerUnit;
 				floor.line.Append(pos);
 			}
 			floor.PrecomputeSampleVerticesFromLine();
@@ -264,7 +264,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName
 			layer.left,
 			psdFile.size.y - layer.bottom
 		};
-		sprite.pos = ToVec2(offset) / REF_PIXELS_PER_UNIT;
+		sprite.pos = ToVec2(offset) / pixelsPerUnit;
 		sprite.anchor = Vec2::zero;
 		sprite.restAngle = 0.0f;
 		sprite.flipped = false;
@@ -482,7 +482,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName
 	for (uint64 i = 0; i < sprites.size; i++) {
 		TextureWithPosition* sprite = &sprites[i];
 		if (sprite->type == SPRITE_OBJECT) {
-			Vec2 worldSize = ToVec2(sprite->texture.size) / REF_PIXELS_PER_UNIT;
+			Vec2 worldSize = ToVec2(sprite->texture.size) / pixelsPerUnit;
 			Vec2 coords = floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
 
 			sprite->coords = coords;

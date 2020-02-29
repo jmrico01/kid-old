@@ -57,6 +57,7 @@ struct LevelData
 
     bool32 loaded;
 
-    bool32 Load(const ThreadContext* thread, const Array<char>& levelName, MemoryBlock* transient);
+    bool32 Load(const ThreadContext* thread, const Array<char>& levelName, float32 pixelsPerUnit,
+    	MemoryBlock* transient);
     void Unload();
 };

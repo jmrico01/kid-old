@@ -8,12 +8,16 @@ out vec2 fragUV;
 uniform vec3 posBottomLeft;
 uniform vec2 size;
 uniform bool flipHorizontal;
+uniform bool flipVertical;
 
 void main()
 {
 	fragUV = uv;
 	if (flipHorizontal) {
 		fragUV.x = 1.0 - fragUV.x;
+	}
+	if (flipVertical) {
+		fragUV.y = 1.0 - fragUV.y;
 	}
 	
 	gl_Position = vec4(
