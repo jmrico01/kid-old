@@ -120,3 +120,77 @@ bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* 
 
 	return false;
 }
+
+bool Panel::SliderFloat(float32* value, float32 min, float32 max, const FontFace* font)
+{
+	DEBUG_ASSERT(value != nullptr);
+
+	const Vec2Int sliderBarSize = Vec2Int { 200, 5 };
+	const Vec2Int sliderSize = Vec2Int { 10, 30 };
+	const int totalHeight = 40;
+#if 1
+	// light theme
+	const Vec4 COLOR_SLIDER_HOVER   = Vec4 { 1.0f, 1.0f, 1.0f, 0.9f };
+	const Vec4 COLOR_SLIDER         = Vec4 { 1.0f, 1.0f, 1.0f, 0.6f };
+	const Vec4 COLOR_BACKGROUND_BAR = Vec4 { 1.0f, 1.0f, 1.0f, 0.4f };
+#else
+	// dark theme
+	const Vec4 COLOR_SLIDER_HOVER   = Vec4 { 0.0f, 0.0f, 0.0f, 0.9f };
+	const Vec4 COLOR_SLIDER         = Vec4 { 0.0f, 0.0f, 0.0f, 0.6f };
+	const Vec4 COLOR_BACKGROUND_BAR = Vec4 { 0.0f, 0.0f, 0.0f, 0.4f };
+#endif
+
+	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
+	float32 sliderT = (*value - min) / (max - min);
+	Vec2Int sliderPos = Vec2Int {
+		positionCurrent.x + (int)(sliderBarSize.x * sliderT),
+		positionCurrent.y
+	};
+
+	bool changedValue = false;
+	RectInt sliderRect;
+	sliderRect.min = Vec2Int {
+		positionCurrent.x,
+		positionCurrent.y - totalHeight / 2
+	};
+	sliderRect.max = Vec2Int {
+		positionCurrent.x + sliderBarSize.x,
+		positionCurrent.y + totalHeight / 2
+	};
+	bool hover = IsInside(input->mousePos, sliderRect);
+	if (hover && input->mouseButtons[0].isDown) {
+		int newSliderX = ClampInt(input->mousePos.x - positionCurrent.x, 0, sliderBarSize.x);
+		sliderPos.x = positionCurrent.x + newSliderX;
+		float32 newSliderT = (float32)newSliderX / sliderBarSize.x;
+		*value = newSliderT * (max - min) + min;
+		changedValue = true;
+	}
+
+	PanelRenderCommand* newCommand;
+
+	newCommand = renderCommands.Append();
+	newCommand->type = PanelRenderCommandType::RECT;
+	newCommand->commandRect.position = positionCurrent;
+	newCommand->commandRect.anchor = Vec2 { 0.0f, 0.5f };
+	newCommand->commandRect.size = sliderBarSize;
+	newCommand->commandRect.color = COLOR_BACKGROUND_BAR;
+
+	newCommand = renderCommands.Append();
+	newCommand->type = PanelRenderCommandType::RECT;
+	newCommand->commandRect.position = Vec2Int {
+		positionCurrent.x + (int)(sliderBarSize.x * sliderT),
+		positionCurrent.y
+	};
+	newCommand->commandRect.anchor = Vec2 { 0.0f, 0.5f };
+	newCommand->commandRect.size = sliderSize;
+	newCommand->commandRect.color = hover ? COLOR_SLIDER_HOVER : COLOR_SLIDER;
+
+	if (growDownwards) {
+		positionCurrent.y -= totalHeight;
+	}
+	else {
+		positionCurrent.y += totalHeight;
+	}
+
+	return changedValue;
+}

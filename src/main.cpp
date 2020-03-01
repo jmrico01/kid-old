@@ -89,21 +89,23 @@ Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 
 {
 	Vec2Int border = Vec2Int::zero;
 	float32 aspectRatio = (float32)screenInfo.size.x / (float32)screenInfo.size.y;
+	int minBorderX = (int)(screenInfo.size.x * minBorderFrac);
+	int minBorderY = (int)(screenInfo.size.y * minBorderFrac);
 	if (aspectRatio < targetAspectRatio) {
-		int targetHeight = (int)(screenInfo.size.x / targetAspectRatio);
+		border.x = minBorderX;
+		int targetHeight = (int)((screenInfo.size.x - minBorderX * 2) / targetAspectRatio);
 		border.y = (screenInfo.size.y - targetHeight) / 2;
+		if (border.y < minBorderY) {
+			border.y = minBorderY;
+		}
 	}
 	else {
-		int targetWidth = (int)(screenInfo.size.y * targetAspectRatio);
-		border.x = (screenInfo.size.x - targetWidth) / 2;
-	}
-	int minBorderX = (int)(screenInfo.size.x * minBorderFrac);
-	if (border.x < minBorderX) {
-		border.x = minBorderX;
-	}
-	int minBorderY = (int)(screenInfo.size.y * minBorderFrac);
-	if (border.y < minBorderY) {
 		border.y = minBorderY;
+		int targetWidth = (int)((screenInfo.size.y - minBorderY * 2) * targetAspectRatio);
+		border.x = (screenInfo.size.x - targetWidth) / 2;
+		if (border.x < minBorderX) {
+			border.x = minBorderX;
+		}
 	}
 	return border;
 }
@@ -815,6 +817,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->refPixelScreenHeight = 1440;
 		gameState->refPixelsPerUnit = 120.0f;
 		gameState->minBorderFrac = 0.05f;
+		gameState->borderRadius = 20;
 
 		// Game data
 		gameState->playerVel = Vec2::zero;
@@ -1078,7 +1081,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	DrawRect(gameState->rectGL, screenInfo, Vec2Int { 0, screenInfo.size.y }, Vec2 { 0.0f, 1.0f },
 		Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
 
-	const int cornerRadius = 100;
+	const int cornerRadius = gameState->borderRadius;
 	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
 		borderSize, Vec2 { 0.0f, 0.0f },
 		Vec2Int { cornerRadius, cornerRadius }, false, false, gameState->frameCorner.textureID);
@@ -1226,14 +1229,36 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		local_persist bool showThings = false;
+		static bool showThings = false;
 
 		Panel panelGeometry;
 		panelGeometry.Begin(input, &fontSmall,
-			Vec2Int { borderSize.x + MARGIN.x, MARGIN.y },
-			Vec2 { 0.0f, 0.0f });
+			Vec2Int { /*borderSize.x +*/ MARGIN.x, MARGIN.y },
+			Vec2 { 0.0f, 0.0f }, false);
+#if 1
+		const Vec4 panelGeometryTextColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
+#else
+		const Vec4 panelGeometryTextColor = Vec4 { 0.0f, 0.0f, 0.0f, 1.0f };
+#endif
 
-		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), DEBUG_FONT_COLOR);
+		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), panelGeometryTextColor);
+
+		panelGeometry.Text(ToString("Aspect Ratio"), panelGeometryTextColor);
+		if (panelGeometry.SliderFloat(&gameState->aspectRatio, 1.0f, 2.5f)) {
+		}
+		panelGeometry.Text(ToString("Min Border"), panelGeometryTextColor);
+		if (panelGeometry.SliderFloat(&gameState->minBorderFrac, 0.0f, 0.5f)) {
+		}
+		float32 borderRadius = (float32)gameState->borderRadius;
+		panelGeometry.Text(ToString("Border Radius"), panelGeometryTextColor);
+		if (panelGeometry.SliderFloat(&borderRadius, 0.0f, 300.0f)) {
+			gameState->borderRadius = (int)borderRadius;
+		}
+		panelGeometry.Text(ToString("Screen Height"), panelGeometryTextColor);
+		float32 screenHeightFloat = (float32)gameState->refPixelScreenHeight;
+		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 2000.0f)) {
+			gameState->refPixelScreenHeight = (int)screenHeightFloat;
+		}
 
 		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);

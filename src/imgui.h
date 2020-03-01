@@ -59,10 +59,11 @@ struct Panel
 	bool Button(Array<char> text, Vec4 color, const FontFace* font = nullptr);
 	bool Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* font = nullptr);
 
-	float32 InputFloat32();
-	float32 InputSliderFloat32();
+	bool SliderFloat(float32* value, float32 min, float32 max, const FontFace* font = nullptr);
+	int SliderInt();
+
+	float32 InputFloat();
 	int InputInt();
-	int InputSliderInt();
 	Vec2 InputVec2();
 	Vec3 InputVec3();
 	Vec4 InputVec4();
