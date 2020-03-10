@@ -5,10 +5,9 @@
 
 global_var const float32 MARGIN_FRACTION = 1.1f;
 
-void Panel::Begin(const GameInput* input, const FontFace* fontDefault,
+void Panel::Begin(const GameInput& input, const FontFace* fontDefault,
 	Vec2Int position, Vec2 anchor, bool growDownwards)
 {
-	DEBUG_ASSERT(input != nullptr);
 	DEBUG_ASSERT(fontDefault != nullptr);
 
 	this->position = position;
@@ -16,7 +15,7 @@ void Panel::Begin(const GameInput* input, const FontFace* fontDefault,
 	this->anchor = anchor;
 	this->size = Vec2Int::zero;
 	this->growDownwards = growDownwards;
-	this->input = input;
+	this->input = &input;
 	this->fontDefault = fontDefault;
 }
 

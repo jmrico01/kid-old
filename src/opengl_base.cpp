@@ -72,8 +72,7 @@ RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size, Vec2 anchor,
 }
 
 template <typename Allocator>
-GLuint LoadShaders(const ThreadContext* thread, Allocator* allocator,
-	const char* vertFilePath, const char* fragFilePath)
+GLuint LoadShaders(Allocator* allocator, const char* vertFilePath, const char* fragFilePath)
 {
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
@@ -144,7 +143,7 @@ GLuint LoadShaders(const ThreadContext* thread, Allocator* allocator,
 }
 
 template <typename Allocator>
-RectGL InitRectGL(const ThreadContext* thread, Allocator* allocator)
+RectGL InitRectGL(Allocator* allocator)
 {
 	// TODO I don't even need this stupid shit. Jeez, I'm dumb...
 	RectGL rectGL;
@@ -176,13 +175,13 @@ RectGL InitRectGL(const ThreadContext* thread, Allocator* allocator)
 
 	glBindVertexArray(0);
 
-	rectGL.programID = LoadShaders(thread, allocator, "shaders/rect.vert", "shaders/rect.frag");
+	rectGL.programID = LoadShaders(allocator, "shaders/rect.vert", "shaders/rect.frag");
 	
 	return rectGL;
 }
 
 template <typename Allocator>
-TexturedRectGL InitTexturedRectGL(const ThreadContext* thread, Allocator* allocator)
+TexturedRectGL InitTexturedRectGL(Allocator* allocator)
 {
 	TexturedRectGL texturedRectGL;
 	// TODO probably use indexing for this
@@ -235,14 +234,14 @@ TexturedRectGL InitTexturedRectGL(const ThreadContext* thread, Allocator* alloca
 
 	glBindVertexArray(0);
 
-	texturedRectGL.programID = LoadShaders(thread, allocator,
+	texturedRectGL.programID = LoadShaders(allocator,
 		"shaders/texturedRect.vert", "shaders/texturedRect.frag");
 	
 	return texturedRectGL;
 }
 
 template <typename Allocator>
-LineGL InitLineGL(const ThreadContext* thread, Allocator* allocator)
+LineGL InitLineGL(Allocator* allocator)
 {
 	LineGL lineGL;
 
@@ -265,13 +264,13 @@ LineGL InitLineGL(const ThreadContext* thread, Allocator* allocator)
 
 	glBindVertexArray(0);
 
-	lineGL.programID = LoadShaders(thread, allocator, "shaders/line.vert", "shaders/line.frag");
+	lineGL.programID = LoadShaders(allocator, "shaders/line.vert", "shaders/line.frag");
 	
 	return lineGL;
 }
 
 template <typename Allocator>
-PlaneGL InitPlaneGL(const ThreadContext* thread, Allocator* allocator)
+PlaneGL InitPlaneGL(Allocator* allocator)
 {
 	PlaneGL planeGL;
 	const GLfloat vertices[] = {
@@ -302,13 +301,13 @@ PlaneGL InitPlaneGL(const ThreadContext* thread, Allocator* allocator)
 
 	glBindVertexArray(0);
 
-	planeGL.programID = LoadShaders(thread, allocator, "shaders/plane.vert", "shaders/plane.frag");
+	planeGL.programID = LoadShaders(allocator, "shaders/plane.vert", "shaders/plane.frag");
 	
 	return planeGL;
 }
 
 template <typename Allocator>
-BoxGL InitBoxGL(const ThreadContext* thread, Allocator* allocator)
+BoxGL InitBoxGL(Allocator* allocator)
 {
 	BoxGL boxGL;
 	const GLfloat vertices[] = {
@@ -374,7 +373,7 @@ BoxGL InitBoxGL(const ThreadContext* thread, Allocator* allocator)
 
 	glBindVertexArray(0);
 
-	boxGL.programID = LoadShaders(thread, allocator, "shaders/box.vert", "shaders/box.frag");
+	boxGL.programID = LoadShaders(allocator, "shaders/box.vert", "shaders/box.frag");
 	
 	return boxGL;
 }

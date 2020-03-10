@@ -14,5 +14,5 @@ struct TextureGL
 void UnloadTextureGL(const TextureGL& textureGL);
 
 template <typename Allocator>
-bool LoadPNGOpenGL(const ThreadContext* thread, Allocator* allocator, const char* filePath,
+bool LoadPNGOpenGL(Allocator* allocator, const char* filePath,
 	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL& outTextureGL);

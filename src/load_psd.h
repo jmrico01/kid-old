@@ -72,8 +72,7 @@ struct PsdFile
 };
 
 template <typename Allocator>
-bool OpenPSD(const ThreadContext* thread, Allocator* allocator, const Array<char>& filePath,
-	PsdFile* outPsdFile);
+bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdFile);
 
 template <typename Allocator>
-void ClosePSD(const ThreadContext* thread, Allocator* allocator, PsdFile* psdFile);
+void ClosePSD(Allocator* allocator, PsdFile* psdFile);

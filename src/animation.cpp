@@ -87,7 +87,7 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 	PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
 }
 
-bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name, float32 pixelsPerUnit,
+bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
 	const MemoryBlock& transient)
 {
 	LinearAllocator allocator(transient.size, transient.memory);
@@ -100,7 +100,7 @@ bool AnimatedSprite::Load(const ThreadContext* thread, const Array<char>& name, 
 	filePath.Append(name);
 	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
-	if (!OpenPSD(thread, &allocator, filePath.ToArray(), &psdFile)) {
+	if (!OpenPSD(&allocator, filePath.ToArray(), &psdFile)) {
 		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}

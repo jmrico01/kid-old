@@ -51,8 +51,8 @@ struct Panel
 	const GameInput* input;
 	const FontFace* fontDefault;
 
-	void Begin(const GameInput* input, const FontFace* fontDefault,
-		Vec2Int position, Vec2 anchor, bool growDownwards = true);
+	void Begin(const GameInput& input, const FontFace* fontDefault, Vec2Int position, Vec2 anchor,
+		bool growDownwards = true);
 
 	void Text(Array<char> text, Vec4 color, const FontFace* font = nullptr);
 

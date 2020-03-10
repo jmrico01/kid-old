@@ -41,10 +41,9 @@ struct FontFace
 };
 
 template <typename Allocator>
-TextGL InitTextGL(const ThreadContext* thread, Allocator* allocator);
+TextGL InitTextGL(Allocator* allocator);
 template <typename Allocator>
-FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
-	FT_Library library, const char* path, uint32 height);
+FontFace LoadFontFace(Allocator* allocator, FT_Library library, const char* path, uint32 height);
 
 int GetTextWidth(const FontFace& face, Array<char> text);
 template <typename Allocator>

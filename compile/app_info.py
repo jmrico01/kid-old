@@ -36,3 +36,5 @@ LIBS_EXTERNAL = [
 PATHS = {
 	"win32-vcvarsall": WIN32_VCVARSALL
 }
+
+USE_KM_PLATFORM = True

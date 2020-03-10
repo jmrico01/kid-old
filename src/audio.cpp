@@ -5,14 +5,14 @@
 #include "main.h"
 
 template <typename Allocator>
-internal bool32 SoundInit(const ThreadContext* thread, Allocator* allocator,
-	const GameAudio* audio, Sound* sound, const char* filePath)
+internal bool32 SoundInit(Allocator* allocator, const GameAudio* audio, Sound* sound,
+	const char* filePath)
 {
 	sound->play = false;
 	sound->playing = false;
 	sound->sampleIndex = 0;
 
-	return LoadWAV(thread, allocator, filePath, audio, &sound->buffer);
+	return LoadWAV(allocator, filePath, audio, &sound->buffer);
 }
 
 internal void SoundUpdate(const GameAudio* audio, Sound* sound)
@@ -55,13 +55,12 @@ internal void SoundWriteSamples(const Sound* sound, float32 amplitude,
 }
 
 template <typename Allocator>
-bool32 InitAudioState(const ThreadContext* thread, Allocator* allocator,
-	AudioState* audioState, GameAudio* audio)
+bool32 InitAudioState(Allocator* allocator, AudioState* audioState, GameAudio* audio)
 {
 	// audioState->globalMute = false;
 	audioState->globalMute = true;
 
-	if (!SoundInit(thread, allocator, audio, &audioState->soundJump, "data/audio/yow.wav")) {
+	if (!SoundInit(allocator, audio, &audioState->soundJump, "data/audio/yow.wav")) {
 		LOG_ERROR("Failed to init jump sound");
 		return false;
 	}
@@ -73,8 +72,8 @@ bool32 InitAudioState(const ThreadContext* thread, Allocator* allocator,
 	return true;
 }
 
-void OutputAudio(GameAudio* audio, GameState* gameState,
-	const GameInput* input, MemoryBlock transient)
+void OutputAudio(GameAudio* audio, GameState* gameState, const GameInput& input,
+	MemoryBlock transient)
 {
 	DEBUG_ASSERT(audio->sampleDelta >= 0);
 	DEBUG_ASSERT(audio->channels == 2); // Stereo support only
@@ -138,7 +137,7 @@ internal void DrawAudioBuffer(
 }
 
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
-	const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient,
+	const GameInput& input, ScreenInfo screenInfo, MemoryBlock transient,
 	Vec4 debugFontColor)
 {
 	AudioState* audioState = &gameState->audioState;

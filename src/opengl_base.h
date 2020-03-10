@@ -61,19 +61,18 @@ RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size, Vec2 anchor,
     ScreenInfo screenInfo);
 
 template <typename Allocator>
-GLuint LoadShaders(const ThreadContext* thread, Allocator* allocator,
-    const char* vertFilePath, const char* fragFilePath);
+GLuint LoadShaders(Allocator* allocator, const char* vertFilePath, const char* fragFilePath);
 
 template <typename Allocator>
-RectGL InitRectGL(const ThreadContext* thread, Allocator* allocator);
+RectGL InitRectGL(Allocator* allocator);
 template <typename Allocator>
-TexturedRectGL InitTexturedRectGL(const ThreadContext* thread, Allocator* allocator);
+TexturedRectGL InitTexturedRectGL(Allocator* allocator);
 template <typename Allocator>
-LineGL InitLineGL(const ThreadContext* thread, Allocator* allocator);
+LineGL InitLineGL(Allocator* allocator);
 template <typename Allocator>
-PlaneGL InitPlaneGL(const ThreadContext* thread, Allocator* allocator);
+PlaneGL InitPlaneGL(Allocator* allocator);
 template <typename Allocator>
-BoxGL InitBoxGL(const ThreadContext* thread, Allocator* allocator);
+BoxGL InitBoxGL(Allocator* allocator);
 
 void DrawRect(RectGL rectGL, ScreenInfo screenInfo,
     Vec2Int pos, Vec2 anchor, Vec2Int size, Vec4 color);

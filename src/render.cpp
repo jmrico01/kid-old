@@ -27,8 +27,7 @@ Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip)
 }
 
 template <typename Allocator>
-bool InitSpriteState(const ThreadContext* thread, Allocator* allocator,
-	SpriteStateGL& spriteStateGL)
+bool InitSpriteState(Allocator* allocator, SpriteStateGL& spriteStateGL)
 {
 	glGenVertexArrays(1, &spriteStateGL.vertexArray);
 	glBindVertexArray(spriteStateGL.vertexArray);
@@ -73,16 +72,16 @@ bool InitSpriteState(const ThreadContext* thread, Allocator* allocator,
 
 	glBindVertexArray(0);
 
-	spriteStateGL.multiplyProgramID = LoadShaders(thread, allocator,
+	spriteStateGL.multiplyProgramID = LoadShaders(allocator,
 		"shaders/sprite.vert", "shaders/spriteMultiply.frag");
 
 	return true;
 }
 
 template <typename Allocator>
-bool InitRenderState(const ThreadContext* thread, Allocator* allocator, RenderState& renderState)
+bool InitRenderState(Allocator* allocator, RenderState& renderState)
 {
-	InitSpriteState(thread, allocator, renderState.spriteStateGL);
+	InitSpriteState(allocator, renderState.spriteStateGL);
 
 #if 0
 	glGenBuffers(1, &renderState.posBuffer);

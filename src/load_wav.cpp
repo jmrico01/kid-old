@@ -29,8 +29,8 @@ struct WaveFormat
 };
 
 template <typename Allocator>
-bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* filePath,
-	const GameAudio* gameAudio, AudioBuffer* audioBuffer)
+bool32 LoadWAV(Allocator* allocator, const char* filePath, const GameAudio* gameAudio,
+	AudioBuffer* outAudioBuffer)
 {
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
@@ -105,18 +105,18 @@ bool32 LoadWAV(const ThreadContext* thread, Allocator* allocator, const char* fi
 			float32 t = (float32)i / (targetLengthSamples - 1);
 			float32 sample1 = LinearSample(gameAudio, floatData, lengthSamples, 0, t);
 			float32 sample2 = LinearSample(gameAudio, floatData, lengthSamples, 1, t);
-			audioBuffer->buffer[i * gameAudio->channels] = sample1;
-			audioBuffer->buffer[i * gameAudio->channels + 1] = sample2;
+			outAudioBuffer->buffer[i * gameAudio->channels] = sample1;
+			outAudioBuffer->buffer[i * gameAudio->channels + 1] = sample2;
 		}
-		audioBuffer->bufferSizeSamples = targetLengthSamples;
+		outAudioBuffer->bufferSizeSamples = targetLengthSamples;
 	}
 	else {
-		MemCopy(audioBuffer->buffer, data, header->dataSize);
-		audioBuffer->bufferSizeSamples = lengthSamples;
+		MemCopy(outAudioBuffer->buffer, data, header->dataSize);
+		outAudioBuffer->bufferSizeSamples = lengthSamples;
 	}
 
-	audioBuffer->sampleRate = gameAudio->sampleRate;
-	audioBuffer->channels = gameAudio->channels;
+	outAudioBuffer->sampleRate = gameAudio->sampleRate;
+	outAudioBuffer->channels = gameAudio->channels;
 
 	return true;
 }

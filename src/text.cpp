@@ -23,7 +23,7 @@ struct TextDataGL
 };
 
 template <typename Allocator>
-TextGL InitTextGL(const ThreadContext* thread, Allocator* allocator)
+TextGL InitTextGL(Allocator* allocator)
 {
     TextGL textGL;
 
@@ -117,14 +117,13 @@ TextGL InitTextGL(const ThreadContext* thread, Allocator* allocator)
 
     glBindVertexArray(0);
 
-    textGL.programID = LoadShaders(thread, allocator, "shaders/text.vert", "shaders/text.frag");
+    textGL.programID = LoadShaders(allocator, "shaders/text.vert", "shaders/text.frag");
 
     return textGL;
 }
 
 template <typename Allocator>
-FontFace LoadFontFace(const ThreadContext* thread, Allocator* allocator,
-    FT_Library library, const char* path, uint32 height)
+FontFace LoadFontFace(Allocator* allocator, FT_Library library, const char* path, uint32 height)
 {
     const auto& allocatorState = allocator->SaveState();
     defer (allocator->LoadState(allocatorState));

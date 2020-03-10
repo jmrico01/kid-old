@@ -530,8 +530,7 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
 template <typename Allocator>
-bool OpenPSD(const ThreadContext* thread, Allocator* allocator, const Array<char>& filePath,
-	PsdFile* outPsdFile)
+bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdFile)
 {
 	outPsdFile->file = LoadEntireFile(filePath, allocator);
 	if (outPsdFile->file.data == nullptr) {
@@ -971,7 +970,7 @@ bool OpenPSD(const ThreadContext* thread, Allocator* allocator, const Array<char
 }
 
 template <typename Allocator>
-void ClosePSD(const ThreadContext* thread, Allocator* allocator, PsdFile* psdFile)
+void ClosePSD(Allocator* allocator, PsdFile* psdFile)
 {
 	FreeFile(&psdFile->file, allocator);
 }

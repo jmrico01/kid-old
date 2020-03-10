@@ -167,7 +167,7 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient)
+bool32 LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient)
 {
 	DEBUG_ASSERT(!loaded);
 	LinearAllocator allocator(transient->size, transient->memory);
@@ -189,7 +189,7 @@ bool32 LevelData::Load(const ThreadContext* thread, const Array<char>& levelName
 	filePath.Append(levelName);
 	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
-	if (!OpenPSD(thread, &allocator, filePath.ToArray(), &psdFile)) {
+	if (!OpenPSD(&allocator, filePath.ToArray(), &psdFile)) {
 		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}

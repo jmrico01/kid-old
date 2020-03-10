@@ -36,7 +36,7 @@ Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor,
 Mat4 CalculateTransform(Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, bool32 flip);
 
 template <typename Allocator>
-bool InitRenderState(const ThreadContext* thread, Allocator* allocator, RenderState& renderState);
+bool InitRenderState(Allocator* allocator, RenderState& renderState);
 
 void PushSprite(SpriteDataGL* spriteDataGL, Mat4 transform, float32 alpha, GLuint texture);
 

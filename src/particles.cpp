@@ -17,7 +17,7 @@ struct ParticleSystemDataGL
 };
 
 template <typename Allocator>
-ParticleSystemGL InitParticleSystemGL(const ThreadContext* thread, Allocator* allocator)
+ParticleSystemGL InitParticleSystemGL(Allocator* allocator)
 {
 	ParticleSystemGL psGL;
 	const GLfloat vertices[] = {
@@ -112,8 +112,7 @@ ParticleSystemGL InitParticleSystemGL(const ThreadContext* thread, Allocator* al
 
 	glBindVertexArray(0);
 
-	psGL.programID = LoadShaders(thread, allocator,
-		"shaders/particle.vert", "shaders/particle.frag");
+	psGL.programID = LoadShaders(allocator, "shaders/particle.vert", "shaders/particle.frag");
 	
 	return psGL;
 }

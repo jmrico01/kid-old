@@ -16,8 +16,8 @@
 enum SpriteType
 {
 	SPRITE_BACKGROUND,
-    SPRITE_OBJECT,
-    SPRITE_LABEL
+	SPRITE_OBJECT,
+	SPRITE_LABEL
 };
 
 struct TextureWithPosition
@@ -43,21 +43,20 @@ struct LevelTransition
 
 struct LevelData
 {
-    FloorCollider floor;
-    FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
+	FloorCollider floor;
+	FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
 
-    FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
+	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
 
-    FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
+	FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
 
-    bool32 lockedCamera;
-    Vec2 cameraCoords;
-    bool32 bounded;
-    Vec2 bounds;
+	bool32 lockedCamera;
+	Vec2 cameraCoords;
+	bool32 bounded;
+	Vec2 bounds;
 
-    bool32 loaded;
+	bool32 loaded;
 
-    bool32 Load(const ThreadContext* thread, const Array<char>& levelName, float32 pixelsPerUnit,
-    	MemoryBlock* transient);
-    void Unload();
+	bool32 Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient);
+	void Unload();
 };

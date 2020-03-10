@@ -170,13 +170,13 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool32 SetActiveLevel(const ThreadContext* thread, GameState* gameState,
-	const Array<char> levelName, Vec2 startCoords, MemoryBlock* transient)
+internal bool32 SetActiveLevel(GameState* gameState, const Array<char> levelName, Vec2 startCoords,
+	MemoryBlock* transient)
 {
 	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
 	if (!levelData->loaded) {
-		if (!levelData->Load(thread, levelName, gameState->refPixelsPerUnit, transient)) {
+		if (!levelData->Load(levelName, gameState->refPixelsPerUnit, transient)) {
 			LOG_ERROR("Failed to load level data for level %.*s\n",
 				(int)levelName.size, levelName.data);
 			return false;
@@ -239,14 +239,14 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 		&& object.rangeY.x <= distY && distY <= object.rangeY.y;
 }
 
-internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput* input,
+internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput& input,
 	MemoryBlock transient)
 {
 	bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
-		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown);
+		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown);
 	bool32 wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
-		|| (input->controllers[0].isConnected && input->controllers[0].b.isDown
-		&& input->controllers[0].b.transitions == 1);
+		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown
+		&& input.controllers[0].b.transitions == 1);
 
 	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
@@ -258,7 +258,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			&& AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
-				if (!SetActiveLevel(nullptr, gameState, ToString(LEVEL_NAMES[newLevel]),
+				if (!SetActiveLevel(gameState, ToString(LEVEL_NAMES[newLevel]),
 				startCoords, &transient)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
@@ -303,8 +303,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		gameState->playerVel.x = speed;
 		gameState->facingRight = true;
 	}
-	if (input->controllers[0].isConnected) {
-		float32 leftStickX = input->controllers[0].leftEnd.x;
+	if (input.controllers[0].isConnected) {
+		float32 leftStickX = input.controllers[0].leftEnd.x;
 		if (leftStickX < 0.0f) {
 			gameState->playerVel.x = -speed;
 			gameState->facingRight = false;
@@ -317,7 +317,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	bool fallPressed = IsKeyPressed(input, KM_KEY_S)
 		|| IsKeyPressed(input, KM_KEY_ARROW_DOWN)
-		|| (input->controllers[0].isConnected && input->controllers[0].leftEnd.y < 0.0f);
+		|| (input.controllers[0].isConnected && input.controllers[0].leftEnd.y < 0.0f);
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && fallPressed
 	&& gameState->currentPlatform != nullptr) {
 		gameState->playerState = PLAYER_STATE_FALLING;
@@ -327,7 +327,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
 		|| IsKeyPressed(input, KM_KEY_ARROW_UP)
-		|| (input->controllers[0].isConnected && input->controllers[0].a.isDown);
+		|| (input.controllers[0].isConnected && input.controllers[0].a.isDown);
 	if (gameState->playerState == PLAYER_STATE_GROUNDED && jumpPressed
 	&& !KeyCompare(gameState->kid.activeAnimation, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
 		gameState->playerState = PLAYER_STATE_JUMPING;
@@ -724,8 +724,8 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	DrawSprites(gameState->renderState, *spriteDataGL, projection);
 }
 
-void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* platformFuncs,
-	const GameInput* input, ScreenInfo screenInfo, float32 deltaTime,
+void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput& input,
+	const ScreenInfo& screenInfo, float32 deltaTime,
 	GameMemory* memory, GameAudio* audio)
 {
 	// NOTE: for clarity
@@ -753,7 +753,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
 		#define FUNC(returntype, name, ...) name = \
-		platformFuncs->glFunctions.name;
+		platformFuncs.glFunctions.name;
 			GL_FUNCTIONS_BASE
 			GL_FUNCTIONS_ALL
 		#undef FUNC
@@ -809,7 +809,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		// Execute constructors for everything in GameState
 		gameState = new (memory->permanent.memory) GameState();
 
-		if (!InitAudioState(thread, &allocator, &gameState->audioState, audio)) {
+		if (!InitAudioState(&allocator, &gameState->audioState, audio)) {
 			DEBUG_PANIC("Failed to init audio state\n");
 		}
 
@@ -831,7 +831,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			gameState->levels[i].loaded = false;
 		}
 		const Array<char> FIRST_LEVEL = ToString("overworld");
-		if (!SetActiveLevel(thread, gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
+		if (!SetActiveLevel(gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
 		char levelPsdPath[PATH_MAX_LENGTH];
@@ -850,20 +850,20 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 #endif
 
 		// Rendering stuff
-		InitRenderState(thread, &allocator, gameState->renderState);
+		InitRenderState(&allocator, gameState->renderState);
 
-		gameState->rectGL = InitRectGL(thread, &allocator);
-		gameState->texturedRectGL = InitTexturedRectGL(thread, &allocator);
-		gameState->lineGL = InitLineGL(thread, &allocator);
-		gameState->textGL = InitTextGL(thread, &allocator);
+		gameState->rectGL = InitRectGL(&allocator);
+		gameState->texturedRectGL = InitTexturedRectGL(&allocator);
+		gameState->lineGL = InitLineGL(&allocator);
+		gameState->textGL = InitTextGL(&allocator);
 
 		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
 		if (error) {
 			LOG_ERROR("FreeType init error: %d\n", error);
 		}
-		gameState->fontFaceSmall = LoadFontFace(thread, &allocator, gameState->ftLibrary,
+		gameState->fontFaceSmall = LoadFontFace(&allocator, gameState->ftLibrary,
 			"data/fonts/ocr-a/regular.ttf", 18);
-		gameState->fontFaceMedium = LoadFontFace(thread, &allocator, gameState->ftLibrary,
+		gameState->fontFaceMedium = LoadFontFace(&allocator, gameState->ftLibrary,
 			"data/fonts/ocr-a/regular.ttf", 24);
 
 		InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR_DEPTH, gameState->framebuffersColorDepth);
@@ -918,17 +918,17 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		glBindVertexArray(0);
 
-		gameState->screenShader = LoadShaders(thread, &allocator,
+		gameState->screenShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/screen.frag");
-		gameState->bloomExtractShader = LoadShaders(thread, &allocator,
+		gameState->bloomExtractShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/bloomExtract.frag");
-		gameState->bloomBlendShader = LoadShaders(thread, &allocator,
+		gameState->bloomBlendShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/bloomBlend.frag");
-		gameState->blurShader = LoadShaders(thread, &allocator,
+		gameState->blurShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/blur.frag");
-		gameState->grainShader = LoadShaders(thread, &allocator,
+		gameState->grainShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/grain.frag");
-		gameState->lutShader = LoadShaders(thread, &allocator,
+		gameState->lutShader = LoadShaders(&allocator,
 			"shaders/screen.vert", "shaders/lut.frag");
 
 		gameState->rock.coords = {
@@ -936,12 +936,12 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			0.0f
 		};
 		gameState->rock.angle = 0.0f;
-		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/rock.png",
+		if (!LoadPNGOpenGL(&allocator, "data/sprites/rock.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->rockTexture)) {
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
-		if (!gameState->spriteKid.Load(thread, ToString("kid"), gameState->refPixelsPerUnit,
+		if (!gameState->spriteKid.Load(ToString("kid"), gameState->refPixelsPerUnit,
 		memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
@@ -954,7 +954,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"));
 
-		if (!gameState->spritePaper.Load(thread, ToString("paper"), gameState->refPixelsPerUnit,
+		if (!gameState->spritePaper.Load(ToString("paper"), gameState->refPixelsPerUnit,
 		memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
@@ -967,21 +967,21 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.psd"));
 
-		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/frame-corner.png",
+		if (!LoadPNGOpenGL(&allocator, "data/sprites/frame-corner.png",
 		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frameCorner)) {
 			DEBUG_PANIC("Failed to load frame corner texture\n");
 		}
-		if (!LoadPNGOpenGL(thread, &allocator, "data/sprites/pixel.png",
+		if (!LoadPNGOpenGL(&allocator, "data/sprites/pixel.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->pixelTexture)) {
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
 
-		if (!LoadPNGOpenGL(thread, &allocator, "data/luts/lutbase.png",
+		if (!LoadPNGOpenGL(&allocator, "data/luts/lutbase.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lutBase)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-		if (!LoadPNGOpenGL(thread, &allocator, "data/luts/kodak5205.png",
+		if (!LoadPNGOpenGL(&allocator, "data/luts/kodak5205.png",
 		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lut1)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
@@ -1023,8 +1023,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			gameState->levels[gameState->activeLevel].Unload();
 		}
 
-		if (!SetActiveLevel(thread, gameState, activeLevelName,
-			gameState->playerCoords, &memory->transient)) {
+		if (!SetActiveLevel(gameState, activeLevelName,
+		gameState->playerCoords, &memory->transient)) {
 			DEBUG_PANIC("Failed to reload level %.*s\n",
 				(int)activeLevelName.size, activeLevelName.data);
 		}
@@ -1033,7 +1033,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		|| FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"))) {
 		LOG_INFO("reloading kid animation sprite\n");
 		gameState->spriteKid.Unload();
-		if (!gameState->spriteKid.Load(thread, ToString("kid"), gameState->refPixelsPerUnit,
+		if (!gameState->spriteKid.Load(ToString("kid"), gameState->refPixelsPerUnit,
 		memory->transient)) {
 			DEBUG_PANIC("Failed to reload kid animation sprite\n");
 		}
@@ -1134,8 +1134,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
 
 	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
-		|| (input->controllers[0].isConnected
-		&& input->controllers[0].x.isDown && input->controllers[0].x.transitions == 1);
+		|| (input.controllers[0].isConnected
+		&& input.controllers[0].x.isDown && input.controllers[0].x.transitions == 1);
 	if (wasDebugKeyPressed) {
 		gameState->debugView = !gameState->debugView;
 	}
@@ -1203,7 +1203,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 
 		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
 
-		Vec2 mouseWorld = ScreenToWorld(input->mousePos, screenInfo,
+		Vec2 mouseWorld = ScreenToWorld(input.mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
 			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
@@ -1235,11 +1235,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		panelGeometry.Begin(input, &fontSmall,
 			Vec2Int { /*borderSize.x +*/ MARGIN.x, MARGIN.y },
 			Vec2 { 0.0f, 0.0f }, false);
-#if 1
 		const Vec4 panelGeometryTextColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
-#else
-		const Vec4 panelGeometryTextColor = Vec4 { 0.0f, 0.0f, 0.0f, 1.0f };
-#endif
 
 		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), panelGeometryTextColor);
 
@@ -1254,7 +1250,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		if (panelGeometry.SliderFloat(&borderRadius, 0.0f, 300.0f)) {
 			gameState->borderRadius = (int)borderRadius;
 		}
-		panelGeometry.Text(ToString("Screen Height"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Y Resolution"), panelGeometryTextColor);
 		float32 screenHeightFloat = (float32)gameState->refPixelScreenHeight;
 		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 2000.0f)) {
 			gameState->refPixelScreenHeight = (int)screenHeightFloat;
@@ -1445,11 +1441,11 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 		panelOptions.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		Vec2 mouseWorldPosStart = ScreenToWorld(input->mousePos, screenInfo,
+		Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
 			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
-		Vec2 mouseWorldPosEnd = ScreenToWorld(input->mousePos + input->mouseDelta, screenInfo,
+		Vec2 mouseWorldPosEnd = ScreenToWorld(input.mousePos + input.mouseDelta, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
 			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
@@ -1468,7 +1464,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 					(int)(BOX_SIZE.x * BOX_ANCHOR.x),
 					(int)(BOX_SIZE.y * BOX_ANCHOR.y)
 				};
-				Vec2Int mousePosPlusAnchor = input->mousePos + ANCHOR_OFFSET;
+				Vec2Int mousePosPlusAnchor = input.mousePos + ANCHOR_OFFSET;
 				for (uint64 i = 0; i < floor.line.size; i++) {
 					Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
 						gameState->cameraPos, gameState->cameraRot,
@@ -1481,8 +1477,8 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 					&& mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
 					(mousePosPlusAnchor.y >= boxPos.y
 					&& mousePosPlusAnchor.y <= boxPos.y + BOX_SIZE.y)) {
-						if (input->mouseButtons[0].isDown
-						&& input->mouseButtons[0].transitions == 1) {
+						if (input.mouseButtons[0].isDown
+						&& input.mouseButtons[0].transitions == 1) {
 							newVertexPressed = true;
 							gameState->floorVertexSelected = (int)i;
 						}
@@ -1499,12 +1495,12 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 				}
 			}
 
-			if (input->mouseButtons[0].isDown && input->mouseButtons[0].transitions == 1
+			if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1
 			&& !newVertexPressed) {
 				gameState->floorVertexSelected = -1;
 			}
 
-			if (input->mouseButtons[0].isDown) {
+			if (input.mouseButtons[0].isDown) {
 				if (gameState->floorVertexSelected == -1) {
 					gameState->cameraPos -= mouseWorldDelta;
 				}
@@ -1522,7 +1518,7 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 				}
 			}
 
-			if (input->mouseButtons[1].isDown && input->mouseButtons[1].transitions == 1) {
+			if (input.mouseButtons[1].isDown && input.mouseButtons[1].transitions == 1) {
 				if (gameState->floorVertexSelected == -1) {
 					floor.line.Append(mouseWorldPosEnd);
 					gameState->floorVertexSelected = (int)(floor.line.size - 1);
@@ -1535,19 +1531,19 @@ void GameUpdateAndRender(const ThreadContext* thread, const PlatformFunctions* p
 			}
 		}
 		else {
-			if (input->mouseButtons[0].isDown) {
+			if (input.mouseButtons[0].isDown) {
 				gameState->cameraPos -= mouseWorldDelta;
 			}
 		}
 
-		if (input->mouseButtons[2].isDown) {
-			Vec2Int centerToMousePrev = (input->mousePos - input->mouseDelta) - screenInfo.size / 2;
-			Vec2Int centerToMouse = input->mousePos - screenInfo.size / 2;
+		if (input.mouseButtons[2].isDown) {
+			Vec2Int centerToMousePrev = (input.mousePos - input.mouseDelta) - screenInfo.size / 2;
+			Vec2Int centerToMouse = input.mousePos - screenInfo.size / 2;
 			float32 angle = AngleBetween(ToVec2(centerToMousePrev), ToVec2(centerToMouse));
 			gameState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * gameState->cameraRot;
 		}
 
-		float32 editorScaleExponentDelta = input->mouseWheelDelta * 0.0002f;
+		float32 editorScaleExponentDelta = input.mouseWheelDelta * 0.0002f;
 		gameState->editorScaleExponent = ClampFloat32(
 			gameState->editorScaleExponent + editorScaleExponentDelta, 0.0f, 1.0f);
 	}

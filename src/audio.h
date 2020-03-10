@@ -26,13 +26,11 @@ struct AudioState
 
 struct GameState;
 template <typename Allocator>
-bool32 InitAudioState(const ThreadContext* thread, Allocator* allocator,
-	AudioState* audioState, GameAudio* audio);
-void OutputAudio(GameAudio* audio, GameState* gameState,
-	const GameInput* input, MemoryBlock transient);
+bool32 InitAudioState(Allocator* allocator, AudioState* audioState, GameAudio* audio);
+void OutputAudio(GameAudio* audio, GameState* gameState, const GameInput& input,
+	MemoryBlock transient);
 
 #if GAME_INTERNAL
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
-	const GameInput* input, ScreenInfo screenInfo, MemoryBlock transient,
-	Vec4 debugFontColor);
+	const GameInput& input, ScreenInfo screenInfo, MemoryBlock transient, Vec4 debugFontColor);
 #endif
