@@ -54,6 +54,7 @@ struct GameState
     float32 refPixelsPerUnit;
     float32 minBorderFrac;
     int borderRadius;
+    float32 cameraOffsetFracY;
 
 	Vec2 cameraPos;
 	Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game

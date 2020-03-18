@@ -141,35 +141,39 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, const FontFace
 
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
 	float32 sliderT = (*value - min) / (max - min);
-	Vec2Int sliderPos = Vec2Int {
-		positionCurrent.x + (int)(sliderBarSize.x * sliderT),
-		positionCurrent.y
-	};
 
 	bool changedValue = false;
-	RectInt sliderRect;
-	sliderRect.min = Vec2Int {
+	RectInt sliderMouseRect;
+	sliderMouseRect.min = Vec2Int {
 		positionCurrent.x,
 		positionCurrent.y - totalHeight / 2
 	};
-	sliderRect.max = Vec2Int {
+	sliderMouseRect.max = Vec2Int {
 		positionCurrent.x + sliderBarSize.x,
 		positionCurrent.y + totalHeight / 2
 	};
-	bool hover = IsInside(input->mousePos, sliderRect);
+	bool hover = IsInside(input->mousePos, sliderMouseRect);
 	if (hover && input->mouseButtons[0].isDown) {
 		int newSliderX = ClampInt(input->mousePos.x - positionCurrent.x, 0, sliderBarSize.x);
-		sliderPos.x = positionCurrent.x + newSliderX;
 		float32 newSliderT = (float32)newSliderX / sliderBarSize.x;
 		*value = newSliderT * (max - min) + min;
 		changedValue = true;
+	}
+
+	int sliderOffset = totalHeight / 2;
+	Vec2Int pos = positionCurrent;
+	if (growDownwards) {
+		pos.y -= sliderOffset;
+	}
+	else {
+		pos.y += sliderOffset;
 	}
 
 	PanelRenderCommand* newCommand;
 
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
-	newCommand->commandRect.position = positionCurrent;
+	newCommand->commandRect.position = pos;
 	newCommand->commandRect.anchor = Vec2 { 0.0f, 0.5f };
 	newCommand->commandRect.size = sliderBarSize;
 	newCommand->commandRect.color = COLOR_BACKGROUND_BAR;
@@ -177,8 +181,8 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, const FontFace
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
 	newCommand->commandRect.position = Vec2Int {
-		positionCurrent.x + (int)(sliderBarSize.x * sliderT),
-		positionCurrent.y
+		pos.x + (int)(sliderBarSize.x * sliderT),
+		pos.y
 	};
 	newCommand->commandRect.anchor = Vec2 { 0.0f, 0.5f };
 	newCommand->commandRect.size = sliderSize;

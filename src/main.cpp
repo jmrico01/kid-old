@@ -22,7 +22,7 @@
 #include "post.h"
 #include "render.h"
 
-#define CAMERA_OFFSET_VEC3(screenHeightUnits) (Vec3 { 0.0f, -(screenHeightUnits) / 2.8f, 0.0f })
+#define CAMERA_OFFSET_VEC3(screenHeightUnits, cameraOffsetFracY) (Vec3 { 0.0f, cameraOffsetFracY * screenHeightUnits, 0.0f })
 
 #define PLAYER_RADIUS 0.4f
 #define PLAYER_HEIGHT 1.3f
@@ -126,31 +126,33 @@ Mat4 CalculateProjectionMatrix(ScreenInfo screenInfo,
 }
 
 Mat4 CalculateInverseViewMatrix(Vec2 cameraPos, Quat cameraRot,
-	int pixelScreenHeight, float32 pixelsPerUnit)
+	int pixelScreenHeight, float32 pixelsPerUnit, float32 cameraOffsetFracY)
 {
 	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
+	Vec3 cameraOffset = Vec3 { 0.0f, cameraOffsetFracY * screenHeightUnits, 0.0f };
 	return Translate(ToVec3(cameraPos, 0.0f))
 		* UnitQuatToMat4(cameraRot)
-		* Translate(-CAMERA_OFFSET_VEC3(screenHeightUnits));
+		* Translate(-cameraOffset);
 }
 
 Mat4 CalculateViewMatrix(Vec2 cameraPos, Quat cameraRot,
-	int pixelScreenHeight, float32 pixelsPerUnit)
+	int pixelScreenHeight, float32 pixelsPerUnit, float32 cameraOffsetFracY)
 {
 	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
-	return Translate(CAMERA_OFFSET_VEC3(screenHeightUnits))
+	Vec3 cameraOffset = Vec3 { 0.0f, cameraOffsetFracY * screenHeightUnits, 0.0f };
+	return Translate(cameraOffset)
 		* UnitQuatToMat4(Inverse(cameraRot))
 		* Translate(ToVec3(-cameraPos, 0.0f));
 }
 
 Vec2Int WorldToScreen(Vec2 worldPos, ScreenInfo screenInfo,
 	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale,
-	int pixelScreenHeight, float32 pixelsPerUnit)
+	int pixelScreenHeight, float32 pixelsPerUnit, float32 cameraOffsetFracY)
 {
 	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	Vec2Int screenCenter = screenInfo.size / 2;
 	Vec4 afterView = Scale(editorWorldScale)
-		* CalculateViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit)
+		* CalculateViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit, cameraOffsetFracY)
 		* ToVec4(worldPos, 0.0f, 1.0f);
 	Vec2 result = Vec2 { afterView.x, afterView.y } / screenHeightUnits * (float32)screenInfo.size.y;
 	return ToVec2Int(result) + screenCenter;
@@ -158,13 +160,13 @@ Vec2Int WorldToScreen(Vec2 worldPos, ScreenInfo screenInfo,
 
 Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	Vec2 cameraPos, Quat cameraRot, float32 editorWorldScale,
-	int pixelScreenHeight, float32 pixelsPerUnit)
+	int pixelScreenHeight, float32 pixelsPerUnit, float32 cameraOffsetFracY)
 {
 	float32 screenHeightUnits = (float32)pixelScreenHeight / pixelsPerUnit;
 	Vec2Int screenCenter = screenInfo.size / 2;
 	Vec2 beforeView = ToVec2(screenPos - screenCenter) / (float32)screenInfo.size.y
 		* screenHeightUnits;
-	Vec4 result = CalculateInverseViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit)
+	Vec4 result = CalculateInverseViewMatrix(cameraPos, cameraRot, pixelScreenHeight, pixelsPerUnit, cameraOffsetFracY)
 		* Scale(1.0f / editorWorldScale)
 		* ToVec4(beforeView, 0.0f, 1.0f);
 	return Vec2 { result.x, result.y };
@@ -702,7 +704,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	}
 
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
-		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
 	DrawSprites(gameState->renderState, *spriteDataGL, projection * view);
 
 	spriteDataGL->numSprites = 0;
@@ -818,6 +820,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		gameState->refPixelsPerUnit = 120.0f;
 		gameState->minBorderFrac = 0.05f;
 		gameState->borderRadius = 20;
+		gameState->cameraOffsetFracY = -1.0f / 2.8f;
 
 		// Game data
 		gameState->playerVel = Vec2::zero;
@@ -1131,7 +1134,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 
 #if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
-		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+		gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
 
 	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
 		|| (input.controllers[0].isConnected
@@ -1206,7 +1209,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		Vec2 mouseWorld = ScreenToWorld(input.mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
-			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
+			gameState->cameraOffsetFracY);
 		panelDebug.Text(
 			AllocPrintf(&tempAllocator, "%.2f|%.2f - MSPOS", mouseWorld.x, mouseWorld.y),
 			DEBUG_FONT_COLOR);
@@ -1229,7 +1233,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		static bool showThings = false;
+		static bool showDebugGeometry = false;
 
 		Panel panelGeometry;
 		panelGeometry.Begin(input, &fontSmall,
@@ -1237,29 +1241,38 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 			Vec2 { 0.0f, 0.0f }, false);
 		const Vec4 panelGeometryTextColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		panelGeometry.Checkbox(&showThings, ToString("Enable debug geometry"), panelGeometryTextColor);
+		panelGeometry.Checkbox(&showDebugGeometry, ToString("Enable debug geometry"),
+			panelGeometryTextColor);
+		panelGeometry.Text(Array<char>::empty, panelGeometryTextColor);
 
-		panelGeometry.Text(ToString("Aspect Ratio"), panelGeometryTextColor);
 		if (panelGeometry.SliderFloat(&gameState->aspectRatio, 1.0f, 2.5f)) {
 		}
-		panelGeometry.Text(ToString("Min Border"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Aspect Ratio"), panelGeometryTextColor);
+
 		if (panelGeometry.SliderFloat(&gameState->minBorderFrac, 0.0f, 0.5f)) {
 		}
+		panelGeometry.Text(ToString("Min Border"), panelGeometryTextColor);
+
 		float32 borderRadius = (float32)gameState->borderRadius;
-		panelGeometry.Text(ToString("Border Radius"), panelGeometryTextColor);
 		if (panelGeometry.SliderFloat(&borderRadius, 0.0f, 300.0f)) {
 			gameState->borderRadius = (int)borderRadius;
 		}
-		panelGeometry.Text(ToString("Y Resolution"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Border Radius"), panelGeometryTextColor);
+
 		float32 screenHeightFloat = (float32)gameState->refPixelScreenHeight;
 		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 2000.0f)) {
 			gameState->refPixelScreenHeight = (int)screenHeightFloat;
 		}
+		panelGeometry.Text(ToString("Y Resolution"), panelGeometryTextColor);
+
+		if (panelGeometry.SliderFloat(&gameState->cameraOffsetFracY, -0.5f, 0.0f)) {
+		}
+		panelGeometry.Text(ToString("Camera Offset"), panelGeometryTextColor);
 
 		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
 			&tempAllocator);
 
-		if (showThings) {
+		if (showDebugGeometry) {
 			DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
 			LineGLData* lineData = (LineGLData*)memory->transient.memory;
 
@@ -1444,11 +1457,13 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
-			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
+			gameState->cameraOffsetFracY);
 		Vec2 mouseWorldPosEnd = ScreenToWorld(input.mousePos + input.mouseDelta, screenInfo,
 			gameState->cameraPos, gameState->cameraRot,
 			ScaleExponentToWorldScale(gameState->editorScaleExponent),
-			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+			gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
+			gameState->cameraOffsetFracY);
 		Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
 
 		if (editCollision) {
@@ -1469,7 +1484,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 					Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
 						gameState->cameraPos, gameState->cameraRot,
 						ScaleExponentToWorldScale(gameState->editorScaleExponent),
-						gameState->refPixelScreenHeight, gameState->refPixelsPerUnit);
+						gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
+						gameState->cameraOffsetFracY);
 
 					Vec4 boxColor = BOX_COLOR_BASE;
 					boxColor.a = IDLE_ALPHA;
