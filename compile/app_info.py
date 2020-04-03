@@ -38,3 +38,6 @@ PATHS = {
 }
 
 USE_KM_PLATFORM = True
+
+def post_compile_custom(paths):
+	pass
