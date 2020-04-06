@@ -507,7 +507,7 @@ bool32 LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memo
 void LevelData::Unload()
 {
 	for (uint64 i = 0; i < sprites.size; i++) {
-		UnloadTextureGL(sprites[i].texture);
+		UnloadTexture(sprites[i].texture);
 	}
 	loaded = false;
 }

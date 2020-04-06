@@ -764,30 +764,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		LOG_INFO("Initialized global variables\n");
 	}
 
-	// debug only
-	// static bool testingOneTimeThing = true;
-	// if (testingOneTimeThing) {
-	// 	LinearAllocator allocator(memory->transient.size, memory->transient.memory);
-	// 	Array<uint8> pngFile = LoadEntireFile(ToString("data/fonts/alphabet.png"), &allocator);
-	// 	if (!pngFile.data) {
-	// 		DEBUG_PANIC("Failed to open PNG file\n");
-	// 	}
-	// 	defer (FreeFile(pngFile, &allocator));
-
-	// 	int width, height, channels;
-	// 	stbi_set_flip_vertically_on_load(true);
-	// 	uint8* data = stbi_load_from_memory((const uint8*)pngFile.data, (int)pngFile.size,
-	// 		&width, &height, &channels, 0);
-	// 	if (data == NULL) {
-	// 		DEBUG_PANIC("Failed to STB load PNG file\n");
-	// 	}
-
-	// 	stbi_image_free(data);
-	// 	LOG_FLUSH();
-	// 	testingOneTimeThing = false;
-	// }
-	// return;
-
 	if (!memory->isInitialized) {
 		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
 
@@ -939,8 +915,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 			0.0f
 		};
 		gameState->rock.angle = 0.0f;
-		if (!LoadPNGOpenGL(&allocator, "data/sprites/rock.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->rockTexture)) {
+		if (!LoadTextureFromPng(&allocator, "data/sprites/rock.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->rockTexture)) {
 			DEBUG_PANIC("Failed to load rock\n");
 		}
 
@@ -970,22 +946,22 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.psd"));
 
-		if (!LoadPNGOpenGL(&allocator, "data/sprites/frame-corner.png",
-		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->frameCorner)) {
+		if (!LoadTextureFromPng(&allocator, "data/sprites/frame-corner.png",
+		GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->frameCorner)) {
 			DEBUG_PANIC("Failed to load frame corner texture\n");
 		}
-		if (!LoadPNGOpenGL(&allocator, "data/sprites/pixel.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->pixelTexture)) {
+		if (!LoadTextureFromPng(&allocator, "data/sprites/pixel.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->pixelTexture)) {
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
 
-		if (!LoadPNGOpenGL(&allocator, "data/luts/lutbase.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lutBase)) {
+		if (!LoadTextureFromPng(&allocator, "data/luts/lutbase.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lutBase)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
-		if (!LoadPNGOpenGL(&allocator, "data/luts/kodak5205.png",
-		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, gameState->lut1)) {
+		if (!LoadTextureFromPng(&allocator, "data/luts/kodak5205.png",
+		GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lut1)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
 
@@ -1131,6 +1107,130 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	OutputAudio(audio, gameState, input, memory->transient);
+
+	// debug only
+	static bool testingOneTimeThing = true;
+	static TextureGL lettersTexture;
+	static TextureGL lettersAlphaTexture;
+	if (testingOneTimeThing) {
+		testingOneTimeThing = false;
+
+		LinearAllocator allocator(memory->transient.size, memory->transient.memory);
+		Array<uint8> pngFile = LoadEntireFile(ToString("data/fonts/alphabet.png"), &allocator);
+		if (!pngFile.data) {
+			DEBUG_PANIC("Failed to open PNG file\n");
+		}
+		defer (FreeFile(pngFile, &allocator));
+
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(true);
+		uint8* data = stbi_load_from_memory((const uint8*)pngFile.data, (int)pngFile.size,
+			&width, &height, &channels, 0);
+		if (data == NULL) {
+			DEBUG_PANIC("Failed to STB load PNG file\n");
+		}
+		defer (stbi_image_free(data));
+		if (channels != 4) {
+			DEBUG_PANIC("PNG expected 4 channels, got %d\n", channels);
+		}
+
+		DynamicArray<int> transparentSectionIds;
+		DynamicArray<int> sectionPixels;
+		sectionPixels.Append(0); // insert 1 for section ID 0
+
+		int* sectionIds = (int*)allocator.Allocate(width * height * sizeof(int));
+		DEBUG_ASSERT(sectionIds != nullptr);
+		MemSet(sectionIds, 0, width * height * sizeof(int));
+
+		DynamicArray<int> indexStack(width * height);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				const int index = y * width + x;
+				if (sectionIds[index] != 0) {
+					continue;
+				}
+				int nextSectionId = (int)sectionPixels.size;
+				sectionPixels.Append(0);
+				const bool sectionTransparent = data[index * channels + 3] == 0;
+				if (sectionTransparent) {
+					transparentSectionIds.Append(nextSectionId);
+				}
+				indexStack.Append(index);
+				while (indexStack.size > 0) {
+					int ind = indexStack[indexStack.size - 1];
+					indexStack.RemoveLast();
+
+					sectionIds[ind] = nextSectionId;
+					sectionPixels[nextSectionId]++;
+					const int neighborOffsets[4] = { -width, -1, 1, width };
+					for (int i = 0; i < 4; i++) {
+						int neighborInd = ind + neighborOffsets[i];
+						if (neighborInd < 0 || neighborInd >= width * height) {
+							continue;
+						}
+						if (sectionIds[neighborInd] != 0) {
+							// TODO if it's nextSectionId, all good. otherwise, seems fishy
+							continue;
+						}
+						const bool transparent = data[neighborInd * channels + 3] == 0;
+						if (transparent == sectionTransparent) {
+							indexStack.Append(neighborInd);
+						}
+					}
+				}
+			}
+		}
+		LOG_INFO("All done!\n");
+		LOG_INFO("%d sections\n", sectionPixels.size);
+		LOG_INFO("%d transparent sections\n", transparentSectionIds.size);
+
+		if (!LoadTexture(data, width, height, GL_RGBA, GL_NEAREST, GL_NEAREST,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &lettersTexture)) {
+			DEBUG_PANIC("LoadTexture failed for big letters texture\n");
+		}
+
+		DynamicArray<uint8[3]> sectionColors(sectionPixels.size);
+		for (uint64 i = 0; i < sectionPixels.size; i++) {
+			uint64 ind = sectionColors.size;
+			sectionColors.Append();
+			sectionColors[ind][0] = rand() % 256;
+			sectionColors[ind][1] = rand() % 256;
+			sectionColors[ind][2] = rand() % 256;
+		}
+
+		const int LETTER_MIN_PIXELS = 50;
+		MemSet(data, 0, width * height * channels);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int ind = y * width + x;
+				data[ind * channels + 3] = 255;
+
+				int sectionId = sectionIds[ind];
+				DEBUG_ASSERT(sectionId != -1);
+				if (transparentSectionIds.ToArray().FindFirst(sectionId)
+				!= transparentSectionIds.size) {
+					continue;
+				}
+				if (sectionPixels[sectionId] < LETTER_MIN_PIXELS) {
+					continue;
+				}
+				data[ind * channels + 0] = sectionColors[sectionId][0];
+				data[ind * channels + 1] = sectionColors[sectionId][1];
+				data[ind * channels + 2] = sectionColors[sectionId][2];
+			}
+		}
+		if (!LoadTexture(data, width, height, GL_RGBA, GL_NEAREST, GL_NEAREST,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &lettersAlphaTexture)) {
+			DEBUG_PANIC("LoadTexture failed for big letters alpha texture\n");
+		}
+	}
+
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		Vec2Int::zero, Vec2::zero, lettersTexture.size / 2,
+		false, false, lettersTexture.textureID);
+	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+		Vec2Int::zero, Vec2::zero, lettersAlphaTexture.size / 2,
+		false, false, lettersAlphaTexture.textureID);
 
 #if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,

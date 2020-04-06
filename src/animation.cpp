@@ -390,7 +390,7 @@ void AnimatedSprite::Unload()
 
 		const Animation& animation = animations.pairs[k].value;
 		for (int i = 0; i < animation.numFrames; i++) {
-			UnloadTextureGL(animation.frameTextures[i]);
+			UnloadTexture(animation.frameTextures[i]);
 		}
 	}
 }

@@ -9,17 +9,34 @@
 
 #include "opengl_funcs.h"
 
-void UnloadTextureGL(const TextureGL& textureGL)
+bool LoadTexture(const uint8* data, GLint width, GLint height, GLint format,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL)
+{
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height,
+		0, format, GL_UNSIGNED_BYTE, (const GLvoid*)data);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
+
+	outTextureGL->textureID = textureID;
+	outTextureGL->size = Vec2Int { width, height };
+	return true;
+}
+
+void UnloadTexture(const TextureGL& textureGL)
 {
 	glDeleteTextures(1, &textureGL.textureID);
 }
 
 template <typename Allocator>
-bool LoadPNGOpenGL(Allocator* allocator, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL& outTextureGL)
+bool LoadTextureFromPng(Allocator* allocator, const char* filePath,
+	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL)
 {
-	outTextureGL.size = Vec2Int { 0, 0 };
-
 	Array<uint8> pngFile = LoadEntireFile(ToString(filePath), allocator);
 	if (!pngFile.data) {
 		LOG_ERROR("Failed to open PNG file %s\n", filePath);
@@ -35,6 +52,7 @@ bool LoadPNGOpenGL(Allocator* allocator, const char* filePath,
 		LOG_ERROR("Failed to STB load PNG file %s\n", filePath);
 		return false;
 	}
+	defer (stbi_image_free(data));
 
 	GLint format;
 	switch (channels) {
@@ -53,20 +71,6 @@ bool LoadPNGOpenGL(Allocator* allocator, const char* filePath,
 		} break;
 	}
 
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height,
-		0, format, GL_UNSIGNED_BYTE, (const GLvoid*)data);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-
-	stbi_image_free(data);
-
-	outTextureGL.textureID = textureID;
-	outTextureGL.size = Vec2Int { width, height };
-	return true;
+	return LoadTexture(data, width, height, format, magFilter, minFilter, wrapS, wrapT,
+		outTextureGL);
 }
