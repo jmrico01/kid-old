@@ -13,10 +13,10 @@
 
 struct Animation
 {
-	int fps;
-	int numFrames;
+    int fps;
+    int numFrames;
     bool32 loop;
-	TextureGL frameTextures[ANIMATION_MAX_FRAMES];
+    TextureGL frameTextures[ANIMATION_MAX_FRAMES];
     int frameTiming[ANIMATION_MAX_FRAMES];
     float32 frameTime[ANIMATION_MAX_FRAMES];
     HashTable<int> frameExitTo[ANIMATION_MAX_FRAMES];
@@ -31,7 +31,7 @@ struct AnimatedSprite
 {
     HashTable<Animation> animations;
     HashKey startAnimation;
-	Vec2Int textureSize;
+    Vec2Int textureSize;
 
     bool Load(const Array<char>& name, float32 pixelsPerUnit, const MemoryBlock& transient);
     void Unload();

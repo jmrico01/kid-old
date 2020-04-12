@@ -1,0 +1,58 @@
+version(1);
+
+project_name = "kid";
+
+patterns = {
+"*.cpp", "*.c", "*.h",
+"*.vert", "*.frag",
+"*.kmkv",
+"*.bat", "*.sh", "*.py",
+"*.4coder",
+};
+
+blacklist_patterns = {
+".*",
+"build",
+"external"
+};
+
+load_paths = {
+{.paths = {{".", .relative = true, .recursive = true,}}, .os = "win"}
+};
+
+command_list = {
+{
+	.name = "clean",
+	.out = "*clean*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = true,
+	.cmd = {
+		{"python ./libs/internal/km_compile/compile.py clean", .os = "win"},
+	},
+},
+{
+	.name = "build-debug",
+	.out = "*compile*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+	.cmd = {
+		{"python ./libs/internal/km_compile/compile.py debug", .os = "win"},
+	},
+},
+{
+	.name = "run-ifchanged",
+	.out = "*run*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = true,
+	.cmd = {
+		{"python ./libs/internal/km_compile/compile.py debug --ifchanged && python ./libs/internal/km_compile/compile.py run", .os = "win"},
+	},
+},
+{
+	.name = "remedybg",
+	.out = "*remedybg*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = false,
+	.cmd = {
+		{"remedybg ../remedybg-sessions/kid.rdbg", .os = "win"}
+	},
+},
+};
+
+fkey_command[3] = "clean";
+fkey_command[4] = "build-debug";
+fkey_command[5] = "run-ifchanged";
+
+fkey_command[8] = "remedybg";
