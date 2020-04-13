@@ -2,6 +2,7 @@
 
 #include <km_common/km_math.h>
 
+#include "alphabet.h"
 #include "animation.h"
 #include "audio.h"
 #include "collision.h"
@@ -108,6 +109,8 @@ struct GameState
     
     TextureGL lutBase;
     TextureGL lut1;
+    
+    Alphabet alphabet;
     
     FT_Library ftLibrary;
     FontFace fontFaceSmall;

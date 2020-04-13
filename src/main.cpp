@@ -45,170 +45,6 @@ global_var const char* KID_ANIMATION_JUMP = "jump";
 global_var const char* KID_ANIMATION_FALL = "fall";
 global_var const char* KID_ANIMATION_LAND = "land";
 
-enum class LetterFlag
-{
-    IGNORE = 1 << 0
-};
-
-struct Letter
-{
-    uint16 minX, minY, maxX, maxY;
-    uint32 numPixels;
-    uint8 flags, ascii;
-    uint16 offsetX, offsetY;
-    uint16 kernings[256];
-};
-
-int CompareLetters(const void* value1, const void* value2)
-{
-    Letter *letter1 = (Letter*)value1, *letter2 = (Letter*)value2;
-    if (letter1->numPixels < letter2->numPixels) {
-        return -1;
-    }
-    else if (letter1->numPixels > letter2->numPixels) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-
-static void TestOneTimeThing(MemoryBlock memory, TextureGL* outLettersTexture, TextureGL* outLettersAlphaTexture)
-{
-    LinearAllocator allocator(memory.size, memory.memory);
-    Array<uint8> pngFile = LoadEntireFile(ToString("data/fonts/alphabet.png"), &allocator);
-    if (!pngFile.data) {
-        DEBUG_PANIC("Failed to open PNG file\n");
-    }
-    defer (FreeFile(pngFile, &allocator));
-    
-    int width, height, channels;
-    stbi_set_flip_vertically_on_load(true);
-    uint8* data = stbi_load_from_memory((const uint8*)pngFile.data, (int)pngFile.size,
-                                        &width, &height, &channels, 0);
-    if (data == NULL) {
-        DEBUG_PANIC("Failed to STB load PNG file\n");
-    }
-    defer (stbi_image_free(data));
-    if (channels != 4) {
-        DEBUG_PANIC("PNG expected 4 channels, got %d\n", channels);
-    }
-    
-    DynamicArray<Letter> possibleLetters;
-    possibleLetters.Append(Letter {}); // insert section ID 0, default "placeholder" section
-    uint64 sectionIdsBytes = width * height * sizeof(int);
-    int* sectionIds = (int*)allocator.Allocate(sectionIdsBytes);
-    DEBUG_ASSERT(sectionIds != nullptr);
-    MemSet(sectionIds, 0, sectionIdsBytes);
-    
-    DynamicArray<int> indexStack(width * height);
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            const int index = y * width + x;
-            if (sectionIds[index] != 0) {
-                continue;
-            }
-            const bool sectionTransparent = data[index * channels + 3] == 0;
-            int nextLetterInd = (int)possibleLetters.size;
-            Letter* newLetter = possibleLetters.Append();
-            newLetter->minX = (uint16)(width - 1);
-            newLetter->minY = (uint16)(height - 1);
-            newLetter->maxX = 0;
-            newLetter->maxY = 0;
-            newLetter->numPixels = 0;
-            
-            indexStack.Append(index);
-            while (indexStack.size > 0) {
-                int ind = indexStack[indexStack.size - 1];
-                indexStack.RemoveLast();
-                
-                sectionIds[ind] = nextLetterInd;
-                if (!sectionTransparent) {
-                    newLetter->numPixels++;
-                }
-                const int neighborOffsets[4] = { -width, -1, 1, width };
-                for (int i = 0; i < 4; i++) {
-                    int neighborInd = ind + neighborOffsets[i];
-                    if (neighborInd < 0 || neighborInd >= width * height) {
-                        continue;
-                    }
-                    if (sectionIds[neighborInd] != 0) {
-                        // TODO if it's nextLetterInd, all good. otherwise, seems fishy
-                        continue;
-                    }
-                    const bool transparent = data[neighborInd * channels + 3] == 0;
-                    if (transparent == sectionTransparent) {
-                        indexStack.Append(neighborInd);
-                    }
-                }
-            }
-        }
-    }
-    
-    const int LETTER_MIN_PIXELS = 50;
-    const Array<char> alphabetBinPath = ToString("data/fonts/alphabet.bin");
-    
-    DynamicArray<Letter> letters;
-    for (uint64 i = 0; i < possibleLetters.size; i++) {
-        if (possibleLetters[i].numPixels >= LETTER_MIN_PIXELS) {
-            letters.Append(possibleLetters[i]);
-        }
-    }
-    
-    qsort(letters.data, letters.size, sizeof(Letter), CompareLetters);
-    
-    Array<uint8> savedLetters = LoadEntireFile(alphabetBinPath, &allocator);
-    if (savedLetters.data == nullptr) {
-        DEBUG_PANIC("Failed to read alphabet.bin\n");
-    }
-    defer(FreeFile(savedLetters, &allocator));
-    
-    if (!WriteFile(alphabetBinPath, {.size = sizeof(Letter) * letters.size, .data = (uint8*)letters.data}, false)) {
-        DEBUG_PANIC("Failed to write alphabet.bin\n");
-    }
-    
-    LOG_INFO("All done!\n");
-    LOG_INFO("%d sections\n", possibleLetters.size);
-    LOG_INFO("%d letters\n", letters.size);
-    
-    // Visual stuff from here on
-    if (!LoadTexture(data, width, height, GL_RGBA, GL_NEAREST, GL_NEAREST,
-                     GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, outLettersTexture)) {
-        DEBUG_PANIC("LoadTexture failed for big letters texture\n");
-    }
-    
-    DynamicArray<uint8[3]> sectionColors(possibleLetters.size);
-    for (uint64 i = 0; i < possibleLetters.size; i++) {
-        uint64 ind = sectionColors.size;
-        sectionColors.Append();
-        sectionColors[ind][0] = rand() % 256;
-        sectionColors[ind][1] = rand() % 256;
-        sectionColors[ind][2] = rand() % 256;
-    }
-    
-    MemSet(data, 0, width * height * channels);
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int ind = y * width + x;
-            data[ind * channels + 3] = 255;
-            
-            int sectionId = sectionIds[ind];
-            DEBUG_ASSERT(sectionId != -1);
-            if (possibleLetters[sectionId].numPixels < LETTER_MIN_PIXELS) {
-                continue;
-            }
-            data[ind * channels + 0] = sectionColors[sectionId][0];
-            data[ind * channels + 1] = sectionColors[sectionId][1];
-            data[ind * channels + 2] = sectionColors[sectionId][2];
-        }
-    }
-    
-    if (!LoadTexture(data, width, height, GL_RGBA, GL_NEAREST, GL_NEAREST,
-                     GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, outLettersAlphaTexture)) {
-        DEBUG_PANIC("LoadTexture failed for big letters alpha texture\n");
-    }
-}
-
 static uint64 LevelNameToId(const Array<char>& name)
 {
 	uint64 numNames = C_ARRAY_LENGTH(LEVEL_NAMES);
@@ -237,7 +73,6 @@ inline int RandInt(int min, int max)
 	return rand() % (max - min) + min;
 }
 
-#if GAME_INTERNAL
 internal float32 ScaleExponentToWorldScale(float32 exponent)
 {
 	const float32 SCALE_MIN = 0.1f;
@@ -247,7 +82,6 @@ internal float32 ScaleExponentToWorldScale(float32 exponent)
 	const float32 b = log2f((SCALE_MAX - c) / a);
 	return a * powf(2.0f, b * exponent) + c;
 }
-#endif
 
 Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac)
 {
@@ -451,11 +285,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
     
 	gameState->playerVel.x = 0.0f;
     
-#if GAME_INTERNAL
 	// Skip player input on INTERNAL build if kmKey flag is on
 	if (!gameState->kmKey) {
-#endif
-        
         float32 speed = PLAYER_WALK_SPEED * speedMultiplier;
         if (gameState->playerState == PLAYER_STATE_JUMPING) {
             speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
@@ -516,10 +347,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
                 gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
             }
         }
-        
-#if GAME_INTERNAL
 	}
-#endif
     
 	FixedArray<HashKey, 4> nextAnimations;
 	nextAnimations.size = 0;
@@ -743,11 +571,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	paperNextAnims.size = 0;
 	gameState->paper.Update(deltaTime, paperNextAnims);
     
-#if GAME_INTERNAL
 	if (gameState->kmKey) {
 		return;
 	}
-#endif
     
 	if (!levelData.lockedCamera) {
 		const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
@@ -873,12 +699,10 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
     
 	spriteDataGL->numSprites = 0;
     
-#if GAME_INTERNAL
 	if (gameState->kmKey) {
 		DrawSprites(gameState->renderState, *spriteDataGL, projection);
 		return;
 	}
-#endif
     
 	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
 	const float32 screenHeightUnits = (float32)gameState->refPixelScreenHeight / gameState->refPixelsPerUnit;
@@ -984,13 +808,11 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         
 		gameState->grainTime = 0.0f;
         
-#if GAME_INTERNAL
 		gameState->debugView = false;
 		gameState->kmKey = false;
 		gameState->editorScaleExponent = 0.5f;
         
 		gameState->floorVertexSelected = -1;
-#endif
         
 		// Rendering stuff
 		InitRenderState(&allocator, gameState->renderState);
@@ -999,15 +821,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		gameState->texturedRectGL = InitTexturedRectGL(&allocator);
 		gameState->lineGL = InitLineGL(&allocator);
 		gameState->textGL = InitTextGL(&allocator);
-        
-		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
-		if (error) {
-			LOG_ERROR("FreeType init error: %d\n", error);
-		}
-		gameState->fontFaceSmall = LoadFontFace(&allocator, gameState->ftLibrary,
-                                                "data/fonts/ocr-a/regular.ttf", 18);
-		gameState->fontFaceMedium = LoadFontFace(&allocator, gameState->ftLibrary,
-                                                 "data/fonts/ocr-a/regular.ttf", 24);
         
 		InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR_DEPTH, gameState->framebuffersColorDepth);
 		InitializeFramebuffers(NUM_FRAMEBUFFERS_COLOR, gameState->framebuffersColor);
@@ -1074,6 +887,21 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		gameState->lutShader = LoadShaders(&allocator,
                                            "shaders/screen.vert", "shaders/lut.frag");
         
+        // Fonts
+        if (!LoadAlphabet(memory->transient, &gameState->alphabet)) {
+            DEBUG_PANIC("Failed to load alphabet\n");
+        }
+        
+		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
+		if (error) {
+			LOG_ERROR("FreeType init error: %d\n", error);
+		}
+		gameState->fontFaceSmall = LoadFontFace(&allocator, gameState->ftLibrary,
+                                                "data/fonts/ocr-a/regular.ttf", 18);
+		gameState->fontFaceMedium = LoadFontFace(&allocator, gameState->ftLibrary,
+                                                 "data/fonts/ocr-a/regular.ttf", 24);
+        
+        // Game objects
 		gameState->rock.coords = {
 			gameState->levels[gameState->activeLevel].floor.length - 10.0f,
 			0.0f
@@ -1111,6 +939,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/paper/paper.psd"));
         
+        // Game static sprites/textures
 		if (!LoadTextureFromPng(&allocator, "data/sprites/frame-corner.png",
                                 GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->frameCorner)) {
 			DEBUG_PANIC("Failed to load frame corner texture\n");
@@ -1202,42 +1031,42 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
     
 	Mat4 projection = CalculateProjectionMatrix(screenInfo, gameState->refPixelScreenHeight,
                                                 gameState->refPixelsPerUnit);
-#if GAME_INTERNAL
 	if (gameState->kmKey) {
 		projection = projection * Scale(ScaleExponentToWorldScale(gameState->editorScaleExponent));
 	}
-#endif
     
 	DEBUG_ASSERT(memory->transient.size >= sizeof(SpriteDataGL));
 	SpriteDataGL* spriteDataGL = (SpriteDataGL*)memory->transient.memory;
     
 	DrawWorld(gameState, spriteDataGL, projection, screenInfo);
     
-	// Draw border
-	const Vec4 borderColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	Vec2Int borderSize = GetBorderSize(screenInfo, gameState->aspectRatio, gameState->minBorderFrac);
-	DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
-             Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
-	DrawRect(gameState->rectGL, screenInfo, Vec2Int { screenInfo.size.x, 0 }, Vec2 { 1.0f, 0.0f },
-             Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
-	DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
-             Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
-	DrawRect(gameState->rectGL, screenInfo, Vec2Int { 0, screenInfo.size.y }, Vec2 { 0.0f, 1.0f },
-             Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
-    
-	const int cornerRadius = gameState->borderRadius;
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     borderSize, Vec2 { 0.0f, 0.0f },
-                     Vec2Int { cornerRadius, cornerRadius }, false, false, gameState->frameCorner.textureID);
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     Vec2Int { screenInfo.size.x - borderSize.x, borderSize.y }, Vec2 { 1.0f, 0.0f },
-                     Vec2Int { cornerRadius, cornerRadius }, true, false, gameState->frameCorner.textureID);
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     Vec2Int { borderSize.x, screenInfo.size.y - borderSize.y }, Vec2 { 0.0f, 1.0f },
-                     Vec2Int { cornerRadius, cornerRadius }, false, true, gameState->frameCorner.textureID);
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     screenInfo.size - borderSize, Vec2 { 1.0f, 1.0f },
-                     Vec2Int { cornerRadius, cornerRadius }, true, true, gameState->frameCorner.textureID);
+    if (!gameState->kmKey) {
+        // Draw border
+        const Vec4 borderColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+        const Vec2Int borderSize = GetBorderSize(screenInfo, gameState->aspectRatio, gameState->minBorderFrac);
+        DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+                 Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
+        DrawRect(gameState->rectGL, screenInfo, Vec2Int { screenInfo.size.x, 0 }, Vec2 { 1.0f, 0.0f },
+                 Vec2Int { borderSize.x, screenInfo.size.y }, borderColor);
+        DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+                 Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
+        DrawRect(gameState->rectGL, screenInfo, Vec2Int { 0, screenInfo.size.y }, Vec2 { 0.0f, 1.0f },
+                 Vec2Int { screenInfo.size.x, borderSize.y }, borderColor);
+        
+        const int cornerRadius = gameState->borderRadius;
+        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+                         borderSize, Vec2 { 0.0f, 0.0f },
+                         Vec2Int { cornerRadius, cornerRadius }, false, false, gameState->frameCorner.textureID);
+        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+                         Vec2Int { screenInfo.size.x - borderSize.x, borderSize.y }, Vec2 { 1.0f, 0.0f },
+                         Vec2Int { cornerRadius, cornerRadius }, true, false, gameState->frameCorner.textureID);
+        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+                         Vec2Int { borderSize.x, screenInfo.size.y - borderSize.y }, Vec2 { 0.0f, 1.0f },
+                         Vec2Int { cornerRadius, cornerRadius }, false, true, gameState->frameCorner.textureID);
+        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+                         screenInfo.size - borderSize, Vec2 { 1.0f, 1.0f },
+                         Vec2Int { cornerRadius, cornerRadius }, true, true, gameState->frameCorner.textureID);
+    }
     
 	// ------------------------ Post processing passes ------------------------
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1273,23 +1102,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
     
 	OutputAudio(audio, gameState, input, memory->transient);
     
-	// debug only
-	static bool testingOneTimeThing = true;
-	static TextureGL lettersTexture;
-	static TextureGL lettersAlphaTexture;
-	if (testingOneTimeThing) {
-		testingOneTimeThing = false;
-        TestOneTimeThing(memory->transient, &lettersTexture, &lettersAlphaTexture);
-    }
-    
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     Vec2Int::zero, Vec2::zero, lettersTexture.size / 2,
-                     false, false, lettersTexture.textureID);
-	DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                     Vec2Int::zero, Vec2::zero, lettersAlphaTexture.size / 2,
-                     false, false, lettersAlphaTexture.textureID);
-    
-#if GAME_INTERNAL
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
                                     gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
     
@@ -1304,8 +1116,10 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		gameState->editorScaleExponent = 0.5f;
 	}
     
-	const Vec4 DEBUG_FONT_COLOR = { 0.05f, 0.05f, 0.05f, 1.0f };
-	const Vec2Int MARGIN = { 30, 45 };
+	const Vec2Int DEBUG_MARGIN_SCREEN = { 30, 45 };
+    const Vec2Int DEBUG_BORDER_PANEL = { 10, 10 };
+    const Vec4 DEBUG_BACKGROUND_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
+	const Vec4 DEBUG_FONT_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f };
     
 	if (gameState->debugView) {
 		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
@@ -1314,120 +1128,96 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		const FloorCollider& floor = levelData.floor;
         
-		// const FontFace& fontMedium = gameState->fontFaceMedium;
+		const FontFace& fontMedium = gameState->fontFaceMedium;
 		const FontFace& fontSmall = gameState->fontFaceSmall;
         
 		Panel panelHotkeys;
-		panelHotkeys.Begin(input, &fontSmall,
-                           Vec2Int { borderSize.x + MARGIN.x, screenInfo.size.y - MARGIN.y },
+		panelHotkeys.Begin(input, &fontSmall, 0,
+                           Vec2Int { DEBUG_MARGIN_SCREEN.x, screenInfo.size.y - DEBUG_MARGIN_SCREEN.y },
                            Vec2 { 0.0f, 1.0f });
         
-		panelHotkeys.Text(ToString("[F11] toggle fullscreen"),        DEBUG_FONT_COLOR);
-		panelHotkeys.Text(ToString("[G]   toggle debug view"),        DEBUG_FONT_COLOR);
-		panelHotkeys.Text(ToString("[K]   toggle km key"),            DEBUG_FONT_COLOR);
+		panelHotkeys.Text(ToString("[F11] toggle fullscreen"));
+		panelHotkeys.Text(ToString("[G]   toggle debug view"));
+		panelHotkeys.Text(ToString("[K]   toggle km key"));
         
-		panelHotkeys.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
-                          &tempAllocator);
+		panelHotkeys.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                          DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAllocator);
         
 		Panel panelDebug;
-		panelDebug.Begin(input, &fontSmall,
-                         Vec2Int { screenInfo.size.x - borderSize.x - MARGIN.x, screenInfo.size.y - MARGIN.y },
-                         Vec2 { 1.0f, 1.0f });
+        static bool panelDebugMinimized = true;
+		panelDebug.Begin(input, &fontSmall, 0, screenInfo.size - DEBUG_MARGIN_SCREEN, Vec2 { 1.0f, 1.0f });
+        panelDebug.TitleBar(ToString("Stats"), &panelDebugMinimized, Vec4::zero, &fontMedium);
         
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime));
+		panelDebug.Text(ToString(""));
         
-		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
-        
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
-                                    gameState->playerCoords.x, gameState->playerCoords.y),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
+                                    gameState->playerCoords.x, gameState->playerCoords.y));
 		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f --- POS",
-                                    playerPosWorld.x, playerPosWorld.y),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- POS",
+                                    playerPosWorld.x, playerPosWorld.y));
+		panelDebug.Text(ToString(""));
         
-		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
-        
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f - CMCRD",
-                                    gameState->cameraCoords.x, gameState->cameraCoords.y),
-                        DEBUG_FONT_COLOR);
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f - CMPOS",
-                                    gameState->cameraPos.x, gameState->cameraPos.y),
-                        DEBUG_FONT_COLOR);
-        
-		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMCRD",
+                                    gameState->cameraCoords.x, gameState->cameraCoords.y));
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMPOS",
+                                    gameState->cameraPos.x, gameState->cameraPos.y));
+		panelDebug.Text(ToString(""));
         
 		Vec2 mouseWorld = ScreenToWorld(input.mousePos, screenInfo,
                                         gameState->cameraPos, gameState->cameraRot,
                                         ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                         gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                         gameState->cameraOffsetFracY);
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f - MSPOS", mouseWorld.x, mouseWorld.y),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - MSPOS", mouseWorld.x, mouseWorld.y));
 		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y));
         
-		panelDebug.Text(ToString(""), DEBUG_FONT_COLOR);
+		panelDebug.Text(ToString(""));
         
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%d - STATE", gameState->playerState),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%d - STATE", gameState->playerState));
 		const HashKey& kidActiveAnim = gameState->kid.activeAnimation;
-		panelDebug.Text(
-                        AllocPrintf(&tempAllocator, "%.*s -- ANIM",
-                                    (int)kidActiveAnim.string.size, kidActiveAnim.string.data),
-                        DEBUG_FONT_COLOR);
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%.*s -- ANIM",
+                                    (int)kidActiveAnim.string.size, kidActiveAnim.string.data));
         
-		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
-                        &tempAllocator);
-        
-		static bool showDebugGeometry = false;
+		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                        DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAllocator);
         
 		Panel panelGeometry;
-		panelGeometry.Begin(input, &fontSmall,
-                            Vec2Int { /*borderSize.x +*/ MARGIN.x, MARGIN.y },
-                            Vec2 { 0.0f, 0.0f }, false);
-		const Vec4 panelGeometryTextColor = Vec4 { 1.0f, 1.0f, 1.0f, 1.0f };
+        static bool panelGeometryMinimized = true;
+		panelGeometry.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2 { 0.0f, 0.0f });
+        panelGeometry.TitleBar(ToString("View & Camera"), &panelGeometryMinimized, Vec4::zero, &fontMedium);
         
-		panelGeometry.Checkbox(&showDebugGeometry, ToString("Enable debug geometry"),
-                               panelGeometryTextColor);
-		panelGeometry.Text(Array<char>::empty, panelGeometryTextColor);
+		static bool showDebugGeometry = false;
+		panelGeometry.Checkbox(&showDebugGeometry, ToString("Enable debug geometry"));
+		panelGeometry.Text(Array<char>::empty);
         
 		if (panelGeometry.SliderFloat(&gameState->aspectRatio, 1.0f, 2.5f)) {
 		}
-		panelGeometry.Text(ToString("Aspect Ratio"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Aspect Ratio"));
         
 		if (panelGeometry.SliderFloat(&gameState->minBorderFrac, 0.0f, 0.5f)) {
 		}
-		panelGeometry.Text(ToString("Min Border"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Min Border"));
         
 		float32 borderRadius = (float32)gameState->borderRadius;
 		if (panelGeometry.SliderFloat(&borderRadius, 0.0f, 300.0f)) {
 			gameState->borderRadius = (int)borderRadius;
 		}
-		panelGeometry.Text(ToString("Border Radius"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Border Radius"));
         
 		float32 screenHeightFloat = (float32)gameState->refPixelScreenHeight;
 		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 2000.0f)) {
 			gameState->refPixelScreenHeight = (int)screenHeightFloat;
 		}
-		panelGeometry.Text(ToString("Y Resolution"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Y Resolution"));
         
 		if (panelGeometry.SliderFloat(&gameState->cameraOffsetFracY, -0.5f, 0.0f)) {
 		}
-		panelGeometry.Text(ToString("Camera Offset"), panelGeometryTextColor);
+		panelGeometry.Text(ToString("Camera Offset"));
         
-		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
-                           &tempAllocator);
+		panelGeometry.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                           DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAllocator);
         
 		if (showDebugGeometry) {
 			DEBUG_ASSERT(memory->transient.size >= sizeof(LineGLData));
@@ -1588,28 +1378,23 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
         
 		Panel panelKmKey;
-		panelKmKey.Begin(input, &fontSmall, Vec2Int { MARGIN.x, MARGIN.y },
-                         Vec2 { 0.0f, 0.0f }, false);
+        static bool panelKmKeyMinimized = false;
+		panelKmKey.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2::zero);
+		panelKmKey.TitleBar(ToString("KM KEY"), &panelKmKeyMinimized, Vec4::zero, &fontMedium);
         
-		panelKmKey.Text(ToString("KM KEY"), kmKeyFontColor, &fontMedium);
-		panelKmKey.Text(ToString(""), kmKeyFontColor);
-		panelKmKey.Text(
-                        AllocPrintf(&tempAllocator, "Level: %s", LEVEL_NAMES[gameState->activeLevel]),
-                        kmKeyFontColor);
-        
-		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
-                        &tempAllocator);
+		panelKmKey.Text(AllocPrintf(&tempAllocator, "Loaded level: %s", LEVEL_NAMES[gameState->activeLevel]));
         
 		static bool editCollision = false;
+        panelKmKey.Checkbox(&editCollision, ToString("Ground Editor"));
         
-		Panel panelOptions;
-		panelOptions.Begin(input, &fontSmall, Vec2Int { screenInfo.size.x - MARGIN.x, MARGIN.y },
-                           Vec2 { 1.0f, 0.0f }, false);
+        static bool editAlphabet = false;
+        if (panelKmKey.Button(ToString("Alphabet Atlas"))) {
+            editAlphabet = !editAlphabet;
+        }
         
-		panelOptions.Checkbox(&editCollision, ToString("Ground editor"), DEBUG_FONT_COLOR);
+		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                        kmKeyFontColor, Vec4::zero, &tempAllocator);
         
-		panelOptions.Draw(screenInfo, gameState->rectGL, gameState->textGL, Vec4::zero,
-                          &tempAllocator);
         
 		Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
                                                 gameState->cameraPos, gameState->cameraRot,
@@ -1722,7 +1507,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	}
     
 	DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
-#endif
     
 #if GAME_SLOW
 	// Catch-all site for OpenGL errors
@@ -1733,6 +1517,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 #endif
 }
 
+#include "alphabet.cpp"
 #include "animation.cpp"
 #include "audio.cpp"
 #include "collision.cpp"

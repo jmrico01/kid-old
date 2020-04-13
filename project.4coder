@@ -49,6 +49,13 @@ command_list = {
 		{"remedybg ../remedybg-sessions/kid.rdbg", .os = "win"}
 	},
 },
+{
+	.name = "terminal",
+	.out = "*terminal*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = false,
+	.cmd = {
+		{"start powershell -NoExit", .os = "win"}
+	},
+},
 };
 
 fkey_command[3] = "clean";
@@ -56,3 +63,4 @@ fkey_command[4] = "build-debug";
 fkey_command[5] = "run-ifchanged";
 
 fkey_command[8] = "remedybg";
+fkey_command[9] = "terminal";
