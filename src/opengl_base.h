@@ -56,9 +56,9 @@ struct LineGLData
 };
 
 RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size,
-    ScreenInfo screenInfo);
+                              ScreenInfo screenInfo);
 RectCoordsNDC ToRectCoordsNDC(Vec2Int pos, Vec2Int size, Vec2 anchor,
-    ScreenInfo screenInfo);
+                              ScreenInfo screenInfo);
 
 template <typename Allocator>
 GLuint LoadShaders(Allocator* allocator, const char* vertFilePath, const char* fragFilePath);
@@ -75,13 +75,13 @@ template <typename Allocator>
 BoxGL InitBoxGL(Allocator* allocator);
 
 void DrawRect(RectGL rectGL, ScreenInfo screenInfo,
-    Vec2Int pos, Vec2 anchor, Vec2Int size, Vec4 color);
+              Vec2Int pos, Vec2 anchor, Vec2Int size, Vec4 color);
 void DrawTexturedRect(TexturedRectGL texturedRectGL, ScreenInfo screenInfo,
-    Vec2Int pos, Vec2 anchor, Vec2Int size, bool flipHorizontal, bool flipVertical, GLuint texture);
+                      Vec2Int pos, Vec2 anchor, Vec2Int size, bool flipHorizontal, bool flipVertical, GLuint texture);
 void DrawPlane(PlaneGL,
-    Mat4 vp, Vec3 point, Vec3 normal, Vec4 color);
+               Mat4 vp, Vec3 point, Vec3 normal, Vec4 color);
 void DrawBox(BoxGL boxGL,
-    Mat4 vp, Vec3 min, Vec3 max, Vec4 color);
+             Mat4 vp, Vec3 min, Vec3 max, Vec4 color);
 
 // Batch functions
 void DrawLine(LineGL lineGL, Mat4 transform, const LineGLData* lineData, Vec4 color);

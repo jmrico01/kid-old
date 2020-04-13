@@ -1116,7 +1116,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		gameState->editorScaleExponent = 0.5f;
 	}
     
-	const Vec2Int DEBUG_MARGIN_SCREEN = { 30, 45 };
+    const Vec2Int DEBUG_MARGIN_SCREEN = { 30, 45 };
     const Vec2Int DEBUG_BORDER_PANEL = { 10, 10 };
     const Vec4 DEBUG_BACKGROUND_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
 	const Vec4 DEBUG_FONT_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f };
@@ -1367,7 +1367,71 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 			}
 		}
 	}
-	if (gameState->kmKey) {
+    
+    static bool editAlphabet = false;
+    if (editAlphabet) {
+        const Alphabet& alphabet = gameState->alphabet;
+        
+        const TextureGL& lettersTexture = alphabet.lettersTexture;
+        const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
+        const float32 screenAspect = (float32)screenInfo.size.x / screenInfo.size.y;
+        float32 lettersScale;
+        if (screenAspect < lettersAspect) {
+            lettersScale = (float32)screenInfo.size.x / lettersTexture.size.x;
+        }
+        else {
+            lettersScale = (float32)screenInfo.size.y / lettersTexture.size.y;
+        }
+        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
+                         Vec2Int::zero, Vec2::zero, MultiplyVec2IntFloat32(lettersTexture.size, lettersScale),
+                         false, false, lettersTexture.textureID);
+        
+        static uint64 missingLetter = alphabet.letters.size;
+        if (missingLetter == alphabet.letters.size) {
+            for (uint64 i = 0; i < alphabet.letters.size; i++) {
+                if (alphabet.letters[i].ascii == 0) {
+                    missingLetter = i;
+                    break;
+                }
+            }
+        }
+        
+        if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+            for (uint64 i = alphabet.letters.size; i > 0; i--) {
+                uint64 ind = (missingLetter + i - 1) % alphabet.letters.size;
+                if (alphabet.letters[ind].ascii == 0) {
+                    missingLetter = ind;
+                    break;
+                }
+            }
+        }
+        if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+            for (uint64 i = 0; i < alphabet.letters.size; i++) {
+                uint64 ind = (missingLetter + i + 1) % alphabet.letters.size;
+                if (alphabet.letters[ind].ascii == 0) {
+                    missingLetter = ind;
+                    break;
+                }
+            }
+        }
+        if (missingLetter != alphabet.letters.size) {
+            const Letter& letter = alphabet.letters[missingLetter];
+            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                        lettersScale);
+            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize,
+                     Vec4 { 1.0f, 0.2f, 0.2f, 0.5f });
+            
+            Vec2Int letterTextureSize = alphabet.letterTextures[missingLetter].size;
+            DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+                     MultiplyVec2IntFloat32(letterTextureSize, 1.1f), Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
+            DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero, letterTextureSize, Vec4::one);
+            DrawTexturedRect(gameState->texturedRectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+                             letterTextureSize, false, false,
+                             alphabet.letterTextures[missingLetter].textureID);
+        }
+    }
+    else if (gameState->kmKey) {
 		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
         
 		FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
@@ -1387,7 +1451,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		static bool editCollision = false;
         panelKmKey.Checkbox(&editCollision, ToString("Ground Editor"));
         
-        static bool editAlphabet = false;
         if (panelKmKey.Button(ToString("Alphabet Atlas"))) {
             editAlphabet = !editAlphabet;
         }

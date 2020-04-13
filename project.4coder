@@ -46,7 +46,7 @@ command_list = {
 	.name = "remedybg",
 	.out = "*remedybg*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = false,
 	.cmd = {
-		{"remedybg ../remedybg-sessions/kid.rdbg", .os = "win"}
+		{"remedybg ../sessions-remedybg/kid.rdbg", .os = "win"}
 	},
 },
 {
