@@ -1468,6 +1468,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
             panelLetter.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                              DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
             
+            // TODO display this right below the previous panel and hide when minimized
             Vec2Int letterTextureSize = alphabet.letterTextures[selectedLetter].size;
             DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
                      MultiplyVec2IntFloat32(letterTextureSize, 1.1f), Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
@@ -1475,6 +1476,22 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
             DrawTexturedRect(gameState->texturedRectGL, screenInfo, Vec2Int::zero, Vec2::zero,
                              letterTextureSize, false, false,
                              alphabet.letterTextures[selectedLetter].textureID);
+        }
+        
+        Panel panelInput;
+        panelInput.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS,
+                         Vec2Int { screenInfo.size.x - DEBUG_MARGIN_SCREEN.x, DEBUG_MARGIN_SCREEN.y },
+                         Vec2 { 1.0f, 0.0f });
+        static InputString inputString = {
+            .size = 5,
+            .data = { 'H', 'e', 'l', 'l', 'o' }
+        };
+        static bool inputStringFocused = false;
+        panelInput.InputText(&inputString, &inputStringFocused);
+        panelInput.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                        DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
+        for (uint64 i = 0; i < inputString.size; i++) {
+            // TODO print out string in Alphabet!!
         }
     }
     else if (gameState->kmKey) {

@@ -307,3 +307,86 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
     
 	return valueChanged;
 }
+
+bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const FontFace* font)
+{
+    DEBUG_ASSERT(inputString != nullptr && focused != nullptr);
+    if (flags & PanelFlag::MINIMIZED) {
+        return false;
+    }
+    
+    if (*focused) {
+        for (uint64 i = 0; i < input->keyboardStringLen; i++) {
+            char c = input->keyboardString[i];
+            if (c == 8) { // backspace
+                inputString->RemoveLast();
+                continue;
+            }
+            
+            if (inputString->size >= INPUT_BUFFER_MAX) {
+                continue;
+            }
+            inputString->Append(c);
+        }
+    }
+    
+	const float32 PRESSED_ALPHA = 0.5f;
+	const float32 HOVERED_ALPHA = 0.2f;
+	const float32 IDLE_ALPHA = 0.0f;
+    
+	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
+    Vec2Int textSize = { GetTextWidth(*fontToUse, inputString->ToArray()), (int)fontToUse->height };
+    Vec2Int boxSize = { (int)(textSize.x * MARGIN_FRACTION), (int)(textSize.y * MARGIN_FRACTION) };
+    const Vec2Int boxOffset = Vec2Int {
+        Lerp(boxSize.x / 2, -boxSize.x / 2, anchor.x),
+        Lerp(boxSize.y / 2, -boxSize.y / 2, anchor.y)
+    };
+    const Vec2Int boxCenter = positionCurrent + boxOffset;
+    const RectInt boxRect = {
+        .min = boxCenter - boxSize / 2,
+        .max = boxCenter + boxSize / 2
+    };
+    const bool hovered = IsInside(input->mousePos, boxRect);
+    const bool pressed = hovered && input->mouseButtons[0].isDown;
+    const bool changed = pressed && input->mouseButtons[0].transitions == 1;
+    if (changed) {
+        *focused = true;
+    }
+    
+	PanelRenderCommand* newCommand;
+    
+	newCommand = renderCommands.Append();
+	newCommand->type = PanelRenderCommandType::RECT;
+    newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
+    if (color != Vec4::zero) {
+        newCommand->flags |= PanelRenderCommandFlag::OVERRIDE_COLOR;
+    }
+	newCommand->position = boxCenter;
+	newCommand->anchor = Vec2 { 0.5f, 0.5f };
+	newCommand->color = color;
+    newCommand->color.a = pressed ? PRESSED_ALPHA : hovered ? HOVERED_ALPHA : IDLE_ALPHA;
+	newCommand->commandRect.size = boxSize;
+    
+	newCommand = renderCommands.Append();
+	newCommand->type = PanelRenderCommandType::TEXT;
+    newCommand->flags = color == Vec4::zero ? 0 : PanelRenderCommandFlag::OVERRIDE_COLOR;
+	newCommand->position = positionCurrent;
+	newCommand->anchor = anchor;
+	newCommand->color = color;
+	newCommand->commandText.text = inputString->ToArray();
+	newCommand->commandText.font = fontToUse;
+    
+    const int sizeX = (int)(boxSize.x * MARGIN_FRACTION);
+	const int sizeY = (int)(boxSize.y * MARGIN_FRACTION);
+	if (flags & PanelFlag::GROW_UPWARDS) {
+		positionCurrent.y += sizeY;
+	}
+	else {
+		positionCurrent.y -= sizeY;
+	}
+	size.x = MaxInt(size.x, sizeX);
+	size.y += sizeY;
+    
+    // TODO re-examine retval
+    return false;
+}

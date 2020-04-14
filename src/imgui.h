@@ -2,10 +2,8 @@
 
 #include <km_common/km_lib.h>
 
-const uint64 TEXT_BUFFER_MAX = 256;
 const uint64 INPUT_BUFFER_MAX = 256;
-
-typedef FixedArray<char, INPUT_BUFFER_MAX> InputString;
+using InputString = FixedArray<char, INPUT_BUFFER_MAX>;
 
 enum class PanelRenderCommandType
 {
@@ -63,6 +61,7 @@ struct Panel
 	const GameInput* input;
 	const FontFace* fontDefault;
     
+    // TODO assert that Begin was called before anything else
 	void Begin(const GameInput& input, const FontFace* fontDefault, PanelFlags flags,
                Vec2Int position, Vec2 anchor);
     
@@ -73,18 +72,20 @@ struct Panel
 	bool Button(Array<char> text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
 	bool Checkbox(bool* value, Array<char> text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
     
-	bool SliderFloat(float32* value, float32 min, float32 max, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-	int SliderInt();
+    bool InputText(InputString* inputString, bool* focused, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
     
+	bool SliderFloat(float32* value, float32 min, float32 max, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
+    
+	template <typename Allocator>
+        void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int borderSize,
+                  Vec4 defaultColor, Vec4 backgroundColor, Allocator* allocator);
+    
+    // Unimplemented ...
+	int SliderInt();
 	float32 InputFloat();
 	int InputInt();
 	Vec2 InputVec2();
 	Vec3 InputVec3();
 	Vec4 InputVec4();
 	Vec4 InputColor();
-	void InputText(InputString* outText);
-    
-	template <typename Allocator>
-        void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int borderSize,
-                  Vec4 defaultColor, Vec4 backgroundColor, Allocator* allocator);
 };
