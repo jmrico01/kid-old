@@ -1149,20 +1149,20 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         panelDebug.TitleBar(ToString("Stats"), &panelDebugMinimized, Vec4::zero, &fontMedium);
         
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime));
-		panelDebug.Text(ToString(""));
+		panelDebug.Text(Array<char>::empty);
         
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
                                     gameState->playerCoords.x, gameState->playerCoords.y));
 		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- POS",
                                     playerPosWorld.x, playerPosWorld.y));
-		panelDebug.Text(ToString(""));
+		panelDebug.Text(Array<char>::empty);
         
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMCRD",
                                     gameState->cameraCoords.x, gameState->cameraCoords.y));
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMPOS",
                                     gameState->cameraPos.x, gameState->cameraPos.y));
-		panelDebug.Text(ToString(""));
+		panelDebug.Text(Array<char>::empty);
         
 		Vec2 mouseWorld = ScreenToWorld(input.mousePos, screenInfo,
                                         gameState->cameraPos, gameState->cameraRot,
@@ -1173,7 +1173,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y));
         
-		panelDebug.Text(ToString(""));
+		panelDebug.Text(Array<char>::empty);
         
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%d - STATE", gameState->playerState));
 		const HashKey& kidActiveAnim = gameState->kid.activeAnimation;
@@ -1370,7 +1370,13 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
     
     static bool editAlphabet = false;
     if (editAlphabet) {
+		LinearAllocator tempAlloc(memory->transient.size, memory->transient.memory);
         const Alphabet& alphabet = gameState->alphabet;
+        
+		const FontFace& fontMedium = gameState->fontFaceMedium;
+		const FontFace& fontSmall = gameState->fontFaceSmall;
+        const Vec4 COLOR_HIGHLIGHT_MISSING = Vec4 { 1.0f, 0.2f, 0.2f, 0.5f };
+        const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
         
         const TextureGL& lettersTexture = alphabet.lettersTexture;
         const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
@@ -1386,11 +1392,28 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
                          Vec2Int::zero, Vec2::zero, MultiplyVec2IntFloat32(lettersTexture.size, lettersScale),
                          false, false, lettersTexture.textureID);
         
-        static uint64 missingLetter = alphabet.letters.size;
-        if (missingLetter == alphabet.letters.size) {
+        uint64 hoveredLetter = alphabet.letters.size;
+        for (uint64 i = 0; i < alphabet.letters.size; i++) {
+            const Letter& letter = alphabet.letters[i];
+            const RectInt letterRect = {
+                .min = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale),
+                .max = MultiplyVec2IntFloat32(Vec2Int { letter.maxX, letter.maxY }, lettersScale)
+            };
+            if (IsInside(input.mousePos, letterRect)) {
+                hoveredLetter = i;
+            }
+        }
+        
+        static uint64 selectedLetter = alphabet.letters.size;
+        if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
+            selectedLetter = hoveredLetter;
+        }
+        
+        // Pick next unassigned letter if nothing is selected
+        if (selectedLetter == alphabet.letters.size) {
             for (uint64 i = 0; i < alphabet.letters.size; i++) {
                 if (alphabet.letters[i].ascii == 0) {
-                    missingLetter = i;
+                    selectedLetter = i;
                     break;
                 }
             }
@@ -1398,185 +1421,208 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         
         if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
             for (uint64 i = alphabet.letters.size; i > 0; i--) {
-                uint64 ind = (missingLetter + i - 1) % alphabet.letters.size;
+                uint64 ind = (selectedLetter + i - 1) % alphabet.letters.size;
                 if (alphabet.letters[ind].ascii == 0) {
-                    missingLetter = ind;
+                    selectedLetter = ind;
                     break;
                 }
             }
         }
         if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
             for (uint64 i = 0; i < alphabet.letters.size; i++) {
-                uint64 ind = (missingLetter + i + 1) % alphabet.letters.size;
+                uint64 ind = (selectedLetter + i + 1) % alphabet.letters.size;
                 if (alphabet.letters[ind].ascii == 0) {
-                    missingLetter = ind;
+                    selectedLetter = ind;
                     break;
                 }
             }
         }
-        if (missingLetter != alphabet.letters.size) {
-            const Letter& letter = alphabet.letters[missingLetter];
+        
+        if (hoveredLetter != alphabet.letters.size) {
+            const Letter& letter = alphabet.letters[hoveredLetter];
             Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
             Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
                                                         lettersScale);
-            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize,
-                     Vec4 { 1.0f, 0.2f, 0.2f, 0.5f });
+            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
+        }
+        if (selectedLetter != alphabet.letters.size) {
+            const Letter& letter = alphabet.letters[selectedLetter];
+            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                        lettersScale);
+            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_MISSING);
             
-            Vec2Int letterTextureSize = alphabet.letterTextures[missingLetter].size;
+            Panel panelLetter;
+            static bool panelLetterMinimized = false;
+            panelLetter.Begin(input, &fontSmall, 0, screenInfo.size - DEBUG_MARGIN_SCREEN, Vec2 { 1.0f, 1.0f });
+            panelLetter.TitleBar(Array<char>::empty, &panelLetterMinimized, Vec4::zero, &fontMedium);
+            
+            panelLetter.Text(AllocPrintf(&tempAlloc, "Index %d : '%c'", selectedLetter, (char)letter.ascii));
+            panelLetter.Text(Array<char>::empty);
+            
+            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii ----------- %d", letter.ascii));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "Flags ----------- %d", letter.flags));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "Offset ------ %d, %d", letter.offsetX, letter.offsetY));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "Alias Index ----- %d", letter.aliasIndex));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "Kernings..."));
+            panelLetter.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+                             DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
+            
+            Vec2Int letterTextureSize = alphabet.letterTextures[selectedLetter].size;
             DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero,
                      MultiplyVec2IntFloat32(letterTextureSize, 1.1f), Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
             DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero, letterTextureSize, Vec4::one);
             DrawTexturedRect(gameState->texturedRectGL, screenInfo, Vec2Int::zero, Vec2::zero,
                              letterTextureSize, false, false,
-                             alphabet.letterTextures[missingLetter].textureID);
+                             alphabet.letterTextures[selectedLetter].textureID);
         }
     }
     else if (gameState->kmKey) {
-		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
+        LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
         
-		FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
+        FloorCollider& floor = gameState->levels[gameState->activeLevel].floor;
         
-		const FontFace& fontMedium = gameState->fontFaceMedium;
-		const FontFace& fontSmall = gameState->fontFaceSmall;
+        const FontFace& fontMedium = gameState->fontFaceMedium;
+        const FontFace& fontSmall = gameState->fontFaceSmall;
         
-		const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
+        const Vec4 kmKeyFontColor = { 0.0f, 0.2f, 1.0f, 1.0f };
         
-		Panel panelKmKey;
+        Panel panelKmKey;
         static bool panelKmKeyMinimized = false;
-		panelKmKey.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2::zero);
-		panelKmKey.TitleBar(ToString("KM KEY"), &panelKmKeyMinimized, Vec4::zero, &fontMedium);
+        panelKmKey.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2::zero);
+        panelKmKey.TitleBar(ToString("KM KEY"), &panelKmKeyMinimized, Vec4::zero, &fontMedium);
         
-		panelKmKey.Text(AllocPrintf(&tempAllocator, "Loaded level: %s", LEVEL_NAMES[gameState->activeLevel]));
+        panelKmKey.Text(AllocPrintf(&tempAllocator, "Loaded level: %s", LEVEL_NAMES[gameState->activeLevel]));
         
-		static bool editCollision = false;
+        static bool editCollision = false;
         panelKmKey.Checkbox(&editCollision, ToString("Ground Editor"));
         
         if (panelKmKey.Button(ToString("Alphabet Atlas"))) {
             editAlphabet = !editAlphabet;
         }
         
-		panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
+        panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                         kmKeyFontColor, Vec4::zero, &tempAllocator);
         
         
-		Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
+        Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
                                                 gameState->cameraPos, gameState->cameraRot,
                                                 ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                                 gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                                 gameState->cameraOffsetFracY);
-		Vec2 mouseWorldPosEnd = ScreenToWorld(input.mousePos + input.mouseDelta, screenInfo,
+        Vec2 mouseWorldPosEnd = ScreenToWorld(input.mousePos + input.mouseDelta, screenInfo,
                                               gameState->cameraPos, gameState->cameraRot,
                                               ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                               gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                               gameState->cameraOffsetFracY);
-		Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
+        Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
         
-		if (editCollision) {
-			bool32 newVertexPressed = false;
-			{
-				const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
-				const float32 IDLE_ALPHA = 0.5f;
-				const float32 HOVER_ALPHA = 0.8f;
-				const float32 SELECTED_ALPHA = 1.0f;
-				const Vec2Int BOX_SIZE = Vec2Int { 20, 20 };
-				const Vec2 BOX_ANCHOR = Vec2::one / 2.0f;
-				const Vec2Int ANCHOR_OFFSET = Vec2Int {
-					(int)(BOX_SIZE.x * BOX_ANCHOR.x),
-					(int)(BOX_SIZE.y * BOX_ANCHOR.y)
-				};
-				Vec2Int mousePosPlusAnchor = input.mousePos + ANCHOR_OFFSET;
-				for (uint64 i = 0; i < floor.line.size; i++) {
-					Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
+        if (editCollision) {
+            bool32 newVertexPressed = false;
+            {
+                const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
+                const float32 IDLE_ALPHA = 0.5f;
+                const float32 HOVER_ALPHA = 0.8f;
+                const float32 SELECTED_ALPHA = 1.0f;
+                const Vec2Int BOX_SIZE = Vec2Int { 20, 20 };
+                const Vec2 BOX_ANCHOR = Vec2::one / 2.0f;
+                const Vec2Int ANCHOR_OFFSET = Vec2Int {
+                    (int)(BOX_SIZE.x * BOX_ANCHOR.x),
+                    (int)(BOX_SIZE.y * BOX_ANCHOR.y)
+                };
+                Vec2Int mousePosPlusAnchor = input.mousePos + ANCHOR_OFFSET;
+                for (uint64 i = 0; i < floor.line.size; i++) {
+                    Vec2Int boxPos = WorldToScreen(floor.line[i], screenInfo,
                                                    gameState->cameraPos, gameState->cameraRot,
                                                    ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                                    gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                                    gameState->cameraOffsetFracY);
                     
-					Vec4 boxColor = BOX_COLOR_BASE;
-					boxColor.a = IDLE_ALPHA;
-					if ((mousePosPlusAnchor.x >= boxPos.x
+                    Vec4 boxColor = BOX_COLOR_BASE;
+                    boxColor.a = IDLE_ALPHA;
+                    if ((mousePosPlusAnchor.x >= boxPos.x
                          && mousePosPlusAnchor.x <= boxPos.x + BOX_SIZE.x) &&
                         (mousePosPlusAnchor.y >= boxPos.y
                          && mousePosPlusAnchor.y <= boxPos.y + BOX_SIZE.y)) {
-						if (input.mouseButtons[0].isDown
+                        if (input.mouseButtons[0].isDown
                             && input.mouseButtons[0].transitions == 1) {
-							newVertexPressed = true;
-							gameState->floorVertexSelected = (int)i;
-						}
-						else {
-							boxColor.a = HOVER_ALPHA;
-						}
-					}
-					if ((int)i == gameState->floorVertexSelected) {
-						boxColor.a = SELECTED_ALPHA;
-					}
+                            newVertexPressed = true;
+                            gameState->floorVertexSelected = (int)i;
+                        }
+                        else {
+                            boxColor.a = HOVER_ALPHA;
+                        }
+                    }
+                    if ((int)i == gameState->floorVertexSelected) {
+                        boxColor.a = SELECTED_ALPHA;
+                    }
                     
-					DrawRect(gameState->rectGL, screenInfo,
+                    DrawRect(gameState->rectGL, screenInfo,
                              boxPos, BOX_ANCHOR, BOX_SIZE, boxColor);
-				}
-			}
+                }
+            }
             
-			if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1
+            if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1
                 && !newVertexPressed) {
-				gameState->floorVertexSelected = -1;
-			}
+                gameState->floorVertexSelected = -1;
+            }
             
-			if (input.mouseButtons[0].isDown) {
-				if (gameState->floorVertexSelected == -1) {
-					gameState->cameraPos -= mouseWorldDelta;
-				}
-				else {
-					floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
-					floor.PrecomputeSampleVerticesFromLine();
-				}
-			}
+            if (input.mouseButtons[0].isDown) {
+                if (gameState->floorVertexSelected == -1) {
+                    gameState->cameraPos -= mouseWorldDelta;
+                }
+                else {
+                    floor.line[gameState->floorVertexSelected] += mouseWorldDelta;
+                    floor.PrecomputeSampleVerticesFromLine();
+                }
+            }
             
-			if (gameState->floorVertexSelected != -1) {
-				if (WasKeyPressed(input, KM_KEY_R)) {
-					floor.line.Remove(gameState->floorVertexSelected);
-					floor.PrecomputeSampleVerticesFromLine();
-					gameState->floorVertexSelected = -1;
-				}
-			}
+            if (gameState->floorVertexSelected != -1) {
+                if (WasKeyPressed(input, KM_KEY_R)) {
+                    floor.line.Remove(gameState->floorVertexSelected);
+                    floor.PrecomputeSampleVerticesFromLine();
+                    gameState->floorVertexSelected = -1;
+                }
+            }
             
-			if (input.mouseButtons[1].isDown && input.mouseButtons[1].transitions == 1) {
-				if (gameState->floorVertexSelected == -1) {
-					floor.line.Append(mouseWorldPosEnd);
-					gameState->floorVertexSelected = (int)(floor.line.size - 1);
-				}
-				else {
-					floor.line.AppendAfter(mouseWorldPosEnd, gameState->floorVertexSelected);
-					gameState->floorVertexSelected += 1;
-				}
-				floor.PrecomputeSampleVerticesFromLine();
-			}
-		}
-		else {
-			if (input.mouseButtons[0].isDown) {
-				gameState->cameraPos -= mouseWorldDelta;
-			}
-		}
+            if (input.mouseButtons[1].isDown && input.mouseButtons[1].transitions == 1) {
+                if (gameState->floorVertexSelected == -1) {
+                    floor.line.Append(mouseWorldPosEnd);
+                    gameState->floorVertexSelected = (int)(floor.line.size - 1);
+                }
+                else {
+                    floor.line.AppendAfter(mouseWorldPosEnd, gameState->floorVertexSelected);
+                    gameState->floorVertexSelected += 1;
+                }
+                floor.PrecomputeSampleVerticesFromLine();
+            }
+        }
+        else {
+            if (input.mouseButtons[0].isDown) {
+                gameState->cameraPos -= mouseWorldDelta;
+            }
+        }
         
-		if (input.mouseButtons[2].isDown) {
-			Vec2Int centerToMousePrev = (input.mousePos - input.mouseDelta) - screenInfo.size / 2;
-			Vec2Int centerToMouse = input.mousePos - screenInfo.size / 2;
-			float32 angle = AngleBetween(ToVec2(centerToMousePrev), ToVec2(centerToMouse));
-			gameState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * gameState->cameraRot;
-		}
+        if (input.mouseButtons[2].isDown) {
+            Vec2Int centerToMousePrev = (input.mousePos - input.mouseDelta) - screenInfo.size / 2;
+            Vec2Int centerToMouse = input.mousePos - screenInfo.size / 2;
+            float32 angle = AngleBetween(ToVec2(centerToMousePrev), ToVec2(centerToMouse));
+            gameState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * gameState->cameraRot;
+        }
         
-		float32 editorScaleExponentDelta = input.mouseWheelDelta * 0.0002f;
-		gameState->editorScaleExponent = ClampFloat32(
+        float32 editorScaleExponentDelta = input.mouseWheelDelta * 0.0002f;
+        gameState->editorScaleExponent = ClampFloat32(
                                                       gameState->editorScaleExponent + editorScaleExponentDelta, 0.0f, 1.0f);
-	}
+    }
     
-	DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
+    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
     
 #if GAME_SLOW
-	// Catch-all site for OpenGL errors
-	GLenum err;
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		LOG_ERROR("OpenGL error: 0x%x\n", err);
-	}
+    // Catch-all site for OpenGL errors
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        LOG_ERROR("OpenGL error: 0x%x\n", err);
+    }
 #endif
 }
 
