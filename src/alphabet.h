@@ -36,3 +36,7 @@ struct Alphabet
 };
 
 bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet);
+
+template <typename Allocator>
+Array<Letter> LoadSavedLetters(Allocator* allocator);
+bool SaveLetters(Array<Letter> letters);

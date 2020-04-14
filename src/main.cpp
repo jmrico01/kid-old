@@ -1371,7 +1371,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
     static bool editAlphabet = false;
     if (editAlphabet) {
 		LinearAllocator tempAlloc(memory->transient.size, memory->transient.memory);
-        const Alphabet& alphabet = gameState->alphabet;
+        Alphabet& alphabet = gameState->alphabet;
         
 		const FontFace& fontMedium = gameState->fontFaceMedium;
 		const FontFace& fontSmall = gameState->fontFaceSmall;
@@ -1409,12 +1409,15 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
             selectedLetter = hoveredLetter;
         }
         
-        // Pick next unassigned letter if nothing is selected
-        if (selectedLetter == alphabet.letters.size) {
-            for (uint64 i = 0; i < alphabet.letters.size; i++) {
-                if (alphabet.letters[i].ascii == 0) {
-                    selectedLetter = i;
-                    break;
+        if (selectedLetter != alphabet.letters.size && input.keyboardStringLen > 0) {
+            int ind = input.keyboardStringLen - 1;
+            while (ind >= 0 && !IsAlphanumeric(input.keyboardString[ind])) {
+                ind--;
+            }
+            if (ind >= 0) {
+                alphabet.letters[selectedLetter].ascii = input.keyboardString[ind];
+                if (!SaveLetters(alphabet.letters.ToArray())) {
+                    alphabet.letters[selectedLetter].ascii = 0;
                 }
             }
         }
@@ -1460,11 +1463,11 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
             panelLetter.Text(AllocPrintf(&tempAlloc, "Index %d : '%c'", selectedLetter, (char)letter.ascii));
             panelLetter.Text(Array<char>::empty);
             
-            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii ----------- %d", letter.ascii));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "Flags ----------- %d", letter.flags));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "Offset ------ %d, %d", letter.offsetX, letter.offsetY));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "Alias Index ----- %d", letter.aliasIndex));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "Kernings..."));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "offset: %d, %d", letter.offsetX, letter.offsetY));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "alias: %d", letter.aliasIndex));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
             panelLetter.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                              DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
             
@@ -1491,6 +1494,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         panelInput.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                         DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
         for (uint64 i = 0; i < inputString.size; i++) {
+            
             // TODO print out string in Alphabet!!
         }
     }

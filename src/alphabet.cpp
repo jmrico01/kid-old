@@ -1,10 +1,45 @@
 #include "alphabet.h"
 
+const Array<char> ALPHABET_BIN_PATH = ToString("data/fonts/alphabet.bin");
+
 // We define the extraction-time-computed fields as a "unique" ID for the letter even though it's not
 // strictly unique. Unique enough for our purposes.
 int CompareLetterUniqueIds(const void* value1, const void* value2)
 {
     return MemComp(value1, value2, sizeof(uint16) * 4 + sizeof(uint32) * 1 + sizeof(int) * 1);
+}
+
+template <typename Allocator>
+Array<Letter> LoadSavedLetters(Allocator* allocator)
+{
+    Array<uint8> savedLettersFile = LoadEntireFile(ALPHABET_BIN_PATH, allocator);
+    if (savedLettersFile.data == nullptr) {
+        LOG_ERROR("Failed to read alphabet bin file: %.*s\n", ALPHABET_BIN_PATH.size, ALPHABET_BIN_PATH.data);
+        return { .size = 0, .data = nullptr };
+    }
+    if (savedLettersFile.size % sizeof(Letter) != 0) {
+        LOG_ERROR("Saved letters file mismatch, likely a different struct version\n");
+        return { .size = 0, .data = nullptr };
+    }
+    
+    return {
+        .size = savedLettersFile.size / sizeof(Letter),
+        .data = (Letter*)savedLettersFile.data
+    };
+}
+
+bool SaveLetters(Array<Letter> letters)
+{
+    const Array<uint8> lettersData = {
+        .size = sizeof(Letter) * letters.size,
+        .data = (uint8*)letters.data
+    };
+    if (!WriteFile(ALPHABET_BIN_PATH, lettersData, false)) {
+        LOG_ERROR("Failed to save alphabet letters to file: %.*s\n", ALPHABET_BIN_PATH.size, ALPHABET_BIN_PATH.data);
+        return false;
+    }
+    
+    return true;
 }
 
 bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
@@ -111,18 +146,11 @@ bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
     
     qsort(outAlphabet->letters.data, outAlphabet->letters.size, sizeof(Letter), CompareLetterUniqueIds);
     
-    const Array<char> alphabetBinPath = ToString("data/fonts/alphabet.bin");
-    Array<uint8> savedLettersFile = LoadEntireFile(alphabetBinPath, &allocator);
-    if (savedLettersFile.data == nullptr) {
-        LOG_ERROR("Failed to read alphabet bin file: %.*s\n", alphabetBinPath.size, alphabetBinPath.data);
-        return false;
+    Array<Letter> savedLetters = LoadSavedLetters(&allocator);
+    if (savedLetters.data == nullptr) {
+        LOG_ERROR("Failed to load saved alphabet letters\n");
+        //return false;
     }
-    
-    DEBUG_ASSERT(savedLettersFile.size % sizeof(Letter) == 0);
-    Array<Letter> savedLetters = {
-        .size = savedLettersFile.size / sizeof(Letter),
-        .data = (Letter*)savedLettersFile.data
-    };
     
     uint64 matchedLetters = 0;
     for (uint64 i = 0; i < outAlphabet->letters.size; i++) {
@@ -138,12 +166,8 @@ bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
         }
     }
     
-    const Array<uint8> lettersData = {
-        .size = sizeof(Letter) * outAlphabet->letters.size,
-        .data = (uint8*)outAlphabet->letters.data
-    };
-    if (!WriteFile(alphabetBinPath, lettersData, false)) {
-        LOG_ERROR("Failed to write alphabet bin file: %.*s\n", alphabetBinPath.size, alphabetBinPath.data);
+    if (!SaveLetters(outAlphabet->letters.ToArray())) {
+        LOG_ERROR("Failed to save alphabet letters\n");
         return false;
     }
     
@@ -172,8 +196,7 @@ bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
     }
     
     LOG_INFO("All done!\n");
-    LOG_INFO("%d total letters, saved to file %.*s\n", outAlphabet->letters.size,
-             alphabetBinPath.size, alphabetBinPath.data);
+    LOG_INFO("%d total letters\n", outAlphabet->letters.size);
     LOG_INFO("%d sections\n", possibleLetters.size);
     LOG_INFO("%d total previously saved letters\n", savedLetters.size);
     LOG_INFO("%d new letters\n", outAlphabet->letters.size - matchedLetters);
