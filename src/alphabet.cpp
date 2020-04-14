@@ -9,6 +9,11 @@ int CompareLetterUniqueIds(const void* value1, const void* value2)
     return MemComp(value1, value2, sizeof(uint16) * 4 + sizeof(uint32) * 1 + sizeof(int) * 1);
 }
 
+bool IsLetterUnassigned(const Letter& letter)
+{
+    return letter.ascii == 0 && !(letter.flags & LetterFlag::IGNORE);
+}
+
 template <typename Allocator>
 Array<Letter> LoadSavedLetters(Allocator* allocator)
 {

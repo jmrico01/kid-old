@@ -27,6 +27,12 @@ struct Letter
     uint16 kernings[MAX_LETTERS];
 };
 
+bool IsLetterUnassigned(const Letter& letter);
+
+template <typename Allocator>
+Array<Letter> LoadSavedLetters(Allocator* allocator);
+bool SaveLetters(Array<Letter> letters);
+
 struct Alphabet
 {
     FixedArray<Letter, MAX_LETTERS> letters;
@@ -36,7 +42,3 @@ struct Alphabet
 };
 
 bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet);
-
-template <typename Allocator>
-Array<Letter> LoadSavedLetters(Allocator* allocator);
-bool SaveLetters(Array<Letter> letters);

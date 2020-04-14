@@ -1414,21 +1414,29 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
             int ind = input.keyboardStringLen - 1;
             while (ind >= 0) {
                 char c = input.keyboardString[ind];
-                if (IsAlphanumeric(c) || c == 8) {
+                if (IsAlphanumeric(c) || c == 8 || c == 9) {
                     break;
                 }
                 ind--;
             }
             if (ind >= 0) {
                 char c = input.keyboardString[ind];
+                char asciiPrev = alphabet.letters[selectedLetter].ascii;
+                uint8 flagsPrev = alphabet.letters[selectedLetter].flags;
                 if (c == 8) {
                     alphabet.letters[selectedLetter].flags |= LetterFlag::IGNORE;
                 }
+                else if (c == 9) {
+                    alphabet.letters[selectedLetter].ascii = 0;
+                    alphabet.letters[selectedLetter].flags = 0;
+                    
+                }
                 else {
                     alphabet.letters[selectedLetter].ascii = c;
-                    if (!SaveLetters(alphabet.letters.ToArray())) {
-                        alphabet.letters[selectedLetter].ascii = 0;
-                    }
+                }
+                if (!SaveLetters(alphabet.letters.ToArray())) {
+                    alphabet.letters[selectedLetter].ascii = asciiPrev;
+                    alphabet.letters[selectedLetter].flags = flagsPrev;
                 }
             }
         }
@@ -1436,7 +1444,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
             for (uint64 i = alphabet.letters.size; i > 0; i--) {
                 uint64 ind = (selectedLetter + i - 1) % alphabet.letters.size;
-                if (alphabet.letters[ind].ascii == 0) {
+                if (IsLetterUnassigned(alphabet.letters[ind])) {
                     selectedLetter = ind;
                     break;
                 }
@@ -1445,7 +1453,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
             for (uint64 i = 0; i < alphabet.letters.size; i++) {
                 uint64 ind = (selectedLetter + i + 1) % alphabet.letters.size;
-                if (alphabet.letters[ind].ascii == 0) {
+                if (IsLetterUnassigned(alphabet.letters[ind])) {
                     selectedLetter = ind;
                     break;
                 }
@@ -1454,13 +1462,12 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         
         for (uint64 i = 0; i < alphabet.letters.size; i++) {
             const Letter& letter = alphabet.letters[i];
-            if (letter.ascii != 0 || (letter.flags & LetterFlag::IGNORE)) {
-                continue;
+            if (IsLetterUnassigned(letter)) {
+                Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+                Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                            lettersScale);
+                DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_UNASSIGNED);
             }
-            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                        lettersScale);
-            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_UNASSIGNED);
         }
         if (hoveredLetter != alphabet.letters.size) {
             const Letter& letter = alphabet.letters[hoveredLetter];
