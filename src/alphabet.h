@@ -23,7 +23,7 @@ struct Letter
     // Manually specified by user
     LetterFlags flags;
     uint8 ascii;
-    uint16 offsetX, offsetY, aliasIndex;
+    uint16 offsetX, offsetY, parentIndex;
     uint16 kernings[MAX_LETTERS];
 };
 

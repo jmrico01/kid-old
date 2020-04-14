@@ -333,10 +333,14 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
 	const float32 PRESSED_ALPHA = 0.5f;
 	const float32 HOVERED_ALPHA = 0.2f;
 	const float32 IDLE_ALPHA = 0.0f;
+    const int BOX_MIN_WIDTH = 20;
     
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
     Vec2Int textSize = { GetTextWidth(*fontToUse, inputString->ToArray()), (int)fontToUse->height };
     Vec2Int boxSize = { (int)(textSize.x * MARGIN_FRACTION), (int)(textSize.y * MARGIN_FRACTION) };
+    if (boxSize.x < BOX_MIN_WIDTH) {
+        boxSize.x = BOX_MIN_WIDTH;
+    }
     const Vec2Int boxOffset = Vec2Int {
         Lerp(boxSize.x / 2, -boxSize.x / 2, anchor.x),
         Lerp(boxSize.y / 2, -boxSize.y / 2, anchor.y)
