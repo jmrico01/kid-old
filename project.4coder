@@ -36,6 +36,20 @@ command_list = {
 	},
 },
 {
+	.name = "build-internal",
+	.out = "*compile*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+	.cmd = {
+		{"python ./libs/internal/km_compile/compile.py internal", .os = "win"},
+	},
+},
+{
+	.name = "build-internal-deploy",
+	.out = "*compile*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+	.cmd = {
+		{"python ./libs/internal/km_compile/compile.py internal --deploy", .os = "win"},
+	},
+},
+{
 	.name = "run-ifchanged",
 	.out = "*run*", .footer_panel = true, .save_dirty_files = false, .cursor_at_end = true,
 	.cmd = {
@@ -61,6 +75,9 @@ command_list = {
 fkey_command[3] = "clean";
 fkey_command[4] = "build-debug";
 fkey_command[5] = "run-ifchanged";
+fkey_command[6] = "build-internal";
 
 fkey_command[8] = "remedybg";
 fkey_command[9] = "terminal";
+
+fkey_command[10] = "build-internal-deploy";

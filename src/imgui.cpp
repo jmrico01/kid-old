@@ -43,7 +43,6 @@ void Panel::Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int bo
 				DrawRect(rectGL, screenInfo, command.position, command.anchor, command.commandRect.size, color);
 			} break;
 			case PanelRenderCommandType::TEXT: {
-				const auto& commandText = renderCommands[i].commandText;
 				DrawText(textGL, *command.commandText.font, screenInfo, command.commandText.text,
                          command.position, command.anchor, color, allocator);
 			} break;
@@ -243,7 +242,7 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
     const float32 SLIDER_ALPHA = 0.6f;
     const float32 BACKGROUND_BAR_ALPHA = 0.4f;
     
-	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
+	// const FontFace* fontToUse = font == nullptr ? fontDefault : font;
 	float32 sliderT = (*value - min) / (max - min);
     
 	bool valueChanged = false;
