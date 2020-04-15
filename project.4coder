@@ -79,5 +79,3 @@ fkey_command[6] = "build-internal";
 
 fkey_command[8] = "remedybg";
 fkey_command[9] = "terminal";
-
-fkey_command[10] = "build-internal-deploy";

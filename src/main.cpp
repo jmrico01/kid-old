@@ -874,18 +874,12 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         
 		glBindVertexArray(0);
         
-		gameState->screenShader = LoadShaders(&allocator,
-                                              "shaders/screen.vert", "shaders/screen.frag");
-		gameState->bloomExtractShader = LoadShaders(&allocator,
-                                                    "shaders/screen.vert", "shaders/bloomExtract.frag");
-		gameState->bloomBlendShader = LoadShaders(&allocator,
-                                                  "shaders/screen.vert", "shaders/bloomBlend.frag");
-		gameState->blurShader = LoadShaders(&allocator,
-                                            "shaders/screen.vert", "shaders/blur.frag");
-		gameState->grainShader = LoadShaders(&allocator,
-                                             "shaders/screen.vert", "shaders/grain.frag");
-		gameState->lutShader = LoadShaders(&allocator,
-                                           "shaders/screen.vert", "shaders/lut.frag");
+		gameState->screenShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/screen.frag");
+		gameState->bloomExtractShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/bloomExtract.frag");
+		gameState->bloomBlendShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/bloomBlend.frag");
+		gameState->blurShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/blur.frag");
+		gameState->grainShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/grain.frag");
+		// gameState->lutShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/lut.frag");
         
         // Fonts
         if (!LoadAlphabet(memory->transient, &gameState->alphabet)) {
@@ -949,6 +943,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 			DEBUG_PANIC("Failed to load pixel texture\n");
 		}
         
+#if 0
 		if (!LoadTextureFromPng(&allocator, "data/luts/lutbase.png",
                                 GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lutBase)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
@@ -958,6 +953,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
                                 GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lut1)) {
 			DEBUG_PANIC("Failed to load base LUT\n");
 		}
+#endif
         
 		memory->isInitialized = true;
 	}
