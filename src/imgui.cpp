@@ -319,7 +319,9 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
         for (uint64 i = 0; i < input->keyboardStringLen; i++) {
             char c = input->keyboardString[i];
             if (c == 8) { // backspace
-                inputString->RemoveLast();
+                if (inputString->size > 0) {
+                    inputString->RemoveLast();
+                }
                 continue;
             }
             
