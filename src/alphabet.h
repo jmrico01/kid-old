@@ -4,6 +4,8 @@
 #include <km_platform/main_platform.h>
 
 #include "load_png.h"
+#include "opengl_base.h"
+#include "text.h"
 
 const uint64 MAX_LETTERS = 512;
 
@@ -37,8 +39,13 @@ struct Alphabet
 {
     FixedArray<Letter, MAX_LETTERS> letters;
     FixedArray<TextureGL, MAX_LETTERS> letterTextures;
+    int numVariations[256];
     TextureGL lettersTexture;
     TextureGL letterIdsTexture;
 };
 
 bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet);
+
+void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, MemoryBlock transient,
+                                  RectGL rectGL, TexturedRectGL texturedRectGL, TextGL textGL,
+                                  ScreenInfo screenInfo, const FontFace& fontText, const FontFace& fontHeader);

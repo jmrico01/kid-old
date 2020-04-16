@@ -314,6 +314,7 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
         return false;
     }
     
+    bool inputChanged = false;
     if (*focused) {
         for (uint64 i = 0; i < input->keyboardStringLen; i++) {
             char c = input->keyboardString[i];
@@ -321,12 +322,14 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
                 if (inputString->size > 0) {
                     inputString->RemoveLast();
                 }
+                inputChanged = true;
                 continue;
             }
             
             if (inputString->size >= INPUT_BUFFER_MAX) {
                 continue;
             }
+            inputChanged = true;
             inputString->Append(c);
         }
     }
@@ -392,6 +395,5 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
     
-    // TODO re-examine retval
-    return false;
+    return inputChanged;
 }

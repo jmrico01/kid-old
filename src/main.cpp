@@ -797,7 +797,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const Array<char> FIRST_LEVEL = ToString("overworld");
+		const Array<char> FIRST_LEVEL = ToString("idk");
 		if (!SetActiveLevel(gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
@@ -1366,229 +1366,14 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		}
 	}
     
-    static bool editAlphabet = false;
-    if (editAlphabet && WasKeyPressed(input, KM_KEY_ESCAPE)) {
-        editAlphabet = false;
+    static bool alphabetAtlas = false;
+    if (alphabetAtlas && WasKeyPressed(input, KM_KEY_ESCAPE)) {
+        alphabetAtlas = false;
     }
-    if (editAlphabet) {
-		LinearAllocator tempAlloc(memory->transient.size, memory->transient.memory);
-        Alphabet& alphabet = gameState->alphabet;
-        
-		const FontFace& fontMedium = gameState->fontFaceMedium;
-		const FontFace& fontSmall = gameState->fontFaceSmall;
-        const Vec4 COLOR_HIGHLIGHT_UNASSIGNED = Vec4 { 1.0f, 0.2f, 0.2f, 0.3f };
-        const Vec4 COLOR_HIGHLIGHT_SELECTED = Vec4 { 1.0f, 0.2f, 1.0f, 0.5f };
-        const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
-        
-        const TextureGL& lettersTexture = alphabet.lettersTexture;
-        const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
-        const float32 screenAspect = (float32)screenInfo.size.x / screenInfo.size.y;
-        float32 lettersScale;
-        if (screenAspect < lettersAspect) {
-            lettersScale = (float32)screenInfo.size.x / lettersTexture.size.x;
-        }
-        else {
-            lettersScale = (float32)screenInfo.size.y / lettersTexture.size.y;
-        }
-        DrawTexturedRect(gameState->texturedRectGL, screenInfo,
-                         Vec2Int::zero, Vec2::zero, MultiplyVec2IntFloat32(lettersTexture.size, lettersScale),
-                         false, false, lettersTexture.textureID);
-        
-        uint64 hoveredLetter = alphabet.letters.size;
-        for (uint64 i = 0; i < alphabet.letters.size; i++) {
-            const Letter& letter = alphabet.letters[i];
-            const RectInt letterRect = {
-                .min = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale),
-                .max = MultiplyVec2IntFloat32(Vec2Int { letter.maxX, letter.maxY }, lettersScale)
-            };
-            if (IsInside(input.mousePos, letterRect)) {
-                hoveredLetter = i;
-            }
-        }
-        
-        static uint64 selectedLetter = alphabet.letters.size;
-        if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
-            selectedLetter = hoveredLetter;
-        }
-        
-        if (selectedLetter != alphabet.letters.size && input.keyboardStringLen > 0) {
-            int ind = input.keyboardStringLen - 1;
-            while (ind >= 0) {
-                char c = input.keyboardString[ind];
-                if (IsAlphanumeric(c) || c == 8 || c == 9) {
-                    break;
-                }
-                ind--;
-            }
-            if (ind >= 0) {
-                char c = input.keyboardString[ind];
-                char asciiPrev = alphabet.letters[selectedLetter].ascii;
-                uint8 flagsPrev = alphabet.letters[selectedLetter].flags;
-                if (c == 8) {
-                    alphabet.letters[selectedLetter].flags |= LetterFlag::IGNORE;
-                }
-                else if (c == 9) {
-                    alphabet.letters[selectedLetter].ascii = 0;
-                    alphabet.letters[selectedLetter].flags = 0;
-                    
-                }
-                else {
-                    alphabet.letters[selectedLetter].ascii = c;
-                }
-                if (!SaveLetters(alphabet.letters.ToArray())) {
-                    alphabet.letters[selectedLetter].ascii = asciiPrev;
-                    alphabet.letters[selectedLetter].flags = flagsPrev;
-                }
-            }
-        }
-        
-        if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
-            for (uint64 i = alphabet.letters.size; i > 0; i--) {
-                uint64 ind = (selectedLetter + i - 1) % alphabet.letters.size;
-                if (IsLetterUnassigned(alphabet.letters[ind])) {
-                    selectedLetter = ind;
-                    break;
-                }
-            }
-        }
-        if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
-            for (uint64 i = 0; i < alphabet.letters.size; i++) {
-                uint64 ind = (selectedLetter + i + 1) % alphabet.letters.size;
-                if (IsLetterUnassigned(alphabet.letters[ind])) {
-                    selectedLetter = ind;
-                    break;
-                }
-            }
-        }
-        
-        for (uint64 i = 0; i < alphabet.letters.size; i++) {
-            const Letter& letter = alphabet.letters[i];
-            if (IsLetterUnassigned(letter)) {
-                Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-                Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                            lettersScale);
-                DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_UNASSIGNED);
-            }
-        }
-        if (hoveredLetter != alphabet.letters.size) {
-            const Letter& letter = alphabet.letters[hoveredLetter];
-            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                        lettersScale);
-            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
-            
-            Panel panelLetter;
-            panelLetter.Begin(input, &fontSmall, 0,
-                              Vec2Int { DEBUG_MARGIN_SCREEN.x, screenInfo.size.y - DEBUG_MARGIN_SCREEN.y },
-                              Vec2 { 0.0f, 1.0f });
-            panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", hoveredLetter, (char)letter.ascii));
-            panelLetter.Text(Array<char>::empty);
-            
-            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
-            panelLetter.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
-                             DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
-            
-            const int LETTER_FRAME_SIZE = 10;
-            const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
-            Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
-            Vec2Int letterTextureSize = alphabet.letterTextures[hoveredLetter].size;
-            DrawRect(gameState->rectGL, screenInfo, letterTexturePos + Vec2Int { -LETTER_FRAME_SIZE, LETTER_FRAME_SIZE },
-                     Vec2 { 0.0f, 1.0f }, letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-            DrawRect(gameState->rectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f }, letterTextureSize, Vec4::one);
-            DrawTexturedRect(gameState->texturedRectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f },
-                             letterTextureSize, false, false,
-                             alphabet.letterTextures[hoveredLetter].textureID);
-        }
-        if (selectedLetter != alphabet.letters.size) {
-            const Letter& letter = alphabet.letters[selectedLetter];
-            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                        lettersScale);
-            DrawRect(gameState->rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_SELECTED);
-            
-            Panel panelLetter;
-            panelLetter.Begin(input, &fontSmall, 0, screenInfo.size - DEBUG_MARGIN_SCREEN, Vec2 { 1.0f, 1.0f });
-            panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", selectedLetter, (char)letter.ascii));
-            panelLetter.Text(Array<char>::empty);
-            
-            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
-            panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
-            panelLetter.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
-                             DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
-            
-            const int LETTER_FRAME_SIZE = 10;
-            const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
-            Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
-            Vec2Int letterTextureSize = alphabet.letterTextures[selectedLetter].size;
-            DrawRect(gameState->rectGL, screenInfo, letterTexturePos + LETTER_FRAME_OFFSET, Vec2::one,
-                     letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-            DrawRect(gameState->rectGL, screenInfo, letterTexturePos, Vec2::one, letterTextureSize, Vec4::one);
-            DrawTexturedRect(gameState->texturedRectGL, screenInfo, letterTexturePos, Vec2::one,
-                             letterTextureSize, false, false,
-                             alphabet.letterTextures[selectedLetter].textureID);
-        }
-        
-        Panel panelInput;
-        static bool panelInputMinimized = true;
-        panelInput.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS,
-                         Vec2Int { screenInfo.size.x - DEBUG_MARGIN_SCREEN.x, DEBUG_MARGIN_SCREEN.y },
-                         Vec2 { 1.0f, 0.0f });
-        panelInput.TitleBar(ToString("The Typewriter"), &panelInputMinimized, Vec4::zero, &fontMedium);
-        // static bool inputStringFocused = false; TODO eventually use this and handle set/reset in InputText
-        bool inputStringFocused = !panelInputMinimized;
-        static InputString inputString = {};
-        panelInput.InputText(&inputString, &inputStringFocused);
-        
-        if (!panelInputMinimized) {
-            const int SPACE_WIDTH = 80;
-            const int NEWLINE_HEIGHT = 200;
-            
-            Vec2Int cursorPosStart = Vec2Int { DEBUG_MARGIN_SCREEN.x, screenInfo.size.y - NEWLINE_HEIGHT };
-            Vec2Int cursorPos = cursorPosStart;
-            DrawRect(gameState->rectGL, screenInfo, Vec2Int::zero, Vec2::zero, screenInfo.size, Vec4::one);
-            for (uint64 i = 0; i < inputString.size; i++) {
-                char c = inputString[i];
-                if (c == ' ') {
-                    cursorPos.x += SPACE_WIDTH;
-                    continue;
-                }
-                if (c == '\n' || c == '\r') {
-                    cursorPos.x = cursorPosStart.x;
-                    cursorPos.y -= NEWLINE_HEIGHT;
-                    uint64 next = i + 1;
-                    if (next < inputString.size && (inputString[next] == '\n' || inputString[next] == '\r')) {
-                        i++;
-                    }
-                    continue;
-                }
-                uint64 letterInd = alphabet.letters.size;
-                for (uint64 j = 0; j < alphabet.letters.size; j++) {
-                    if (alphabet.letters[j].ascii == c) {
-                        letterInd = j;
-                        break;
-                    }
-                }
-                if (letterInd != alphabet.letters.size) {
-                    const Letter& letter = alphabet.letters[letterInd];
-                    Vec2Int letterSize = { letter.maxX - letter.minX, letter.maxY - letter.minY };
-                    DrawTexturedRect(gameState->texturedRectGL, screenInfo, cursorPos, Vec2::zero, letterSize,
-                                     false, false, alphabet.letterTextures[letterInd].textureID);
-                    cursorPos.x += letterSize.x;
-                }
-            }
-        }
-        
-        panelInput.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
-                        DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAlloc);
+    if (alphabetAtlas) {
+        AlphabetAtlasUpdateAndRender(&gameState->alphabet, input, memory->transient,
+                                     gameState->rectGL, gameState->texturedRectGL, gameState->textGL,
+                                     screenInfo, gameState->fontFaceSmall, gameState->fontFaceMedium);
     }
     else if (gameState->kmKey) {
         LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
@@ -1611,7 +1396,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         panelKmKey.Checkbox(&editCollision, ToString("Ground Editor"));
         
         if (panelKmKey.Button(ToString("Alphabet Atlas"))) {
-            editAlphabet = !editAlphabet;
+            alphabetAtlas = !alphabetAtlas;
         }
         
         panelKmKey.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
