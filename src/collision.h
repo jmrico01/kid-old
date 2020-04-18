@@ -16,14 +16,14 @@ struct FloorSampleVertex
 struct FloorCollider
 {
 	FixedArray<Vec2, FLOOR_COLLIDER_MAX_VERTICES> line;
-
+    
 	// Precomputed fields
 	float32 length;
 	FixedArray<FloorSampleVertex, FLOOR_PRECOMPUTED_POINTS_MAX> sampleVertices;
-
+    
 	void GetInfoFromCoordX(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const;
 	Vec2 GetWorldPosFromCoords(Vec2 coords) const;
-
+    
     Vec2 GetCoordsFromWorldPos(Vec2 worldPos) const;
 	void GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec2* outNormal) const;
 	void PrecomputeSampleVerticesFromLine();
@@ -43,8 +43,8 @@ struct LineColliderIntersect
 
 template <uint64 S>
 void GetLineColliderIntersections(const Array<LineCollider>& lineColliders, Vec2 pos, Vec2 deltaPos,
-	float32 movementMargin, FixedArray<LineColliderIntersect, S>* outIntersects);
+                                  float32 movementMargin, FixedArray<LineColliderIntersect, S>* outIntersects);
 
-bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
-	const FloorCollider& floorCollider, float32 coordX,
-	float32* outHeight);
+bool GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
+                                          const FloorCollider& floorCollider, float32 coordX,
+                                          float32* outHeight);

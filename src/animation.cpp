@@ -27,12 +27,12 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nex
 {
     const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
     Vec2 rootMotion = Vec2::zero;
-
+    
     activeFrameTime += deltaTime;
     if (activeFrameTime > activeAnim->frameTime[activeFrame]) {
         activeFrameTime = 0.0f;
-
-        bool32 animTransition = false;
+        
+        bool animTransition = false;
         for (uint64 i = 0; i < nextAnimations.size; i++) {
             if (KeyCompare(activeAnimation, nextAnimations[i])) {
                 break;
@@ -44,39 +44,39 @@ Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nex
                 animTransition = true;
                 activeAnimation = nextAnimations[i];
                 activeFrame = *exitToFrame;
-
+                
                 activeAnim = animatedSprite->animations.GetValue(activeAnimation);
                 // TODO transitions between rootfollow-enabled animations don't work for now
                 //rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
             }
         }
-
+        
         if (!animTransition) {
             int activeFrameNext = activeFrame + 1;
             if (activeFrameNext >= activeAnim->numFrames) {
                 activeFrameNext = activeAnim->loop ? 0 : activeFrame;
             }
-
+            
             if (activeAnim->rootFollow) {
                 rootMotion += activeAnim->frameRootMotion[activeFrameNext]
                     - activeAnim->frameRootMotion[activeFrame];
-
+                
                 if (!activeAnim->loop && activeAnim->rootFollowEndLoop
-                && activeFrame == activeAnim->numFrames - 1) {
+                    && activeFrame == activeAnim->numFrames - 1) {
                     rootMotion += activeAnim->frameRootMotion[activeFrame]
                         - activeAnim->frameRootMotion[activeFrame - 1];
                 }
             }
-
+            
             activeFrame = activeFrameNext;
         }
     }
-
+    
     return rootMotion;
 }
 
 void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
-    Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool32 flipHorizontal) const
+                                  Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal) const
 {
     const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
     Vec2 animAnchor = anchor;
@@ -88,10 +88,10 @@ void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
 }
 
 bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
-    const MemoryBlock& transient)
+                          const MemoryBlock& transient)
 {
     LinearAllocator allocator(transient.size, transient.memory);
-
+    
     FixedArray<char, PATH_MAX_LENGTH> filePath;
     filePath.Clear();
     filePath.Append(ToString("data/animations/"));
@@ -104,9 +104,9 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
         return false;
     }
-
+    
     textureSize = psdFile.size;
-
+    
     filePath.Clear();
     filePath.Append(ToString("data/animations/"));
     filePath.Append(name);
@@ -118,7 +118,7 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         LOG_ERROR("Failed to open animation file at: %.*s\n", filePath.size, filePath.data);
         return false;
     }
-
+    
     Array<char> fileString;
     fileString.size = animFile.size;
     fileString.data = (char*)animFile.data;
@@ -137,19 +137,19 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         }
         fileString.size -= read;
         fileString.data += read;
-
+        
         // TODO catch error in keyword order (e.g. anim should always be first)
         if (StringEquals(keyword.ToArray(), ToString("anim"))) {
             currentAnimKey.WriteString(value.ToArray());
             animations.Add(currentAnimKey, {});
             currentAnim = animations.GetValue(currentAnimKey);
-
+            
             currentAnim->numFrames = 0;
             currentAnim->loop = false;
             currentAnim->rootMotion = false;
             currentAnim->rootFollow = false;
             currentAnim->rootFollowEndLoop = false;
-
+            
             uint64 frame = 0;
             float64 lastFrameStart = -1.0f;
             while (true) {
@@ -175,12 +175,12 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                 if (nextLayerIndex == psdFile.layers.size) {
                     break;
                 }
-
+                
                 const PsdLayerInfo& frameLayer = psdFile.layers[nextLayerIndex];
                 TextureGL frameTextureGL;
                 if (!psdFile.LoadLayerAtPsdSizeTextureGL(nextLayerIndex, LayerChannelID::ALL,
-                GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator,
-                &frameTextureGL)) {
+                                                         GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator,
+                                                         &frameTextureGL)) {
                     LOG_ERROR("Failed to load animation texture GL for %s\n", name);
                     return false;
                 }
@@ -189,11 +189,11 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                 currentAnim->frameRootAnchor[frame] = Vec2::zero;
                 currentAnim->frameRootMotion[frame] = Vec2::zero;
                 currentAnim->numFrames++;
-
+                
                 frame++;
                 lastFrameStart = earliestFrameStart;
             }
-
+            
             if (currentAnim->numFrames == 0) {
                 LOG_ERROR("Animation with no frames (%.*s)\n", filePath.size, filePath.data);
                 return false;
@@ -222,7 +222,7 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                 LOG_ERROR("Animation file missing exit information (%.*s)\n", filePath.size, filePath.data);
                 return false;
             }
-
+            
             Array<char> element = value.ToArray();
             Array<char> next;
             ReadElementInSplitString(&element, &next, ' ');
@@ -234,24 +234,24 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
             else {
                 if (!StringToIntBase10(element, &exitFromFrame)) {
                     LOG_ERROR("Animation file invalid exit-from frame (%.*s)\n",
-                        filePath.size, filePath.data);
+                              filePath.size, filePath.data);
                     return false;
                 }
             }
-
+            
             if (next.size == 0) {
                 LOG_ERROR("Animation file missing exit-to animation (%.*s)\n",
-                    filePath.size, filePath.data);
+                          filePath.size, filePath.data);
                 return false;
             }
             element = next;
             ReadElementInSplitString(&element, &next, ' ');
             HashKey exitToAnim;
             exitToAnim.WriteString(element);
-
+            
             if (next.size == 0) {
                 LOG_ERROR("Animation file missing exit-to frame (%.*s)\n",
-                    filePath.size, filePath.data);
+                          filePath.size, filePath.data);
                 return false;
             }
             element = next;
@@ -260,11 +260,11 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
             {
                 if (!StringToIntBase10(element, &exitToFrame)) {
                     LOG_ERROR("Animation file invalid exit-to frame (%.*s)\n",
-                        filePath.size, filePath.data);
+                              filePath.size, filePath.data);
                     return false;
                 }
             }
-
+            
             if (exitFromFrame == -1) {
                 for (int i = 0; i < currentAnim->numFrames; i++) {
                     currentAnim->frameExitTo[i].Add(exitToAnim, exitToFrame);
@@ -282,32 +282,32 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         }
         else if (StringEquals(keyword.ToArray(), ToString("rootmotion"))) {
             currentAnim->rootMotion = true;
-
+            
             Vec2 rootPosWorld0 = Vec2::zero;
             Array<char> element = value.ToArray();
             for (int i = 0; i < currentAnim->numFrames; i++) {
                 // Read root motion coordinate pair
                 Array<char> next;
                 ReadElementInSplitString(&element, &next, '\n');
-
+                
                 Array<char> trimmed;
                 TrimWhitespace(element, &trimmed);
-
+                
                 // Parse root motion coordinate pair
                 Vec2Int rootPos;
                 int parsedElements;
                 if (!StringToElementArray(trimmed, ' ', false,
-                    StringToIntBase10, 2, rootPos.e, &parsedElements)) {
+                                          StringToIntBase10, 2, rootPos.e, &parsedElements)) {
                     LOG_ERROR("Failed to parse root motion coordinates %.*s (%.*s)\n",
-                        trimmed.size, trimmed.data, filePath.size, filePath.data);
+                              trimmed.size, trimmed.data, filePath.size, filePath.data);
                     return false;
                 }
                 if (parsedElements != 2) {
                     LOG_ERROR("Not enough coordinates in root motion %.*s (%.*s)\n",
-                        trimmed.size, trimmed.data, filePath.size, filePath.data);
+                              trimmed.size, trimmed.data, filePath.size, filePath.data);
                     return false;
                 }
-
+                
                 rootPos.y = textureSize.y - rootPos.y;
                 Vec2 rootPosWorld = {
                     (float32)rootPos.x / pixelsPerUnit,
@@ -317,12 +317,12 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                     (float32)rootPos.x / textureSize.x,
                     (float32)rootPos.y / textureSize.y
                 };
-
+                
                 if (i == 0) {
                     rootPosWorld0 = rootPosWorld;
                 }
                 currentAnim->frameRootMotion[i] = rootPosWorld - rootPosWorld0;
-
+                
                 if (next.size == 0) {
                     break;
                 }
@@ -339,18 +339,18 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         }
         else {
             LOG_ERROR("Animation file with unknown keyword: %.*s (%.*s)\n",
-                keyword.size, keyword.data, filePath.size, filePath.data);
+                      keyword.size, keyword.data, filePath.size, filePath.data);
             return false;
         }
     }
-
+    
     // TODO maybe provide a friendlier way of iterating through HashTable
     for (uint32 k = 0; k < animations.capacity; k++) {
         const HashKey* animKey = &animations.pairs[k].key;
         if (animKey->string.size == 0) {
             continue;
         }
-
+        
         const Animation* anim = &animations.pairs[k].value;
         for (int f = 0; f < anim->numFrames; f++) {
             const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
@@ -359,25 +359,25 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                 if (toAnimKey->string.size == 0) {
                     continue;
                 }
-
+                
                 const int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
                 if (exitToFrame != nullptr && *exitToFrame >= 0) {
                     const Animation* toAnim = animations.GetValue(*toAnimKey);
                     if (toAnim == nullptr) {
                         LOG_ERROR("Animation file non-existent exit-to animation %.*s (%.*s)\n",
-                            toAnimKey->string.size, toAnimKey->string.data, filePath.size, filePath.data);
+                                  toAnimKey->string.size, toAnimKey->string.data, filePath.size, filePath.data);
                         return false;
                     }
                     if (*exitToFrame >= toAnim->numFrames) {
                         LOG_ERROR("Animation file exit-to frame out of bounds %d (%.*s)\n",
-                            *exitToFrame, filePath.size, filePath.data);
+                                  *exitToFrame, filePath.size, filePath.data);
                         return false;
                     }
                 }
             }
         }
     }
-
+    
     return true;
 }
 
@@ -387,7 +387,7 @@ void AnimatedSprite::Unload()
         if (animations.pairs[k].key.string.size == 0) {
             continue;
         }
-
+        
         const Animation& animation = animations.pairs[k].value;
         for (int i = 0; i < animation.numFrames; i++) {
             UnloadTexture(animation.frameTextures[i]);

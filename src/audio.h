@@ -6,31 +6,31 @@
 
 struct Sound
 {
-	bool32 play;
-	bool32 playing;
+	bool play;
+    bool playing;
 	uint64 sampleIndex;
-
+    
 	AudioBuffer buffer;
 };
 
 struct AudioState
 {
 	Sound soundJump;
-
-	bool32 globalMute;
-
+    
+	bool globalMute;
+    
 #if GAME_INTERNAL
-	bool32 debugView;
+	bool debugView;
 #endif
 };
 
 struct GameState;
 template <typename Allocator>
-bool32 InitAudioState(Allocator* allocator, AudioState* audioState, GameAudio* audio);
+bool InitAudioState(Allocator* allocator, AudioState* audioState, GameAudio* audio);
 void OutputAudio(GameAudio* audio, GameState* gameState, const GameInput& input,
-	MemoryBlock transient);
+                 MemoryBlock transient);
 
 #if GAME_INTERNAL
 void DrawDebugAudioInfo(const GameAudio* audio, GameState* gameState,
-	const GameInput& input, ScreenInfo screenInfo, MemoryBlock transient, Vec4 debugFontColor);
+                        const GameInput& input, ScreenInfo screenInfo, MemoryBlock transient, Vec4 debugFontColor);
 #endif

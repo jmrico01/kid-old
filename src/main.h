@@ -66,7 +66,7 @@ struct GameState
     Vec2 playerVel;
     PlayerState playerState;
     const LineCollider* currentPlatform;
-    bool32 facingRight;
+    bool facingRight;
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
@@ -80,8 +80,8 @@ struct GameState
     float32 grainTime;
     
 #if GAME_INTERNAL
-    bool32 kmKey;
-    bool32 debugView;
+    bool kmKey;
+    bool debugView;
     float32 editorScaleExponent;
     
     // Editor

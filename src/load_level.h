@@ -30,7 +30,7 @@ struct TextureWithPosition
 	float32 restAngle;
 	TextureGL texture;
 	SpriteType type;
-	bool32 flipped;
+    bool flipped;
 };
 
 struct LevelTransition
@@ -45,18 +45,18 @@ struct LevelData
 {
 	FloorCollider floor;
 	FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
-
+    
 	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
-
+    
 	FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
-
-	bool32 lockedCamera;
+    
+	bool lockedCamera;
 	Vec2 cameraCoords;
-	bool32 bounded;
+	bool bounded;
 	Vec2 bounds;
-
-	bool32 loaded;
-
-	bool32 Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient);
+    
+	bool loaded;
+    
+	bool Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient);
 	void Unload();
 };

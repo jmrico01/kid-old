@@ -17,8 +17,8 @@ struct AudioBuffer
 };
 
 template <typename Allocator>
-bool32 LoadWAV(Allocator* allocator, const char* filePath, const GameAudio* gameAudio,
-	AudioBuffer* outAudioBuffer);
+bool LoadWAV(Allocator* allocator, const char* filePath, const GameAudio* gameAudio,
+             AudioBuffer* outAudioBuffer);
 
 float32 LinearSample(const GameAudio* gameAudio, const float32* buffer, int bufferLengthSamples,
-	int channel, float32 t);
+                     int channel, float32 t);

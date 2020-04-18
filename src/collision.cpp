@@ -41,7 +41,7 @@ Vec2 FloorCollider::GetWorldPosFromCoords(Vec2 coords) const
 Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
 {
     DEBUG_ASSERT(sampleVertices.size > 0);
-
+    
     uint64 ind = 0;
     float32 minDistSq = MagSq(worldPos - sampleVertices[0].pos);
     for (uint64 i = 1; i < sampleVertices.size; i++) {
@@ -51,7 +51,7 @@ Vec2 FloorCollider::GetCoordsFromWorldPos(Vec2 worldPos) const
             minDistSq = distSq;
         }
     }
-
+    
     Vec2 coords = {
         ind * FLOOR_PRECOMPUTED_STEP_LENGTH,
         Dot(worldPos - sampleVertices[ind].pos, sampleVertices[ind].normal)
@@ -65,7 +65,7 @@ void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec
     
     *outFloorPos = Vec2::zero;
     *outNormal = Vec2::unitY;
-
+    
     float32 t = 0.0f;
     uint64 i = 1;
     while (true) {
@@ -108,13 +108,13 @@ void FloorCollider::GetInfoFromCoordXSlow(float32 coordX, Vec2* outFloorPos, Vec
             Vec2 tangentPrev = Normalize(line[iPrev] - line[iPrevPrev]);
             Vec2 tangentNext = Normalize(line[iNext] - line[iWrap]);
             Vec2 bezierMid = (line[iPrev] + tangentPrev * edgeLength / 2.0f
-                + line[iWrap] - tangentNext * edgeLength / 2.0f) / 2.0f;
+                              + line[iWrap] - tangentNext * edgeLength / 2.0f) / 2.0f;
             *outFloorPos = GetQuadraticBezierPoint(line[iPrev], bezierMid, line[iWrap],
-                tEdge);
+                                                   tEdge);
             *outNormal = Normalize(sumNormals);
             return;
         }
-
+        
         t += edgeLength;
         i++;
     }
@@ -128,7 +128,7 @@ void FloorCollider::PrecomputeSampleVerticesFromLine()
 	}
     lineLength += Mag(line[0] - line[line.size - 1]);
 	length = lineLength;
-
+    
 	uint64 precomputedPoints = (uint64)(lineLength / FLOOR_PRECOMPUTED_STEP_LENGTH) + 1;
 	DEBUG_ASSERT(precomputedPoints <= FLOOR_PRECOMPUTED_POINTS_MAX);
 	sampleVertices.size = precomputedPoints;
@@ -145,15 +145,13 @@ internal float32 Cross2D(Vec2 v1, Vec2 v2)
 
 // Generalization of this solution to line segment intersection:
 // https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-bool32 RayIntersectionCoefficients(
-    Vec2 line1Start, Vec2 line1Dir,
-    Vec2 line2Start, Vec2 line2Dir,
-    float32* t1, float32* t2)
+bool RayIntersectionCoefficients(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2Dir,
+                                 float32* t1, float32* t2)
 {
     Vec2 startDiff = line2Start - line1Start;
     float32 crossDirs12 = Cross2D(line1Dir, line2Dir);
     float32 crossDiffDir1 = Cross2D(startDiff, line1Dir);
-
+    
     if (crossDirs12 == 0.0f && crossDiffDir1 == 0.0f) {
         // collinear
         float32 magDir1 = MagSq(line1Dir);
@@ -173,14 +171,10 @@ bool32 RayIntersectionCoefficients(
     }
 }
 
-bool32 LineSegmentIntersection(
-    Vec2 line1Start, Vec2 line1Dir,
-    Vec2 line2Start, Vec2 line2Dir,
-    Vec2* outIntersect)
+bool LineSegmentIntersection(Vec2 line1Start, Vec2 line1Dir, Vec2 line2Start, Vec2 line2Dir, Vec2* outIntersect)
 {
     float32 t1, t2;
-    bool32 rayIntersect = RayIntersectionCoefficients(line1Start, line1Dir, line2Start, line2Dir,
-        &t1, &t2);
+    bool rayIntersect = RayIntersectionCoefficients(line1Start, line1Dir, line2Start, line2Dir, &t1, &t2);
     if (!rayIntersect) {
         return false;
     }
@@ -195,7 +189,7 @@ bool32 LineSegmentIntersection(
 
 template <uint64 S>
 void GetLineColliderIntersections(const Array<LineCollider>& lineColliders, Vec2 pos, Vec2 deltaPos,
-    float32 movementMargin, FixedArray<LineColliderIntersect, S>* outIntersects)
+                                  float32 movementMargin, FixedArray<LineColliderIntersect, S>* outIntersects)
 {
 	outIntersects->size = 0;
 	float32 deltaPosMag = Mag(deltaPos);
@@ -204,7 +198,7 @@ void GetLineColliderIntersections(const Array<LineCollider>& lineColliders, Vec2
 	}
 	Vec2 dir = deltaPos / deltaPosMag;
 	Vec2 playerDelta = deltaPos + dir * movementMargin;
-
+    
 	for (uint64 c = 0; c < lineColliders.size; c++) {
 		DEBUG_ASSERT(lineColliders[c].line.size >= 2);
 		Vec2 vertPrev = lineColliders[c].line[0];
@@ -227,27 +221,25 @@ void GetLineColliderIntersections(const Array<LineCollider>& lineColliders, Vec2
 	}
 }
 
-bool32 GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider,
-    const FloorCollider& floorCollider, float32 coordX,
-    float32* outHeight)
+bool GetLineColliderCoordYFromFloorCoordX(const LineCollider& lineCollider, const FloorCollider& floorCollider,
+                                          float32 coordX, float32* outHeight)
 {
     Vec2 floorPos, floorNormal;
     floorCollider.GetInfoFromCoordX(coordX, &floorPos, &floorNormal);
-
+    
     DEBUG_ASSERT(lineCollider.line.size >= 2);
     Vec2 vertPrev = lineCollider.line[0];
     for (uint64 v = 1; v < lineCollider.line.size; v++) {
         Vec2 vert = lineCollider.line[v];
         float32 t1, t2;
-        bool32 rayIntersect = RayIntersectionCoefficients(
-            floorPos, floorNormal, vertPrev, vert - vertPrev,
-            &t1, &t2);
+        bool rayIntersect = RayIntersectionCoefficients(floorPos, floorNormal, vertPrev, vert - vertPrev,
+                                                        &t1, &t2);
         if (rayIntersect && t1 >= 0.0f && 0.0f <= t2 && t2 <= 1.0f) {
             *outHeight = t1;
             return true;
         }
         vertPrev = vert;
     }
-
+    
     return false;
 }

@@ -32,139 +32,139 @@ ParticleSystemGL InitParticleSystemGL(Allocator* allocator)
 		0.0f, 1.0f,
 		1.0f, 1.0f
 	};
-
+    
 	glGenVertexArrays(1, &psGL.vertexArray);
 	glBindVertexArray(psGL.vertexArray);
-
+    
 	glGenBuffers(1, &psGL.vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.vertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices,
-		GL_STATIC_DRAW);
+                 GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(
-		0, // match shader layout location
-		3, // size (vec3)
-		GL_FLOAT, // type
-		GL_FALSE, // normalized?
-		0, // stride
-		(void*)0 // array buffer offset
-	);
+                          0, // match shader layout location
+                          3, // size (vec3)
+                          GL_FLOAT, // type
+                          GL_FALSE, // normalized?
+                          0, // stride
+                          (void*)0 // array buffer offset
+                          );
 	glVertexAttribDivisor(0, 0);
-
+    
 	glGenBuffers(1, &psGL.uvBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.uvBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(
-		1, // match shader layout location
-		2, // size (vec2)
-		GL_FLOAT, // type
-		GL_FALSE, // normalized?
-		0, // stride
-		(void*)0 // array buffer offset
-	);
+                          1, // match shader layout location
+                          2, // size (vec2)
+                          GL_FLOAT, // type
+                          GL_FALSE, // normalized?
+                          0, // stride
+                          (void*)0 // array buffer offset
+                          );
 	glVertexAttribDivisor(1, 0);
-
+    
 	glGenBuffers(1, &psGL.posBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.posBuffer);
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec3), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(
-		2, // match shader layout location
-		3, // size (vec3)
-		GL_FLOAT, // type
-		GL_FALSE, // normalized?
-		0, // stride
-		(void*)0 // array buffer offset
-	);
+                          2, // match shader layout location
+                          3, // size (vec3)
+                          GL_FLOAT, // type
+                          GL_FALSE, // normalized?
+                          0, // stride
+                          (void*)0 // array buffer offset
+                          );
 	glVertexAttribDivisor(2, 1);
-
+    
 	glGenBuffers(1, &psGL.colorBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec4), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(
-		3, // match shader layout location
-		4, // size (vec4)
-		GL_FLOAT, // type
-		GL_FALSE, // normalized?
-		0, // stride
-		(void*)0 // array buffer offset
-	);
+                          3, // match shader layout location
+                          4, // size (vec4)
+                          GL_FLOAT, // type
+                          GL_FALSE, // normalized?
+                          0, // stride
+                          (void*)0 // array buffer offset
+                          );
 	glVertexAttribDivisor(3, 1);
-
+    
 	glGenBuffers(1, &psGL.sizeBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.sizeBuffer);
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec2), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glEnableVertexAttribArray(4);
 	glVertexAttribPointer(
-		4, // match shader layout location
-		2, // size (vec2)
-		GL_FLOAT, // type
-		GL_FALSE, // normalized?
-		0, // stride
-		(void*)0 // array buffer offset
-	);
+                          4, // match shader layout location
+                          2, // size (vec2)
+                          GL_FLOAT, // type
+                          GL_FALSE, // normalized?
+                          0, // stride
+                          (void*)0 // array buffer offset
+                          );
 	glVertexAttribDivisor(4, 1);
-
+    
 	glBindVertexArray(0);
-
+    
 	psGL.programID = LoadShaders(allocator, "shaders/particle.vert", "shaders/particle.frag");
 	
 	return psGL;
 }
 
 void CreateParticleSystem(ParticleSystem* ps, int maxParticles,
-	int particlesPerSec, float32 maxLife, Vec3 gravity,
-	float32 linearDamp, float32 quadraticDamp,
-	Attractor* attractors, int numAttractors,
-	PlaneCollider* planeColliders, int numPlaneColliders,
-	AxisBoxCollider* boxColliders, int numBoxColliders,
-	SphereCollider* sphereColliders, int numSphereColliders,
-	InitParticleFunction initParticleFunc, GLuint texture)
+                          int particlesPerSec, float32 maxLife, Vec3 gravity,
+                          float32 linearDamp, float32 quadraticDamp,
+                          Attractor* attractors, int numAttractors,
+                          PlaneCollider* planeColliders, int numPlaneColliders,
+                          AxisBoxCollider* boxColliders, int numBoxColliders,
+                          SphereCollider* sphereColliders, int numSphereColliders,
+                          InitParticleFunction initParticleFunc, GLuint texture)
 {
 	DEBUG_ASSERT(0 <= maxParticles && maxParticles <= MAX_PARTICLES);
-
+    
 	ps->spawnCounter = 0.0f;
 	ps->active = 0;
-
+    
 	ps->maxParticles = maxParticles;
 	ps->particlesPerSec = particlesPerSec;
 	ps->maxLife = maxLife;
 	ps->gravity = gravity;
 	ps->linearDamp = linearDamp;
 	ps->quadraticDamp = quadraticDamp;
-
+    
 	DEBUG_ASSERT(0 <= numAttractors && numAttractors < MAX_ATTRACTORS);
 	for (int i = 0; i < numAttractors; i++) {
 		ps->attractors[i] = attractors[i];
 	}
 	ps->numAttractors = numAttractors;
-
+    
 	DEBUG_ASSERT(0 <= numPlaneColliders
-		&& numPlaneColliders < MAX_COLLIDERS);
+                 && numPlaneColliders < MAX_COLLIDERS);
 	for (int i = 0; i < numPlaneColliders; i++) {
 		ps->planeColliders[i] = planeColliders[i];
 	}
 	ps->numPlaneColliders = numPlaneColliders;
 	DEBUG_ASSERT(0 <= numBoxColliders
-		&& numBoxColliders < MAX_COLLIDERS);
+                 && numBoxColliders < MAX_COLLIDERS);
 	for (int i = 0; i < numBoxColliders; i++) {
 		ps->boxColliders[i] = boxColliders[i];
 	}
 	ps->numBoxColliders = numBoxColliders;
 	DEBUG_ASSERT(0 <= numSphereColliders
-		&& numSphereColliders < MAX_COLLIDERS);
+                 && numSphereColliders < MAX_COLLIDERS);
 	for (int i = 0; i < numSphereColliders; i++) {
 		ps->sphereColliders[i] = sphereColliders[i];
 	}
 	ps->numSphereColliders = numSphereColliders;
-
+    
 	ps->initParticleFunc = initParticleFunc;
-
+    
 	ps->texture = texture;
 }
 
@@ -184,7 +184,7 @@ void ParticleBurst(ParticleSystem* ps, int numParticles, void* data)
 
 #if 0
 internal void HandleBounceCollision(Particle* p,
-	Vec3 intersect, Vec3 normal, float32 deltaTime, float32 offset)
+                                    Vec3 intersect, Vec3 normal, float32 deltaTime, float32 offset)
 {
 	Vec3 velNormal = Dot(normal, p->vel) * normal;
 	Vec3 velTangent = p->vel - velNormal;
@@ -194,9 +194,9 @@ internal void HandleBounceCollision(Particle* p,
 }
 #endif
 
-internal inline bool32 IsInsideBox(Vec3 p, Vec3 boxMin, Vec3 boxMax)
+internal bool IsInsideBox(Vec3 p, Vec3 boxMin, Vec3 boxMax)
 {
-	return boxMin.x <= p.x && p.x <= boxMax.x 
+	return boxMin.x <= p.x && p.x <= boxMax.x
 		&& boxMin.y <= p.y && p.y <= boxMax.y
 		&& boxMin.z <= p.z && p.z <= boxMax.z;
 }
@@ -206,7 +206,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 	// Update all particle non-position data
 	for (int i = 0; i < ps->active; i++) {
 		ps->particles[i].life += deltaTime;
-
+        
 		// Damping
 		float32 magVel = Mag(ps->particles[i].vel);
 		Vec3 damp = (ps->linearDamp + ps->quadraticDamp * magVel)
@@ -226,7 +226,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 		// Velocity update
 		ps->particles[i].vel += (ps->gravity + attract - damp)
 			* deltaTime;
-
+        
 		// Color update
 		float32 alpha = 1.0f - ps->particles[i].life / ps->maxLife;
 		alpha = alpha * alpha;
@@ -242,13 +242,13 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 			Vec3 dir = ps->particles[i].vel * deltaTime;
 			Vec3 normal = ps->planeColliders[c].normal;
 			Vec3 point = ps->planeColliders[c].point;
-
+            
 			float32 denom = Dot(normal, dir);
 			if (fabs(denom) < PARTICLE_EPS) {
 				// Motion parallel to the plane
 				continue;
 			}
-
+            
 			float32 t = Dot(point - pos, normal) / denom;
 			if (-PARTICLE_EPS <= t && t < 1.0f) {
 				switch (ps->planeColliders[c].type) {
@@ -258,7 +258,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 					case COLLIDER_BOUNCE: {
 						Vec3 intersect = pos + t * dir;
 						HandleBounceCollision(&ps->particles[i],
-							intersect, normal, deltaTime, BOUNCE_MARGIN);
+                                              intersect, normal, deltaTime, BOUNCE_MARGIN);
 					} break;
 				}
 			}
@@ -278,7 +278,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 					/ dir.e[e];
 				Vec3 v1 = pos + tInt1 * dir;
 				if (IsInsideBox(v1, boxMin, boxMax)
-				&& PARTICLE_EPS < tInt1 && tInt1 < tIntMin) {
+                    && PARTICLE_EPS < tInt1 && tInt1 < tIntMin) {
 					tIntMin = tInt1;
 					Vec3 n = Vec3::zero;
 					n.e[e] = -1.0f;
@@ -289,7 +289,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 					/ dir.e[e];
 				Vec3 v2 = pos + tInt2 * dir;
 				if (IsInsideBox(v2, boxMin, boxMax)
-				&& PARTICLE_EPS < tInt2 && tInt2 < tIntMin) {
+                    && PARTICLE_EPS < tInt2 && tInt2 < tIntMin) {
 					tIntMin = tInt2;
 					Vec3 n = Vec3::zero;
 					n.e[e] = 1.0f;
@@ -306,7 +306,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 						Vec3 intersect = pos + dir * tIntMin;
 						normal *= 1.1f;
 						HandleBounceCollision(&ps->particles[i],
-							intersect, normal, deltaTime, BOUNCE_MARGIN);
+                                              intersect, normal, deltaTime, BOUNCE_MARGIN);
 					} break;
 				}
 			}
@@ -318,7 +318,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 			Vec3 dir = ps->particles[i].vel * deltaTime;
 			Vec3 center = ps->sphereColliders[c].center;
 			float32 radius = ps->sphereColliders[c].radius;
-
+            
 			Vec3 toSphere = center - pos;
 			float32 tClosest = Dot(toSphere, dir);
 			Vec3 closest = pos + dir * tClosest;
@@ -326,7 +326,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 			if (dist > radius) {
 				continue;
 			}
-
+            
 			switch (ps->sphereColliders[c].type) {
 				case COLLIDER_SINK: {
 					ps->particles[i].life = ps->maxLife + PARTICLE_EPS;
@@ -343,16 +343,16 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 					Vec3 intersect = pos + dir * tInt;
 					Vec3 normal = Normalize(intersect - center);
 					HandleBounceCollision(&ps->particles[i],
-						intersect, normal, deltaTime, BOUNCE_MARGIN);
+                                          intersect, normal, deltaTime, BOUNCE_MARGIN);
 				} break;
 			}
 		}
 #endif
-
+        
 		// Position update
 		ps->particles[i].pos += ps->particles[i].vel * deltaTime;
 	}
-
+    
 	// Remove expired particles
 	int p = 0;
 	int active = ps->active;
@@ -365,7 +365,7 @@ void UpdateParticleSystem(ParticleSystem* ps, float32 deltaTime, void* data)
 		p++;
 	}
 	ps->active = active;
-
+    
 	// Spawn new particles
 	ps->spawnCounter += (float32)ps->particlesPerSec * deltaTime;
 	int spawn = (int)ps->spawnCounter;
@@ -403,35 +403,35 @@ internal int DepthComparator(const void* p, const void* q)
 }
 
 void DrawParticleSystem(ParticleSystemGL psGL,
-	ParticleSystem* ps,
-	Vec3 camRight, Vec3 camUp, Vec3 camPos, Mat4 proj, Mat4 view,
-	MemoryBlock transient)
+                        ParticleSystem* ps,
+                        Vec3 camRight, Vec3 camUp, Vec3 camPos, Mat4 proj, Mat4 view,
+                        MemoryBlock transient)
 {
 	DEBUG_ASSERT(transient.size >= sizeof(ParticleSystemDataGL));
 	ParticleSystemDataGL* dataGL = (ParticleSystemDataGL*)transient.memory;
 	Mat4 vp = proj * view;
-
+    
 	int active = (int)ps->active;
 	for (int i = 0; i < active; i++) {
 		Vec4 transformed = vp * ToVec4(ps->particles[i].pos, 1.0f);
 		ps->particles[i].depth = transformed.z;
 	}
 	qsort((void*)ps->particles, active, sizeof(Particle),
-		DepthComparator);
+          DepthComparator);
 	for (int i = 0; i < active; i++) {
 		dataGL->pos[i] = ps->particles[i].pos;
 		dataGL->color[i] = ps->particles[i].color;
 		dataGL->size[i] = ps->particles[i].size;
 	}
-
+    
 	GLint loc;
 	glUseProgram(psGL.programID);
-
+    
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, ps->texture);
 	loc = glGetUniformLocation(psGL.programID, "textureSampler");
 	glUniform1i(loc, 0);
-
+    
 	Vec2 size = { 0.1f, 0.1f };
 	loc = glGetUniformLocation(psGL.programID, "size");
 	glUniform2fv(loc, 1, &size.e[0]);
@@ -441,25 +441,25 @@ void DrawParticleSystem(ParticleSystemGL psGL,
 	glUniform3fv(loc, 1, &camUp.e[0]);
 	loc = glGetUniformLocation(psGL.programID, "vp");
 	glUniformMatrix4fv(loc, 1, GL_FALSE, &vp.e[0][0]);
-
+    
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.posBuffer);
 	// Buffer orphaning, a common way to improve streaming perf.
 	// See http://www.opengl.org/wiki/Buffer_Object_Streaming
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec3), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, active * sizeof(Vec3),
-		dataGL->pos);
+                    dataGL->pos);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec4), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, active * sizeof(Vec4),
-		dataGL->color);
+                    dataGL->color);
 	glBindBuffer(GL_ARRAY_BUFFER, psGL.sizeBuffer);
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Vec2), NULL,
-		GL_STREAM_DRAW);
+                 GL_STREAM_DRAW);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, active * sizeof(Vec2),
-		dataGL->size);
-
+                    dataGL->size);
+    
 	glBindVertexArray(psGL.vertexArray);
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, active);
 	glBindVertexArray(0);

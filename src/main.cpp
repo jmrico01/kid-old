@@ -170,8 +170,8 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool32 SetActiveLevel(GameState* gameState, const Array<char> levelName, Vec2 startCoords,
-                               MemoryBlock* transient)
+internal bool SetActiveLevel(GameState* gameState, const Array<char> levelName, Vec2 startCoords,
+                             MemoryBlock* transient)
 {
 	uint64 levelId = LevelNameToId(levelName);
 	LevelData* levelData = &gameState->levels[levelId];
@@ -242,9 +242,9 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput& input,
                           MemoryBlock transient)
 {
-	bool32 isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
+    bool isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
 		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown);
-	bool32 wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
+	bool wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
 		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown
             && input.controllers[0].b.transitions == 1);
     
@@ -433,9 +433,9 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	float32 floorHeightCoord = 0.0f;
 	if (gameState->currentPlatform != nullptr) {
 		float32 platformHeight;
-		bool32 playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
-                                                                         *gameState->currentPlatform, floor, gameState->playerCoords.x + deltaCoords.x,
-                                                                         &platformHeight);
+		bool playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
+                                                                       *gameState->currentPlatform, floor, gameState->playerCoords.x + deltaCoords.x,
+                                                                       &platformHeight);
 		if (playerOverPlatform) {
 			floorHeightCoord = platformHeight;
 		}
@@ -1103,7 +1103,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
                                     gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
     
-	bool32 wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
+	bool wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
 		|| (input.controllers[0].isConnected
             && input.controllers[0].x.isDown && input.controllers[0].x.transitions == 1);
 	if (wasDebugKeyPressed) {
@@ -1416,7 +1416,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         Vec2 mouseWorldDelta = mouseWorldPosEnd - mouseWorldPosStart;
         
         if (editCollision) {
-            bool32 newVertexPressed = false;
+            bool newVertexPressed = false;
             {
                 const Vec4 BOX_COLOR_BASE = Vec4 { 0.1f, 0.5f, 1.0f, 1.0f };
                 const float32 IDLE_ALPHA = 0.5f;
