@@ -221,15 +221,6 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                                   RectGL rectGL, TexturedRectGL texturedRectGL, TextGL textGL,
                                   ScreenInfo screenInfo, const FontFace& fontText, const FontFace& fontHeader)
 {
-    static uint64 selectedLetter = alphabet->letters.size;
-    static char selectedChar = 0;
-    if (WasKeyPressed(input, KM_KEY_BACKSPACE)) {
-        selectedChar = 0;
-    }
-    else if (input.keyboardStringLen > 0) {
-        selectedChar = input.keyboardString[input.keyboardStringLen - 1];
-    }
-    
     static bool panelInputMinimized = true;
     static InputString inputString = {};
     static FixedArray<int, INPUT_BUFFER_MAX> inputCharVariation = {};
@@ -241,6 +232,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
     
     const Vec4 COLOR_TEXT = { 0.95f, 0.95f, 0.95f, 1.0f };
     const Vec4 COLOR_BACKGROUND = { 0.0f, 0.0f, 0.0f, 0.5f };
+    // TODO for aesthetic purposes, change these highlights to something less intrusive
     const Vec4 COLOR_HIGHLIGHT_UNASSIGNED = Vec4 { 1.0f, 0.2f, 0.2f, 0.3f };
     const Vec4 COLOR_HIGHLIGHT_SELECTED = Vec4 { 1.0f, 0.2f, 1.0f, 0.7f };
     const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
@@ -250,31 +242,42 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                      Vec2Int { screenInfo.size.x - MARGIN_SCREEN.x, MARGIN_SCREEN.y },
                      Vec2 { 1.0f, 0.0f });
     panelInput.TitleBar(ToString("The Typewriter"), &panelInputMinimized, Vec4::zero, &fontHeader);
-    // static bool inputStringFocused = false; TODO eventually use this and handle set/reset in InputText
-    bool inputStringFocused = !panelInputMinimized;
-    InputString inputStringPrev = inputString;
-    if (panelInput.InputText(&inputString, &inputStringFocused)) {
-        inputCharVariation.size = inputString.size;
-        for (uint64 i = 0; i < inputString.size; i++) {
-            if (i >= inputStringPrev.size || inputString[i] != inputStringPrev[i]) {
-                int numVariations = alphabet->numVariations[inputString[i]];
-                if (numVariations > 0) {
-                    inputCharVariation[i] = rand() % numVariations;
-                }
-                else {
-                    inputCharVariation[i] = 0;
+    
+    if (!panelInputMinimized) {
+        static uint64 selectedLetter = inputString.size;
+        
+        const int SPACE_WIDTH = 80;
+        const int NEWLINE_HEIGHT = 200;
+        
+        // static bool inputStringFocused = false; TODO eventually use this and handle set/reset in InputText
+        bool inputStringFocused = true;
+        InputString inputStringPrev = inputString;
+        if (panelInput.InputText(&inputString, &inputStringFocused)) {
+            if (selectedLetter == inputStringPrev.size) {
+                selectedLetter = inputString.size;
+            }
+            if (selectedLetter > inputString.size) {
+                selectedLetter = inputString.size;
+            }
+            
+            inputCharVariation.size = inputString.size;
+            for (uint64 i = 0; i < inputString.size; i++) {
+                if (i >= inputStringPrev.size || inputString[i] != inputStringPrev[i]) {
+                    int numVariations = alphabet->numVariations[inputString[i]];
+                    if (numVariations > 0) {
+                        inputCharVariation[i] = rand() % numVariations;
+                    }
+                    else {
+                        inputCharVariation[i] = 0;
+                    }
                 }
             }
         }
-    }
-    
-    if (!panelInputMinimized) {
-        const int SPACE_WIDTH = 80;
-        const int NEWLINE_HEIGHT = 200;
         
         Vec2Int cursorPosStart = Vec2Int { MARGIN_SCREEN.x, screenInfo.size.y - NEWLINE_HEIGHT };
         Vec2Int cursorPos = cursorPosStart;
         DrawRect(rectGL, screenInfo, Vec2Int::zero, Vec2::zero, screenInfo.size, Vec4::one);
+        uint64 hoveredLetter = inputString.size;
         for (uint64 i = 0; i < inputString.size; i++) {
             char c = inputString[i];
             if (c == ' ') {
@@ -314,30 +317,54 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                     .max = cursorPos + letterSize
                 };
                 if (IsInside(input.mousePos, letterRect)) {
+                    hoveredLetter = i;
                     DrawRect(rectGL, screenInfo, cursorPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
                     if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
-                        if (inputCharVariation[i] == alphabet->numVariations[c] - 1) {
-                            inputCharVariation[i] = 0;
-                        }
-                        else {
-                            inputCharVariation[i]++;
-                        }
+                        selectedLetter = i;
                     }
-                    if (input.mouseButtons[1].isDown && input.mouseButtons[1].transitions == 1) {
-                        if (inputCharVariation[i] == 0) {
-                            inputCharVariation[i] = alphabet->numVariations[c] - 1;
-                        }
-                        else {
-                            inputCharVariation[i]--;
-                        }
-                    }
+                }
+                
+                if (selectedLetter == i) {
+                    DrawRect(rectGL, screenInfo, cursorPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_SELECTED);
                 }
                 
                 cursorPos.x += letterSize.x;
             }
         }
+        
+        if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
+            selectedLetter = hoveredLetter; // TODO fix, this already happens above except for no-selection
+        }
+        if (selectedLetter != inputString.size) {
+            char c = inputString[selectedLetter];
+            if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+                if (inputCharVariation[selectedLetter] == alphabet->numVariations[c] - 1) {
+                    inputCharVariation[selectedLetter] = 0;
+                }
+                else {
+                    inputCharVariation[selectedLetter]++;
+                }
+            }
+            if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+                if (inputCharVariation[selectedLetter] == 0) {
+                    inputCharVariation[selectedLetter] = alphabet->numVariations[c] - 1;
+                }
+                else {
+                    inputCharVariation[selectedLetter]--;
+                }
+            }
+        }
     }
     else {
+        static uint64 selectedLetter = alphabet->letters.size;
+        static char selectedChar = 0;
+        if (WasKeyPressed(input, KM_KEY_BACKSPACE)) {
+            selectedChar = 0;
+        }
+        else if (input.keyboardStringLen > 0) {
+            selectedChar = input.keyboardString[input.keyboardStringLen - 1];
+        }
+        
         const TextureGL& lettersTexture = alphabet->lettersTexture;
         const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
         const float32 screenAspect = (float32)screenInfo.size.x / screenInfo.size.y;
