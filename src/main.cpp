@@ -1098,8 +1098,10 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    // ------------------------------ Audio -----------------------------------
 	OutputAudio(audio, gameState, input, memory->transient);
     
+    // ------------------------------ Debug -----------------------------------
 	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
                                     gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
     
@@ -1118,6 +1120,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
     const Vec2Int DEBUG_BORDER_PANEL = { 10, 10 };
     const Vec4 DEBUG_BACKGROUND_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
 	const Vec4 DEBUG_FONT_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f };
+    
+    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
     
 	if (gameState->debugView) {
 		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
@@ -1512,8 +1516,6 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
         gameState->editorScaleExponent = ClampFloat32(
                                                       gameState->editorScaleExponent + editorScaleExponentDelta, 0.0f, 1.0f);
     }
-    
-    DrawDebugAudioInfo(audio, gameState, input, screenInfo, memory->transient, DEBUG_FONT_COLOR);
     
 #if GAME_SLOW
     // Catch-all site for OpenGL errors

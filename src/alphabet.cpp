@@ -222,6 +222,15 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                                   ScreenInfo screenInfo, const FontFace& fontText, const FontFace& fontHeader)
 {
     static uint64 selectedLetter = alphabet->letters.size;
+    static char selectedChar = 0;
+    if (WasKeyPressed(input, KM_KEY_BACKSPACE)) {
+        selectedChar = 0;
+    }
+    else if (input.keyboardStringLen > 0) {
+        selectedChar = input.keyboardString[input.keyboardStringLen - 1];
+    }
+    
+    static bool panelInputMinimized = true;
     static InputString inputString = {};
     static FixedArray<int, INPUT_BUFFER_MAX> inputCharVariation = {};
     
@@ -236,158 +245,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
     const Vec4 COLOR_HIGHLIGHT_SELECTED = Vec4 { 1.0f, 0.2f, 1.0f, 0.7f };
     const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
     
-    const TextureGL& lettersTexture = alphabet->lettersTexture;
-    const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
-    const float32 screenAspect = (float32)screenInfo.size.x / screenInfo.size.y;
-    float32 lettersScale;
-    if (screenAspect < lettersAspect) {
-        lettersScale = (float32)screenInfo.size.x / lettersTexture.size.x;
-    }
-    else {
-        lettersScale = (float32)screenInfo.size.y / lettersTexture.size.y;
-    }
-    DrawTexturedRect(texturedRectGL, screenInfo, Vec2Int::zero, Vec2::zero,
-                     MultiplyVec2IntFloat32(lettersTexture.size, lettersScale),
-                     false, false, lettersTexture.textureID);
-    
-    if (selectedLetter != alphabet->letters.size && input.keyboardStringLen > 0) {
-        int ind = input.keyboardStringLen - 1;
-        while (ind >= 0) {
-            char c = input.keyboardString[ind];
-            if (IsAlphanumeric(c) || c == 8 || c == 9) {
-                break;
-            }
-            ind--;
-        }
-        if (ind >= 0) {
-            char c = input.keyboardString[ind];
-            char asciiPrev = alphabet->letters[selectedLetter].ascii;
-            uint8 flagsPrev = alphabet->letters[selectedLetter].flags;
-            if (c == 8) {
-                alphabet->letters[selectedLetter].flags |= LetterFlag::IGNORE;
-            }
-            else if (c == 9) {
-                alphabet->letters[selectedLetter].ascii = 0;
-                alphabet->letters[selectedLetter].flags = 0;
-                
-            }
-            else {
-                alphabet->letters[selectedLetter].ascii = c;
-            }
-            if (!SaveLetters(alphabet->letters.ToArray())) {
-                alphabet->letters[selectedLetter].ascii = asciiPrev;
-                alphabet->letters[selectedLetter].flags = flagsPrev;
-            }
-        }
-    }
-    
-    if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
-        for (uint64 i = alphabet->letters.size; i > 0; i--) {
-            uint64 ind = (selectedLetter + i - 1) % alphabet->letters.size;
-            if (IsLetterUnassigned(alphabet->letters[ind])) {
-                selectedLetter = ind;
-                break;
-            }
-        }
-    }
-    if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
-        for (uint64 i = 0; i < alphabet->letters.size; i++) {
-            uint64 ind = (selectedLetter + i + 1) % alphabet->letters.size;
-            if (IsLetterUnassigned(alphabet->letters[ind])) {
-                selectedLetter = ind;
-                break;
-            }
-        }
-    }
-    
-    uint64 hoveredLetter = alphabet->letters.size;
-    for (uint64 i = 0; i < alphabet->letters.size; i++) {
-        const Letter& letter = alphabet->letters[i];
-        if (IsLetterUnassigned(letter)) {
-            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                        lettersScale);
-            DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_UNASSIGNED);
-        }
-        
-        const RectInt letterRect = {
-            .min = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale),
-            .max = MultiplyVec2IntFloat32(Vec2Int { letter.maxX, letter.maxY }, lettersScale)
-        };
-        if (IsInside(input.mousePos, letterRect)) {
-            hoveredLetter = i;
-        }
-    }
-    
-    if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
-        selectedLetter = hoveredLetter;
-    }
-    
-    if (hoveredLetter != alphabet->letters.size) {
-        const Letter& letter = alphabet->letters[hoveredLetter];
-        Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-        Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                    lettersScale);
-        DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
-        
-        Panel panelLetter;
-        panelLetter.Begin(input, &fontText, 0,
-                          Vec2Int { MARGIN_SCREEN.x, screenInfo.size.y - MARGIN_SCREEN.y },
-                          Vec2 { 0.0f, 1.0f });
-        panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", hoveredLetter, (char)letter.ascii));
-        panelLetter.Text(Array<char>::empty);
-        
-        panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
-        panelLetter.Draw(screenInfo, rectGL, textGL, BORDER_PANEL, COLOR_TEXT, COLOR_BACKGROUND, &tempAlloc);
-        
-        const int LETTER_FRAME_SIZE = 10;
-        const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
-        Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
-        Vec2Int letterTextureSize = alphabet->letterTextures[hoveredLetter].size;
-        DrawRect(rectGL, screenInfo, letterTexturePos + Vec2Int { -LETTER_FRAME_SIZE, LETTER_FRAME_SIZE },
-                 Vec2 { 0.0f, 1.0f }, letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-        DrawRect(rectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f }, letterTextureSize, Vec4::one);
-        DrawTexturedRect(texturedRectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f }, letterTextureSize,
-                         false, false, alphabet->letterTextures[hoveredLetter].textureID);
-    }
-    if (selectedLetter != alphabet->letters.size) {
-        const Letter& letter = alphabet->letters[selectedLetter];
-        Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-        Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
-                                                    lettersScale);
-        DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_SELECTED);
-        
-        Panel panelLetter;
-        panelLetter.Begin(input, &fontText, 0, screenInfo.size - MARGIN_SCREEN, Vec2 { 1.0f, 1.0f });
-        panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", selectedLetter, (char)letter.ascii));
-        panelLetter.Text(Array<char>::empty);
-        
-        panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
-        panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
-        panelLetter.Draw(screenInfo, rectGL, textGL, BORDER_PANEL, COLOR_TEXT, COLOR_BACKGROUND, &tempAlloc);
-        
-        const int LETTER_FRAME_SIZE = 10;
-        const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
-        Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
-        Vec2Int letterTextureSize = alphabet->letterTextures[selectedLetter].size;
-        DrawRect(rectGL, screenInfo, letterTexturePos + LETTER_FRAME_OFFSET, Vec2::one,
-                 letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
-        DrawRect(rectGL, screenInfo, letterTexturePos, Vec2::one, letterTextureSize, Vec4::one);
-        DrawTexturedRect(texturedRectGL, screenInfo, letterTexturePos, Vec2::one, letterTextureSize,
-                         false, false, alphabet->letterTextures[selectedLetter].textureID);
-    }
-    
     Panel panelInput;
-    static bool panelInputMinimized = true;
     panelInput.Begin(input, &fontText, PanelFlag::GROW_UPWARDS,
                      Vec2Int { screenInfo.size.x - MARGIN_SCREEN.x, MARGIN_SCREEN.y },
                      Vec2 { 1.0f, 0.0f });
@@ -437,7 +295,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
             const int targetMatches = inputCharVariation[i] + 1;
             int matches = 0;
             for (uint64 j = 0; j < alphabet->letters.size; j++) {
-                if (alphabet->letters[j].ascii == c) {
+                if (!IsLetterUnassigned(alphabet->letters[j]) && alphabet->letters[j].ascii == c) {
                     matches++;
                     if (matches >= targetMatches) {
                         letterInd = j;
@@ -477,6 +335,175 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                 
                 cursorPos.x += letterSize.x;
             }
+        }
+    }
+    else {
+        const TextureGL& lettersTexture = alphabet->lettersTexture;
+        const float32 lettersAspect = (float32)lettersTexture.size.x / lettersTexture.size.y;
+        const float32 screenAspect = (float32)screenInfo.size.x / screenInfo.size.y;
+        float32 lettersScale;
+        if (screenAspect < lettersAspect) {
+            lettersScale = (float32)screenInfo.size.x / lettersTexture.size.x;
+        }
+        else {
+            lettersScale = (float32)screenInfo.size.y / lettersTexture.size.y;
+        }
+        DrawTexturedRect(texturedRectGL, screenInfo, Vec2Int::zero, Vec2::zero,
+                         MultiplyVec2IntFloat32(lettersTexture.size, lettersScale),
+                         false, false, lettersTexture.textureID);
+        
+        uint64 hoveredLetter = alphabet->letters.size;
+        int selectedCharLetters = 0;
+        for (uint64 i = 0; i < alphabet->letters.size; i++) {
+            const Letter& letter = alphabet->letters[i];
+            bool unassigned = IsLetterUnassigned(letter);
+            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                        lettersScale);
+            if (unassigned) {
+                DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_UNASSIGNED);
+            }
+            else if (selectedChar != 0 && letter.ascii == selectedChar) {
+                selectedCharLetters++;
+                DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
+            }
+            
+            const RectInt letterRect = {
+                .min = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale),
+                .max = MultiplyVec2IntFloat32(Vec2Int { letter.maxX, letter.maxY }, lettersScale)
+            };
+            if (IsInside(input.mousePos, letterRect)) {
+                hoveredLetter = i;
+            }
+        }
+        
+        if (input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1) {
+            selectedLetter = hoveredLetter;
+        }
+        
+        if (WasKeyPressed(input, KM_KEY_ARROW_LEFT)) {
+            for (uint64 i = alphabet->letters.size; i > 0; i--) {
+                uint64 ind = (selectedLetter + i - 1) % alphabet->letters.size;
+                bool unassigned = IsLetterUnassigned(alphabet->letters[ind]);
+                if ((selectedChar == 0 && unassigned) ||
+                    (selectedChar != 0 && !unassigned && selectedChar == alphabet->letters[ind].ascii)) {
+                    selectedLetter = ind;
+                    break;
+                }
+            }
+        }
+        if (WasKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
+            for (uint64 i = 0; i < alphabet->letters.size; i++) {
+                uint64 ind = (selectedLetter + i + 1) % alphabet->letters.size;
+                bool unassigned = IsLetterUnassigned(alphabet->letters[ind]);
+                if ((selectedChar == 0 && unassigned) ||
+                    (selectedChar != 0 && !unassigned && selectedChar == alphabet->letters[ind].ascii)) {
+                    selectedLetter = ind;
+                    break;
+                }
+            }
+        }
+        
+        // Set char / flags on selected letter
+        if (selectedLetter != alphabet->letters.size && input.keyboardStringLen > 0) {
+            int ind = input.keyboardStringLen - 1;
+            while (ind >= 0) {
+                char c = input.keyboardString[ind];
+                if (IsAlphanumeric(c) || c == 8 || c == 9) {
+                    break;
+                }
+                ind--;
+            }
+            if (ind >= 0) {
+                char c = input.keyboardString[ind];
+                char asciiPrev = alphabet->letters[selectedLetter].ascii;
+                uint8 flagsPrev = alphabet->letters[selectedLetter].flags;
+                if (c == 8) {
+                    alphabet->letters[selectedLetter].flags |= LetterFlag::IGNORE;
+                }
+                else if (c == 9) {
+                    alphabet->letters[selectedLetter].ascii = 0;
+                    alphabet->letters[selectedLetter].flags = 0;
+                    
+                }
+                else {
+                    alphabet->letters[selectedLetter].ascii = c;
+                }
+                if (!SaveLetters(alphabet->letters.ToArray())) {
+                    alphabet->letters[selectedLetter].ascii = asciiPrev;
+                    alphabet->letters[selectedLetter].flags = flagsPrev;
+                }
+            }
+        }
+        
+        if (hoveredLetter != alphabet->letters.size) {
+            const Letter& letter = alphabet->letters[hoveredLetter];
+            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                        lettersScale);
+            DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_HOVERED);
+            
+            Panel panelLetter;
+            panelLetter.Begin(input, &fontText, 0,
+                              Vec2Int { MARGIN_SCREEN.x, screenInfo.size.y - MARGIN_SCREEN.y },
+                              Vec2 { 0.0f, 1.0f });
+            panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", hoveredLetter, (char)letter.ascii));
+            panelLetter.Text(Array<char>::empty);
+            
+            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
+            panelLetter.Draw(screenInfo, rectGL, textGL, BORDER_PANEL, COLOR_TEXT, COLOR_BACKGROUND, &tempAlloc);
+            
+            const int LETTER_FRAME_SIZE = 10;
+            const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
+            Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
+            Vec2Int letterTextureSize = alphabet->letterTextures[hoveredLetter].size;
+            DrawRect(rectGL, screenInfo, letterTexturePos + Vec2Int { -LETTER_FRAME_SIZE, LETTER_FRAME_SIZE },
+                     Vec2 { 0.0f, 1.0f }, letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
+            DrawRect(rectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f }, letterTextureSize, Vec4::one);
+            DrawTexturedRect(texturedRectGL, screenInfo, letterTexturePos, Vec2 { 0.0f, 1.0f }, letterTextureSize,
+                             false, false, alphabet->letterTextures[hoveredLetter].textureID);
+        }
+        if (selectedLetter != alphabet->letters.size) {
+            const Letter& letter = alphabet->letters[selectedLetter];
+            Vec2Int letterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
+            Vec2Int letterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
+                                                        lettersScale);
+            DrawRect(rectGL, screenInfo, letterPos, Vec2::zero, letterSize, COLOR_HIGHLIGHT_SELECTED);
+            
+            Panel panelLetter;
+            panelLetter.Begin(input, &fontText, 0, screenInfo.size - MARGIN_SCREEN, Vec2 { 1.0f, 1.0f });
+            panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", selectedLetter, (char)letter.ascii));
+            panelLetter.Text(Array<char>::empty);
+            
+            panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "y-offset: %d", letter.offsetY));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "parent: %d", letter.parentIndex));
+            panelLetter.Text(AllocPrintf(&tempAlloc, "kernings... maybe later"));
+            panelLetter.Draw(screenInfo, rectGL, textGL, BORDER_PANEL, COLOR_TEXT, COLOR_BACKGROUND, &tempAlloc);
+            
+            const int LETTER_FRAME_SIZE = 10;
+            const Vec2Int LETTER_FRAME_OFFSET = Vec2Int { LETTER_FRAME_SIZE, LETTER_FRAME_SIZE };
+            Vec2Int letterTexturePos = panelLetter.positionCurrent + Vec2Int { 0, -40 };
+            Vec2Int letterTextureSize = alphabet->letterTextures[selectedLetter].size;
+            DrawRect(rectGL, screenInfo, letterTexturePos + LETTER_FRAME_OFFSET, Vec2::one,
+                     letterTextureSize + LETTER_FRAME_OFFSET * 2, Vec4 { 0.0f, 0.0f, 0.0f, 1.0f });
+            DrawRect(rectGL, screenInfo, letterTexturePos, Vec2::one, letterTextureSize, Vec4::one);
+            DrawTexturedRect(texturedRectGL, screenInfo, letterTexturePos, Vec2::one, letterTextureSize,
+                             false, false, alphabet->letterTextures[selectedLetter].textureID);
+        }
+        if (selectedChar != 0) {
+            Panel panelSelectedChar;
+            panelSelectedChar.Begin(input, &fontText, PanelFlag::GROW_UPWARDS, MARGIN_SCREEN, Vec2::zero);
+            panelSelectedChar.Text(AllocPrintf(&tempAlloc, "letters: %d", selectedCharLetters));
+            panelSelectedChar.Text(AllocPrintf(&tempAlloc, "'%c' (%d)", selectedChar, selectedChar));
+            panelSelectedChar.Draw(screenInfo, rectGL, textGL, BORDER_PANEL, COLOR_TEXT, COLOR_BACKGROUND, &tempAlloc);
         }
     }
     
