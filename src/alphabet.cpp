@@ -427,7 +427,8 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                 cursorPos.x = cursorPosStart.x;
                 cursorPos.y -= NEWLINE_HEIGHT;
                 uint64 next = i + 1;
-                if (next < inputString.size && (inputString[next] == '\n' || inputString[next] == '\r')) {
+                if (next < inputString.size && c != inputString[next]
+                    &&(inputString[next] == '\n' || inputString[next] == '\r')) {
                     i++;
                 }
                 continue;
@@ -438,7 +439,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
             for (uint64 j = 0; j < alphabet->letters.size; j++) {
                 if (alphabet->letters[j].ascii == c) {
                     matches++;
-                    if (matches == targetMatches) {
+                    if (matches >= targetMatches) {
                         letterInd = j;
                         break;
                     }
