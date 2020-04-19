@@ -46,6 +46,8 @@ struct Alphabet
 
 bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet);
 
+const Letter* GetCharacterVariation(const Alphabet* alphabet, char c, int variation);
+
 void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, MemoryBlock transient,
                                   RectGL rectGL, TexturedRectGL texturedRectGL, TextGL textGL,
                                   ScreenInfo screenInfo, const FontFace& fontText, const FontFace& fontHeader);
