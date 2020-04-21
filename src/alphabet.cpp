@@ -253,6 +253,9 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
     const Vec4 COLOR_HIGHLIGHT_SELECTED = Vec4 { 1.0f, 0.2f, 1.0f, 0.7f };
     const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
     
+    const bool mousePressed = input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1;
+    bool mousePressHandled = false;
+    
     Panel panelInput;
     panelInput.Begin(input, &fontText, 0,
                      Vec2Int { screenInfo.size.x - MARGIN_SCREEN.x, screenInfo.size.y - MARGIN_SCREEN.y },
@@ -274,7 +277,9 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
         bool inputStringFocused = true;
         InputString inputStringPrev = inputString;
         if (panelInput.InputText(&inputString, &inputStringFocused)) {
-            selectedLetterInd = -1; // TODO temporary, we can actually figure out if we need to clear
+            if (selectedLetterInd >= inputString.size) {
+                selectedLetterInd = -1;
+            }
             
             inputCharVariation.size = inputString.size;
             for (uint64 i = 0; i < inputString.size; i++) {
@@ -312,9 +317,10 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
             
             const uint64 letterInd = GetLetterIndOfCharVariation(alphabet, c, inputCharVariation[i]);
             if (letterInd != alphabet->letters.size) {
-                Letter& letter = alphabet->letters[letterInd];
+                const Letter& letter = alphabet->letters[letterInd];
+                const Vec2Int letterOffset = { letter.offsetX, letter.offsetY };
                 const Vec2Int letterSize = { letter.maxX - letter.minX, letter.maxY - letter.minY };
-                DrawTexturedRect(texturedRectGL, screenInfo, cursorPos, Vec2::zero, letterSize,
+                DrawTexturedRect(texturedRectGL, screenInfo, cursorPos + letterOffset, Vec2::zero, letterSize,
                                  false, false, alphabet->letterTextures[letterInd].textureID);
                 
                 const RectInt letterRect = {
@@ -327,13 +333,13 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                              Vec2Int { letterSize.x, 10 }, COLOR_HIGHLIGHT_HOVERED);
                 }
                 
-                // NOTE this will lag 1 frame behind the selectedLetterInd on-click
+                // NOTE this will lag 1 frame behind the selectedLetterInd on-click change
                 if (selectedLetterInd == i) {
                     DrawRect(rectGL, screenInfo, cursorPos, Vec2 { 0.0f, 1.0f },
                              Vec2Int { letterSize.x, 10 }, COLOR_HIGHLIGHT_SELECTED);
                 }
                 
-                cursorPos.x += letterSize.x;
+                cursorPos.x += letterOffset.x + letterSize.x;
             }
         }
         
@@ -430,9 +436,6 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
                          MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY },
                                                 lettersScale),
                          COLOR_HIGHLIGHT_HOVERED);
-                // TODO DrawRect
-                // hoveredLetterPos = MultiplyVec2IntFloat32(Vec2Int { letter.minX, letter.minY }, lettersScale);
-                // hoveredLetterSize = MultiplyVec2IntFloat32(Vec2Int { letter.maxX - letter.minX, letter.maxY - letter.minY }, lettersScale);
             }
         }
         
@@ -560,6 +563,9 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
         panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
         panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
         panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
+        static InputString testBuffer;
+        static bool testBufferFocused = false;
+        panelLetter.InputText(&testBuffer, &testBufferFocused);
         panelLetter.Text(Array<char>::empty);
         
         panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", selectedLetter, (char)letter.ascii));

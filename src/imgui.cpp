@@ -356,9 +356,9 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
     };
     const bool hovered = IsInside(input->mousePos, boxRect);
     const bool pressed = hovered && input->mouseButtons[0].isDown;
-    const bool changed = pressed && input->mouseButtons[0].transitions == 1;
-    if (changed) {
-        *focused = true;
+    const bool justPressed = pressed && input->mouseButtons[0].transitions == 1;
+    if (justPressed) {
+        *focused = hovered;
     }
     
 	PanelRenderCommand* newCommand;
