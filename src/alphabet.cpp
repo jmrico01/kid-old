@@ -254,7 +254,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
     const Vec4 COLOR_HIGHLIGHT_HOVERED = Vec4 { 0.2f, 1.0f, 0.2f, 0.5f };
     
     const bool mousePressed = input.mouseButtons[0].isDown && input.mouseButtons[0].transitions == 1;
-    bool mousePressHandled = false;
+    // bool mousePressHandled = false; // TODO hmmm, tricky... ugh
     
     Panel panelInput;
     panelInput.Begin(input, &fontText, 0,
