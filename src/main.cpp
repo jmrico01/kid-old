@@ -797,7 +797,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const Array<char> FIRST_LEVEL = ToString("idk");
+		const Array<char> FIRST_LEVEL = ToString("overworld");
 		if (!SetActiveLevel(gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
