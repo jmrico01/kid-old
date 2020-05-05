@@ -73,7 +73,6 @@ bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
         LOG_ERROR("Failed to open alphabet PNG file %.*s\n", alphabetPngFile.size, alphabetPngFile.data);
         return false;
     }
-    defer (FreeFile(pngFile, &allocator));
     
     int width, height, channels;
     stbi_set_flip_vertically_on_load(true);
@@ -94,13 +93,13 @@ bool LoadAlphabet(MemoryBlock memory, Alphabet* outAlphabet)
         DEBUG_PANIC("LoadTexture failed for big letters texture\n");
     }
     
-    DynamicArray<Letter> possibleLetters;
+    DynamicArray<Letter, LinearAllocator> possibleLetters(&allocator);
     uint64 letterIndsBytes = width * height * sizeof(int);
     int* letterInds = (int*)allocator.Allocate(letterIndsBytes);
     DEBUG_ASSERT(letterInds != nullptr);
     MemSet(letterInds, 0, letterIndsBytes);
     
-    DynamicArray<int> indexStack(width * height);
+    DynamicArray<int, LinearAllocator> indexStack(width * height, &allocator);
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             const int index = y * width + x;

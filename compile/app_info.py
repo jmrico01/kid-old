@@ -4,12 +4,19 @@ from env_settings import WIN32_VCVARSALL
 windows_options = PlatformTargetOptions(
 	defines=[],
 	compiler_flags=[
+        "/MTd",
+
 		"/wd4100", # unreferenced formal parameter
 		"/wd4201", # nonstandard extension used: nameless struct/union
 		"/wd4458", # declaration of X hides class member
 		"/wd4505", # unreferenced local function has been removed
 	],
-	linker_flags=[]
+	linker_flags=[
+        "user32.lib",
+        "gdi32.lib",
+        "opengl32.lib",
+        "ole32.lib"
+    ]
 )
 
 TARGETS = [

@@ -30,13 +30,8 @@
 #define LINE_COLLIDER_MARGIN 0.05f
 
 global_var const char* LEVEL_NAMES[] = {
-	"overworld",
-	"house",
-	"house-attic",
-	"idk",
-	"shack",
-	"dream",
-	"castle"
+	"nothing",
+    "overworld"
 };
 
 global_var const char* KID_ANIMATION_IDLE = "idle";
@@ -251,15 +246,13 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (wasInteractKeyPressed) {
 		const LevelData& levelData = gameState->levels[gameState->activeLevel];
 		for (uint64 i = 0; i < levelData.levelTransitions.size; i++) {
-			Vec2 toPlayer = WrappedWorldOffset(
-                                               gameState->playerCoords, levelData.levelTransitions[i].coords,
+			Vec2 toPlayer = WrappedWorldOffset(gameState->playerCoords, levelData.levelTransitions[i].coords,
                                                levelData.floor.length);
 			if (AbsFloat32(toPlayer.x) <= levelData.levelTransitions[i].range.x
                 && AbsFloat32(toPlayer.y) <= levelData.levelTransitions[i].range.y) {
 				uint64 newLevel = levelData.levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData.levelTransitions[i].toCoords;
-				if (!SetActiveLevel(gameState, ToString(LEVEL_NAMES[newLevel]),
-                                    startCoords, &transient)) {
+				if (!SetActiveLevel(gameState, ToString(LEVEL_NAMES[newLevel]), startCoords, &transient)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
 				break;
@@ -412,8 +405,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			newDeltaCoordX = deltaCoords.x * tX;
 		}
 		Vec2 newFloorPos, newFloorNormal;
-		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX,
-                                &newFloorPos, &newFloorNormal);
+		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX, &newFloorPos, &newFloorNormal);
         
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
@@ -433,8 +425,8 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	float32 floorHeightCoord = 0.0f;
 	if (gameState->currentPlatform != nullptr) {
 		float32 platformHeight;
-		bool playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(
-                                                                       *gameState->currentPlatform, floor, gameState->playerCoords.x + deltaCoords.x,
+		bool playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(*gameState->currentPlatform, floor,
+                                                                       gameState->playerCoords.x + deltaCoords.x,
                                                                        &platformHeight);
 		if (playerOverPlatform) {
 			floorHeightCoord = platformHeight;
@@ -531,8 +523,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
     
 	if (gameState->grabbedObject.coordsPtr != nullptr) {
-		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject,
-                                     floor.length)
+		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject, floor.length)
             && isInteractKeyPressed) {
 			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
 			Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
@@ -550,12 +541,10 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
     
 	if (levelData.bounded) {
-		if (gameState->playerCoords.x >= levelData.bounds.x
-            && playerCoordsNew.x < levelData.bounds.x) {
+		if (gameState->playerCoords.x >= levelData.bounds.x && playerCoordsNew.x < levelData.bounds.x) {
 			playerCoordsNew.x = levelData.bounds.x;
 		}
-		if (gameState->playerCoords.x <= levelData.bounds.y
-            && playerCoordsNew.x > levelData.bounds.y) {
+		if (gameState->playerCoords.x <= levelData.bounds.y && playerCoordsNew.x > levelData.bounds.y) {
 			playerCoordsNew.x = levelData.bounds.y;
 		}
 	}
@@ -743,7 +732,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	if (memory->shouldInitGlobalVariables) {
 		// Initialize global function names
 #define FUNC(returntype, name, ...) name = \
-		platformFuncs.glFunctions.name;
+platformFuncs.glFunctions.name;
         GL_FUNCTIONS_BASE
 			GL_FUNCTIONS_ALL
 #undef FUNC
@@ -797,12 +786,13 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		for (int i = 0; i < LEVELS_MAX; i++) {
 			gameState->levels[i].loaded = false;
 		}
-		const Array<char> FIRST_LEVEL = ToString("overworld");
-		if (!SetActiveLevel(gameState, FIRST_LEVEL, Vec2::zero, &memory->transient)) {
+		const Array<char> FIRST_LEVEL = ToString("nothing");
+        Vec2 startPos = { 152.0f, 1.0f };
+		if (!SetActiveLevel(gameState, FIRST_LEVEL, startPos, &memory->transient)) {
 			DEBUG_PANIC("Failed to load level %s\n", FIRST_LEVEL);
 		}
 		char levelPsdPath[PATH_MAX_LENGTH];
-		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/levels/%s/%s.psd",
+		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/psd/%s.psd",
                        FIRST_LEVEL, FIRST_LEVEL);
 		FileChangedSinceLastCall(ToString(levelPsdPath)); // TODO hacky. move this to SetActiveLevel?
         
@@ -906,8 +896,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 			DEBUG_PANIC("Failed to load rock\n");
 		}
         
-		if (!gameState->spriteKid.Load(ToString("kid"), gameState->refPixelsPerUnit,
-                                       memory->transient)) {
+		if (!gameState->spriteKid.Load(ToString("kid"), gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
 		gameState->kid.animatedSprite = &gameState->spriteKid;
@@ -919,8 +908,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.kmkv"));
 		FileChangedSinceLastCall(ToString("data/animations/kid/kid.psd"));
         
-		if (!gameState->spritePaper.Load(ToString("paper"), gameState->refPixelsPerUnit,
-                                         memory->transient)) {
+		if (!gameState->spritePaper.Load(ToString("paper"), gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to load paper animation sprite\n");
 		}
 		gameState->paper.animatedSprite = &gameState->spritePaper;
@@ -981,9 +969,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 	const Array<char> activeLevelName = ToString(LEVEL_NAMES[gameState->activeLevel]);
 	FixedArray<char, PATH_MAX_LENGTH> levelPsdPath;
 	levelPsdPath.Clear();
-	levelPsdPath.Append(ToString("data/levels/"));
-	levelPsdPath.Append(activeLevelName);
-	levelPsdPath.Append('/');
+    // TODO this part of the code shouldn't know about this path
+	levelPsdPath.Append(ToString("data/psd/"));
 	levelPsdPath.Append(activeLevelName);
 	levelPsdPath.Append(ToString(".psd"));
 	if (FileChangedSinceLastCall(levelPsdPath.ToArray())) {
@@ -1185,6 +1172,8 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                         DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAllocator);
         
+        // TODO add player scaling slider
+        // TODO save these settings somewhere
 		Panel panelGeometry;
         static bool panelGeometryMinimized = true;
 		panelGeometry.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2 { 0.0f, 0.0f });
@@ -1194,7 +1183,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		panelGeometry.Checkbox(&showDebugGeometry, ToString("Enable debug geometry"));
 		panelGeometry.Text(Array<char>::empty);
         
-		if (panelGeometry.SliderFloat(&gameState->aspectRatio, 1.0f, 2.5f)) {
+		if (panelGeometry.SliderFloat(&gameState->aspectRatio, 1.0f / 3.0f, 3.0f)) {
 		}
 		panelGeometry.Text(ToString("Aspect Ratio"));
         
@@ -1209,7 +1198,7 @@ void GameUpdateAndRender(const PlatformFunctions& platformFuncs, const GameInput
 		panelGeometry.Text(ToString("Border Radius"));
         
 		float32 screenHeightFloat = (float32)gameState->refPixelScreenHeight;
-		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 2000.0f)) {
+		if (panelGeometry.SliderFloat(&screenHeightFloat, 720.0f, 3000.0f)) {
 			gameState->refPixelScreenHeight = (int)screenHeightFloat;
 		}
 		panelGeometry.Text(ToString("Y Resolution"));

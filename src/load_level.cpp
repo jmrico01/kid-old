@@ -172,20 +172,17 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 	DEBUG_ASSERT(!loaded);
 	LinearAllocator allocator(transient->size, transient->memory);
     
-	sprites.size = 0;
-	levelTransitions.size = 0;
-	lineColliders.size = 0;
-	floor.line.size = 0;
+	sprites.Clear();
+	levelTransitions.Clear();
+	lineColliders.Clear();
+	floor.line.Clear();
     
 	lockedCamera = false;
 	bounded = false;
     
-    
 	FixedArray<char, PATH_MAX_LENGTH> filePath;
 	filePath.Clear();
-	filePath.Append(ToString("data/levels/"));
-	filePath.Append(levelName);
-	filePath.Append('/');
+	filePath.Append(ToString("data/psd/"));
 	filePath.Append(levelName);
 	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
@@ -196,9 +193,6 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
     
 	for (uint64 i = 0; i < psdFile.layers.size; i++) {
 		PsdLayerInfo& layer = psdFile.layers[i];
-		if (!layer.visible) {
-			continue;
-		}
         
 		const auto& allocatorState = allocator.SaveState();
 		defer (allocator.LoadState(allocatorState));
@@ -238,6 +232,10 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 			floor.PrecomputeSampleVerticesFromLine();
 		}
         
+		if (!layer.visible) {
+			continue;
+		}
+        
 		SpriteType spriteType = SPRITE_BACKGROUND;
 		if (StringContains(layer.name.ToArray(), ToString("obj_"))) {
 			spriteType = SPRITE_OBJECT;
@@ -249,31 +247,27 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 			continue;
 		}
         
-		sprites.size++;
-		TextureWithPosition& sprite = sprites[sprites.size - 1];
-        
+		TextureWithPosition* sprite = sprites.Append();
 		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
-                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite.texture)) {
+                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite->texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
                       layer.name.size, layer.name.data, filePath.size, filePath.data);
 			return false;
 		}
         
-		sprite.type = spriteType;
+		sprite->type = spriteType;
 		Vec2Int offset = Vec2Int {
 			layer.left,
 			psdFile.size.y - layer.bottom
 		};
-		sprite.pos = ToVec2(offset) / pixelsPerUnit;
-		sprite.anchor = Vec2::zero;
-		sprite.restAngle = 0.0f;
-		sprite.flipped = false;
+		sprite->pos = ToVec2(offset) / pixelsPerUnit;
+		sprite->anchor = Vec2::zero;
+		sprite->restAngle = 0.0f;
+		sprite->flipped = false;
 	}
     
 	filePath.Clear();
 	filePath.Append(ToString("data/levels/"));
-	filePath.Append(levelName);
-	filePath.Append('/');
 	filePath.Append(levelName);
 	filePath.Append(ToString(".kmkv"));
 	Array<uint8> levelFile = LoadEntireFile(filePath.ToArray(), &allocator);

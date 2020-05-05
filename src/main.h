@@ -1,5 +1,7 @@
 #pragma once
 
+#include <km_common/km_debug.h>
+#include <km_common/km_log.h>
 #include <km_common/km_math.h>
 
 #include "alphabet.h"

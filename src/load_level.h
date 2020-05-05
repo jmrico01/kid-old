@@ -6,7 +6,7 @@
 #include "collision.h"
 #include "load_psd.h"
 
-#define LEVEL_SPRITES_MAX 16
+#define LEVEL_SPRITES_MAX 32
 
 #define LINE_COLLIDERS_MAX 16
 

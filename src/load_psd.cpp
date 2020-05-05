@@ -299,14 +299,14 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 		layerRowLengths[r] = rowLengthBytes;
 	}
     
-    // TODO have to invert y after this
 #if 1
 	for (int r = 0; r < height; r++) {
 		// Parse data in PackBits format
 		// https://en.wikipedia.org/wiki/PackBits
         const uint8* in = inData + dataIndex;
         uint16 rowParsed = 0;
-		uint64 pixelX = 0;
+        int pixelX = 0;
+        int pixelY = height - r - 1; // TODO flipping here for now - slow memory traversal!
 		while (true) {
 			int8 header = *(in++);
 			if (++rowParsed >= layerRowLengths[r]) {
@@ -319,7 +319,7 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 				// TODO this is the slowest part of the code, and it matters for iteration speed
 				uint8 data = *(in++);
 				int repeats = 1 - header;
-                uint8* out = outData + (r * width + pixelX) * numChannels + channelOffset;
+                uint8* out = outData + (pixelY * width + pixelX) * numChannels + channelOffset;
 				for (int i = 0; i < repeats; i++) {
 					*out = data;
 					out += numChannels;
@@ -333,7 +333,7 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 				int dataLength = 1 + header;
 				for (int i = 0; i < dataLength; i++) {
 					uint8 data = *(in++);
-                    uint8* out = outData + (r * width + pixelX) * numChannels + channelOffset;
+                    uint8* out = outData + (pixelY * width + pixelX) * numChannels + channelOffset;
 					*out = data;
 					pixelX++;
 					if (++rowParsed >= layerRowLengths[r]) {

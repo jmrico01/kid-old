@@ -61,7 +61,6 @@ struct Panel
 	const GameInput* input;
 	const FontFace* fontDefault;
     
-    // TODO assert that Begin was called before anything else
 	void Begin(const GameInput& input, const FontFace* fontDefault, PanelFlags flags,
                Vec2Int position, Vec2 anchor);
     

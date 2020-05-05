@@ -5,6 +5,7 @@
 
 global_var const float32 MARGIN_FRACTION = 1.1f;
 
+// TODO assert that this is called before anything else?
 void Panel::Begin(const GameInput& input, const FontFace* fontDefault, PanelFlags flags,
                   Vec2Int position, Vec2 anchor)
 {
@@ -249,11 +250,11 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
 	RectInt sliderMouseRect;
 	sliderMouseRect.min = Vec2Int {
 		positionCurrent.x,
-		positionCurrent.y - totalHeight / 2
+		positionCurrent.y
 	};
 	sliderMouseRect.max = Vec2Int {
 		positionCurrent.x + sliderBarSize.x,
-		positionCurrent.y + totalHeight / 2
+		positionCurrent.y + totalHeight
 	};
 	bool hover = IsInside(input->mousePos, sliderMouseRect);
 	if (hover && input->mouseButtons[0].isDown) {
