@@ -23,94 +23,89 @@ const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
 const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
 const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
 
-Vec2 AnimatedSpriteInstance::Update(float32 deltaTime, const Array<HashKey>& nextAnimations)
+Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, const Array<HashKey>& nextAnimations)
 {
-    const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
+    const Animation* activeAnimation = sprite->animatedSprite->animations.GetValue(sprite->activeAnimationKey);
     Vec2 rootMotion = Vec2::zero;
     
-    activeFrameTime += deltaTime;
-    if (activeFrameTime > activeAnim->frameTime[activeFrame]) {
-        activeFrameTime = 0.0f;
+    sprite->activeFrameTime += deltaTime;
+    if (sprite->activeFrameTime > activeAnimation->frameTime[sprite->activeFrame]) {
+        sprite->activeFrameTime = 0.0f;
         
         bool animTransition = false;
         for (uint64 i = 0; i < nextAnimations.size; i++) {
-            if (KeyCompare(activeAnimation, nextAnimations[i])) {
+            if (KeyCompare(sprite->activeAnimationKey, nextAnimations[i])) {
                 break;
             }
             
-            const int* exitToFrame = activeAnim->frameExitTo[activeFrame].GetValue(nextAnimations[i]);
+            const int* exitToFrame = activeAnimation->frameExitTo[sprite->activeFrame].GetValue(nextAnimations[i]);
             if (exitToFrame != nullptr) {
-                //Vec2 rootMotionPrev = activeAnim->frameRootMotion[activeFrame];
+                //Vec2 rootMotionPrev = activeAnimation->frameRootMotion[activeFrame];
                 animTransition = true;
-                activeAnimation = nextAnimations[i];
-                activeFrame = *exitToFrame;
+                sprite->activeAnimationKey = nextAnimations[i];
+                sprite->activeFrame = *exitToFrame;
                 
-                activeAnim = animatedSprite->animations.GetValue(activeAnimation);
+                activeAnimation = sprite->animatedSprite->animations.GetValue(sprite->activeAnimationKey);
                 // TODO transitions between rootfollow-enabled animations don't work for now
-                //rootMotion += (activeAnim->frameRootMotion[activeFrame] - rootMotionPrev);
+                //rootMotion += (activeAnimation->frameRootMotion[activeFrame] - rootMotionPrev);
             }
         }
         
         if (!animTransition) {
-            int activeFrameNext = activeFrame + 1;
-            if (activeFrameNext >= activeAnim->numFrames) {
-                activeFrameNext = activeAnim->loop ? 0 : activeFrame;
+            int activeFrameNext = sprite->activeFrame + 1;
+            if (activeFrameNext >= activeAnimation->numFrames) {
+                activeFrameNext = activeAnimation->loop ? 0 : sprite->activeFrame;
             }
             
-            if (activeAnim->rootFollow) {
-                rootMotion += activeAnim->frameRootMotion[activeFrameNext]
-                    - activeAnim->frameRootMotion[activeFrame];
+            if (activeAnimation->rootFollow) {
+                rootMotion += activeAnimation->frameRootMotion[activeFrameNext]
+                    - activeAnimation->frameRootMotion[sprite->activeFrame];
                 
-                if (!activeAnim->loop && activeAnim->rootFollowEndLoop
-                    && activeFrame == activeAnim->numFrames - 1) {
-                    rootMotion += activeAnim->frameRootMotion[activeFrame]
-                        - activeAnim->frameRootMotion[activeFrame - 1];
+                if (!activeAnimation->loop && activeAnimation->rootFollowEndLoop
+                    && sprite->activeFrame == activeAnimation->numFrames - 1) {
+                    rootMotion += activeAnimation->frameRootMotion[sprite->activeFrame]
+                        - activeAnimation->frameRootMotion[sprite->activeFrame - 1];
                 }
             }
             
-            activeFrame = activeFrameNext;
+            sprite->activeFrame = activeFrameNext;
         }
     }
     
     return rootMotion;
 }
 
-void AnimatedSpriteInstance::Draw(SpriteDataGL* spriteDataGL,
-                                  Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal) const
+void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, SpriteDataGL* spriteDataGL,
+                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal)
 {
-    const Animation* activeAnim = animatedSprite->animations.GetValue(activeAnimation);
+    const Animation* activeAnimation = sprite.animatedSprite->animations.GetValue(sprite.activeAnimationKey);
     Vec2 animAnchor = anchor;
-    if (activeAnim->rootMotion) {
-        animAnchor = activeAnim->frameRootAnchor[activeFrame];
+    if (activeAnimation->rootMotion) {
+        animAnchor = activeAnimation->frameRootAnchor[sprite.activeFrame];
     }
     Mat4 transform = CalculateTransform(pos, size, animAnchor, rot, flipHorizontal);
-    PushSprite(spriteDataGL, transform, alpha, activeAnim->frameTextures[activeFrame].textureID);
+    PushSprite(spriteDataGL, transform, alpha, activeAnimation->frameTextures[sprite.activeFrame].textureID);
 }
 
-bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
-                          const MemoryBlock& transient)
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32 pixelsPerUnit, MemoryBlock transient)
 {
     LinearAllocator allocator(transient.size, transient.memory);
     
     FixedArray<char, PATH_MAX_LENGTH> filePath;
     filePath.Clear();
-    filePath.Append(ToString("data/animations/"));
-    filePath.Append(name);
-    filePath.Append('/');
+    filePath.Append(ToString("data/psd/"));
     filePath.Append(name);
     filePath.Append(ToString(".psd"));
     PsdFile psdFile;
-    if (!OpenPSD(&allocator, filePath.ToArray(), &psdFile)) {
+    if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
         LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
         return false;
     }
     
-    textureSize = psdFile.size;
+    sprite->textureSize = psdFile.size;
     
     filePath.Clear();
-    filePath.Append(ToString("data/animations/"));
-    filePath.Append(name);
-    filePath.Append('/');
+    filePath.Append(ToString("data/kmkv/animations/"));
     filePath.Append(name);
     filePath.Append(ToString(".kmkv"));
     Array<uint8> animFile = LoadEntireFile(filePath.ToArray(), &allocator);
@@ -141,8 +136,7 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         // TODO catch error in keyword order (e.g. anim should always be first)
         if (StringEquals(keyword.ToArray(), ToString("anim"))) {
             currentAnimKey.WriteString(value.ToArray());
-            animations.Add(currentAnimKey, {});
-            currentAnim = animations.GetValue(currentAnimKey);
+            currentAnim = sprite->animations.Add(currentAnimKey);
             
             currentAnim->numFrames = 0;
             currentAnim->loop = false;
@@ -308,14 +302,14 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                     return false;
                 }
                 
-                rootPos.y = textureSize.y - rootPos.y;
+                rootPos.y = sprite->textureSize.y - rootPos.y;
                 Vec2 rootPosWorld = {
                     (float32)rootPos.x / pixelsPerUnit,
                     (float32)rootPos.y / pixelsPerUnit
                 };
                 currentAnim->frameRootAnchor[i] = {
-                    (float32)rootPos.x / textureSize.x,
-                    (float32)rootPos.y / textureSize.y
+                    (float32)rootPos.x / sprite->textureSize.x,
+                    (float32)rootPos.y / sprite->textureSize.y
                 };
                 
                 if (i == 0) {
@@ -332,7 +326,7 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
         else if (StringEquals(keyword.ToArray(), ToString("start"))) {
             HashKey startAnim;
             startAnim.WriteString(value.ToArray());
-            startAnimation = startAnim;
+            sprite->startAnimationKey = startAnim;
         }
         else if (StringEquals(keyword.ToArray(), ToString("//"))) {
             // Comment, ignore
@@ -345,13 +339,13 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
     }
     
     // TODO maybe provide a friendlier way of iterating through HashTable
-    for (uint32 k = 0; k < animations.capacity; k++) {
-        const HashKey* animKey = &animations.pairs[k].key;
+    for (uint32 k = 0; k < sprite->animations.capacity; k++) {
+        const HashKey* animKey = &sprite->animations.pairs[k].key;
         if (animKey->string.size == 0) {
             continue;
         }
         
-        const Animation* anim = &animations.pairs[k].value;
+        const Animation* anim = &sprite->animations.pairs[k].value;
         for (int f = 0; f < anim->numFrames; f++) {
             const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
             for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
@@ -362,7 +356,7 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
                 
                 const int* exitToFrame = frameExitToTable->GetValue(*toAnimKey);
                 if (exitToFrame != nullptr && *exitToFrame >= 0) {
-                    const Animation* toAnim = animations.GetValue(*toAnimKey);
+                    const Animation* toAnim = sprite->animations.GetValue(*toAnimKey);
                     if (toAnim == nullptr) {
                         LOG_ERROR("Animation file non-existent exit-to animation %.*s (%.*s)\n",
                                   toAnimKey->string.size, toAnimKey->string.data, filePath.size, filePath.data);
@@ -381,14 +375,14 @@ bool AnimatedSprite::Load(const Array<char>& name, float32 pixelsPerUnit,
     return true;
 }
 
-void AnimatedSprite::Unload()
+void UnloadAnimatedSprite(AnimatedSprite* sprite)
 {
-    for (uint32 k = 0; k < animations.capacity; k++) {
-        if (animations.pairs[k].key.string.size == 0) {
+    for (uint32 k = 0; k < sprite->animations.capacity; k++) {
+        if (sprite->animations.pairs[k].key.string.size == 0) {
             continue;
         }
         
-        const Animation& animation = animations.pairs[k].value;
+        const Animation& animation = sprite->animations.pairs[k].value;
         for (int i = 0; i < animation.numFrames; i++) {
             UnloadTexture(animation.frameTextures[i]);
         }

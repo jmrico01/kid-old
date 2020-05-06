@@ -4,7 +4,10 @@
 #include <km_common/km_os.h>
 #include <stb_sprintf.h>
 
-#include <queue> // TODO implement in km_lib?
+static const Array<char> LEVEL_NAMES[] = {
+    ToString("nothing"),
+    ToString("overworld")
+};
 
 internal int ToFlatIndex(Vec2Int index, Vec2Int size)
 {
@@ -167,18 +170,30 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient)
+const Array<char> GetLevelName(LevelId levelId)
 {
-	DEBUG_ASSERT(!loaded);
-	LinearAllocator allocator(transient->size, transient->memory);
+    DEBUG_ASSERT(C_ARRAY_LENGTH(LEVEL_NAMES) == (int)LevelId::COUNT);
+    DEBUG_ASSERT(levelId < LevelId::COUNT);
     
-	sprites.Clear();
-	levelTransitions.Clear();
-	lineColliders.Clear();
-	floor.line.Clear();
+    return LEVEL_NAMES[(int)levelId];
+}
+
+bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit, MemoryBlock transient)
+{
+    DEBUG_ASSERT(levelId < LevelId::COUNT);
+	DEBUG_ASSERT(!levelData->loaded);
     
-	lockedCamera = false;
-	bounded = false;
+	LinearAllocator allocator(transient.size, transient.memory);
+    
+	levelData->sprites.Clear();
+	levelData->levelTransitions.Clear();
+	levelData->lineColliders.Clear();
+	levelData->floor.line.Clear();
+    
+	levelData->lockedCamera = false;
+	levelData->bounded = false;
+    
+    const Array<char> levelName = GetLevelName(levelId);
     
 	FixedArray<char, PATH_MAX_LENGTH> filePath;
 	filePath.Clear();
@@ -186,7 +201,7 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 	filePath.Append(levelName);
 	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
-	if (!OpenPSD(&allocator, filePath.ToArray(), &psdFile)) {
+	if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
 		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
@@ -198,7 +213,7 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 		defer (allocator.LoadState(allocatorState));
         
 		if (StringContains(layer.name.ToArray(), ToString("ground_"))) {
-			if (floor.line.size > 0) {
+			if (levelData->floor.line.size > 0) {
 				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %.*s\n",
                           layer.name.size, layer.name.data, filePath.size, filePath.data);
 				return false;
@@ -227,27 +242,27 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 			};
 			for (uint64 v = 0; v < loop.size; v++) {
 				Vec2 pos = ToVec2(loop[v] + origin) / pixelsPerUnit;
-				floor.line.Append(pos);
+				levelData->floor.line.Append(pos);
 			}
-			floor.PrecomputeSampleVerticesFromLine();
+			levelData->floor.PrecomputeSampleVerticesFromLine();
 		}
         
 		if (!layer.visible) {
 			continue;
 		}
         
-		SpriteType spriteType = SPRITE_BACKGROUND;
+		SpriteType spriteType = SpriteType::BACKGROUND;
 		if (StringContains(layer.name.ToArray(), ToString("obj_"))) {
-			spriteType = SPRITE_OBJECT;
+			spriteType = SpriteType::OBJECT;
 		}
 		else if (StringContains(layer.name.ToArray(), ToString("label_"))) {
-			spriteType = SPRITE_LABEL;
+			spriteType = SpriteType::LABEL;
 		}
 		else if (StringContains(layer.name.ToArray(), ToString("x_"))) {
 			continue;
 		}
         
-		TextureWithPosition* sprite = sprites.Append();
+		TextureWithPosition* sprite = levelData->sprites.Append();
 		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
                                         GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite->texture)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
@@ -267,7 +282,7 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 	}
     
 	filePath.Clear();
-	filePath.Append(ToString("data/levels/"));
+	filePath.Append(ToString("data/kmkv/levels/"));
 	filePath.Append(levelName);
 	filePath.Append(ToString(".kmkv"));
 	Array<uint8> levelFile = LoadEntireFile(filePath.ToArray(), &allocator);
@@ -309,8 +324,8 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 				return false;
 			}
             
-			bounded = true;
-			bounds = parsedBounds;
+			levelData->bounded = true;
+			levelData->bounds = parsedBounds;
 		}
 		else if (StringEquals(keyword.ToArray(), ToString("lockcamera"))) {
 			Vec2 coords;
@@ -327,12 +342,12 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 				return false;
 			}
             
-			lockedCamera = true;
-			cameraCoords = coords;
+			levelData->lockedCamera = true;
+			levelData->cameraCoords = coords;
 		}
 		else if (StringEquals(keyword.ToArray(), ToString("transition"))) {
-			DEBUG_ASSERT(levelTransitions.size < LEVEL_TRANSITIONS_MAX);
-			LevelTransition* transition = &levelTransitions[levelTransitions.size++];
+			DEBUG_ASSERT(levelData->levelTransitions.size < LEVEL_TRANSITIONS_MAX);
+            LevelTransition* transition = levelData->levelTransitions.Append();
             
 			Array<char> transitionString = value.ToArray();
 			FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
@@ -390,7 +405,8 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 					transition->range = range;
 				}
 				else if (StringEquals(keywordTransition.ToArray(), ToString("tolevel"))) {
-					uint64 toLevel = LevelNameToId(valueTransition.ToArray());
+                    // TODO fix this translation
+					uint64 toLevel = 0; // LevelNameToId(valueTransition.ToArray());
 					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
 						LOG_ERROR("Unrecognized level name on transition tolevel: %.*s (%.*s)\n",
                                   valueTransition.size, valueTransition.data,
@@ -428,9 +444,9 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 			}
 		}
 		else if (StringEquals(keyword.ToArray(), ToString("line"))) {
-			DEBUG_ASSERT(lineColliders.size < LINE_COLLIDERS_MAX);
+			DEBUG_ASSERT(levelData->lineColliders.size < LINE_COLLIDERS_MAX);
             
-			LineCollider* lineCollider = &lineColliders[lineColliders.size++];
+			LineCollider* lineCollider = levelData->lineColliders.Append();
 			lineCollider->line.size = 0;
             
 			Array<char> element = value.ToArray();
@@ -473,17 +489,17 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 		}
 	}
     
-	for (uint64 i = 0; i < sprites.size; i++) {
-		TextureWithPosition* sprite = &sprites[i];
-		if (sprite->type == SPRITE_OBJECT) {
+	for (uint64 i = 0; i < levelData->sprites.size; i++) {
+		TextureWithPosition* sprite = &levelData->sprites[i];
+		if (sprite->type == SpriteType::OBJECT) {
 			Vec2 worldSize = ToVec2(sprite->texture.size) / pixelsPerUnit;
-			Vec2 coords = floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
+			Vec2 coords = levelData->floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
             
 			sprite->coords = coords;
 			sprite->anchor = Vec2::one / 2.0f;
             
 			Vec2 floorPos, floorNormal;
-			floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
+			levelData->floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
 			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
 			if (floorNormal.x > 0.0f) {
 				sprite->restAngle = -sprite->restAngle;
@@ -491,17 +507,18 @@ bool LevelData::Load(const Array<char>& levelName, float32 pixelsPerUnit, Memory
 		}
 	}
     
-	loaded = true;
+	levelData->loaded = true;
     
 	LOG_INFO("Loaded level data from file %.*s\n", filePath.size, filePath.data);
     
 	return true;
 }
 
-void LevelData::Unload()
+void UnloadLevelData(LevelData* levelData)
 {
-	for (uint64 i = 0; i < sprites.size; i++) {
-		UnloadTexture(sprites[i].texture);
+	for (uint64 i = 0; i < levelData->sprites.size; i++) {
+		UnloadTexture(levelData->sprites[i].texture);
 	}
-	loaded = false;
+    
+	levelData->loaded = false;
 }

@@ -7,6 +7,7 @@ windows_options = PlatformTargetOptions(
         "/MTd",
 
 		"/wd4100", # unreferenced formal parameter
+        "/wd4127", # conditional expression is constant
 		"/wd4201", # nonstandard extension used: nameless struct/union
 		"/wd4458", # declaration of X hides class member
 		"/wd4505", # unreferenced local function has been removed

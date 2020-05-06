@@ -6,18 +6,23 @@
 #include "collision.h"
 #include "load_psd.h"
 
-#define LEVEL_SPRITES_MAX 32
+const uint64 LINE_COLLIDERS_MAX = 16;
+const uint64 LEVEL_SPRITES_MAX = 32;
+const uint64 LEVEL_TRANSITIONS_MAX = 4;
 
-#define LINE_COLLIDERS_MAX 16
-
-#define LEVELS_MAX 8
-#define LEVEL_TRANSITIONS_MAX 4
-
-enum SpriteType
+enum class LevelId
 {
-	SPRITE_BACKGROUND,
-	SPRITE_OBJECT,
-	SPRITE_LABEL
+    NOTHING = 0,
+    OVERWORLD,
+    
+    COUNT
+};
+
+enum class SpriteType
+{
+	BACKGROUND,
+	OBJECT,
+	LABEL
 };
 
 struct TextureWithPosition
@@ -56,7 +61,9 @@ struct LevelData
 	Vec2 bounds;
     
 	bool loaded;
-    
-	bool Load(const Array<char>& levelName, float32 pixelsPerUnit, MemoryBlock* transient);
-	void Unload();
 };
+
+const Array<char> GetLevelName(LevelId levelId);
+
+bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit, MemoryBlock transient);
+void UnloadLevelData(LevelData* levelData);

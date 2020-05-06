@@ -30,24 +30,23 @@ struct Animation
 struct AnimatedSprite
 {
     HashTable<Animation> animations;
-    HashKey startAnimation;
+    HashKey startAnimationKey;
     Vec2Int textureSize;
-    
-    bool Load(const Array<char>& name, float32 pixelsPerUnit, const MemoryBlock& transient);
-    void Unload();
 };
+
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32 pixelsPerUnit, MemoryBlock transient);
+void UnloadAnimatedSprite(AnimatedSprite* sprite);
 
 struct AnimatedSpriteInstance
 {
     const AnimatedSprite* animatedSprite;
     
-    HashKey activeAnimation;
+    HashKey activeAnimationKey;
     int activeFrame;
     int activeFrameRepeat;
     float32 activeFrameTime;
-    
-    Vec2 Update(float32 deltaTime, const Array<HashKey>& nextAnimations);
-    
-    void Draw(SpriteDataGL* spriteDataGL, Vec2 pos, Vec2 size, Vec2 anchor, Quat rot,
-              float32 alpha, bool flipHorizontal) const;
 };
+
+Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, const Array<HashKey>& nextAnimations);
+void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, SpriteDataGL* spriteDataGL,
+                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal);

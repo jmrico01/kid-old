@@ -586,16 +586,16 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
 template <typename Allocator>
-bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdFile)
+bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator)
 {
-	outPsdFile->file = LoadEntireFile(filePath, allocator);
-	if (outPsdFile->file.data == nullptr) {
+	psdFile->file = LoadEntireFile(filePath, allocator);
+	if (psdFile->file.data == nullptr) {
 		LOG_ERROR("Failed to open PSD file at: %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
 	const Array<char> psdData = {
-		.size = outPsdFile->file.size,
-		.data = (char*)outPsdFile->file.data
+		.size = psdFile->file.size,
+		.data = (char*)psdFile->file.data
 	};
 	uint64 parsedBytes = 0;
     
@@ -626,8 +626,8 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 	parsedBytes += 4;
 	int32 width = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
-	outPsdFile->size.x = width;
-	outPsdFile->size.y = height;
+	psdFile->size.x = width;
+	psdFile->size.y = height;
     
 	int16 depth = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
@@ -716,7 +716,7 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 	int32 layerAndMaskInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	// uint64 layerAndMaskInfoStart = parsedBytes;
-	outPsdFile->layers.size = 0;
+	psdFile->layers.size = 0;
 	if (layerAndMaskInfoLength > 0) {
 		int32 layerInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 		parsedBytes += 4;
@@ -732,11 +732,11 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 			LOG_ERROR("PSD too many layers: %d, max %d\n", layerCount, PSD_MAX_LAYERS);
 			return false;
 		}
-		outPsdFile->layers.size = layerCount;
-		uint64 currentGroupEnd = outPsdFile->layers.size;
+		psdFile->layers.size = layerCount;
+		uint64 currentGroupEnd = psdFile->layers.size;
         
-		for (uint64 layerIndex = 0; layerIndex < outPsdFile->layers.size; layerIndex++) {
-			PsdLayerInfo& layerInfo = outPsdFile->layers[layerIndex];
+		for (uint64 layerIndex = 0; layerIndex < psdFile->layers.size; layerIndex++) {
+			PsdLayerInfo& layerInfo = psdFile->layers[layerIndex];
 			layerInfo.inTimeline = false;
             
 			int32 top = ReadBigEndianInt32(&psdData[parsedBytes]);
@@ -871,16 +871,16 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 					switch (sectionDividerType) {
 						case 1:
 						case 2: {
-							if (currentGroupEnd == outPsdFile->layers.size) {
+							if (currentGroupEnd == psdFile->layers.size) {
 								LOG_ERROR("Layer group start without end for file %s\n", filePath);
 								return false;
 							}
 							for (uint64 l = 0; l < layerIndex; l++) {
-								if (outPsdFile->layers[l].parentIndex == currentGroupEnd) {
-									outPsdFile->layers[l].parentIndex = layerIndex;
+								if (psdFile->layers[l].parentIndex == currentGroupEnd) {
+									psdFile->layers[l].parentIndex = layerIndex;
 								}
 							}
-							currentGroupEnd = outPsdFile->layers.size;
+							currentGroupEnd = psdFile->layers.size;
 						} break;
 						case 3: {
 							currentGroupEnd = layerIndex;
@@ -985,12 +985,12 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 				layerInfo.parentIndex = currentGroupEnd;
 			}
 			else {
-				layerInfo.parentIndex = outPsdFile->layers.size;
+				layerInfo.parentIndex = psdFile->layers.size;
 			}
 		}
         
-		for (uint64 l = 0; l < outPsdFile->layers.size; l++) {
-			PsdLayerInfo& layerInfo = outPsdFile->layers[l];
+		for (uint64 l = 0; l < psdFile->layers.size; l++) {
+			PsdLayerInfo& layerInfo = psdFile->layers[l];
 			layerInfo.dataStart = parsedBytes;
 			for (uint64 c = 0; c < layerInfo.channels.size; c++) {
 				parsedBytes += layerInfo.channels[c].dataSize;
@@ -1026,7 +1026,7 @@ bool OpenPSD(Allocator* allocator, const Array<char>& filePath, PsdFile* outPsdF
 }
 
 template <typename Allocator>
-void ClosePSD(Allocator* allocator, PsdFile* psdFile)
+void FreePsd(PsdFile* psdFile, Allocator* allocator)
 {
-	FreeFile(&psdFile->file, allocator);
+	FreeFile(psdFile->file, allocator);
 }

@@ -15,17 +15,37 @@
 #include "opengl_base.h"
 #include "text.h"
 
-#define NUM_FRAMEBUFFERS_COLOR_DEPTH  1
-#define NUM_FRAMEBUFFERS_COLOR        2
-#define NUM_FRAMEBUFFERS_GRAY         1
+const uint64 NUM_FRAMEBUFFERS_COLOR_DEPTH = 1;
+const uint64 NUM_FRAMEBUFFERS_COLOR = 2;
+const uint64 NUM_FRAMEBUFFERS_GRAY = 1;
 
 Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);
 
-enum PlayerState
+enum class PlayerState
 {
-    PLAYER_STATE_GROUNDED,
-    PLAYER_STATE_JUMPING,
-    PLAYER_STATE_FALLING
+    GROUNDED = 0,
+    JUMPING,
+    FALLING,
+    
+    COUNT
+};
+
+enum class TextureId
+{
+    ROCK,
+    PIXEL,
+    FRAME_CORNER,
+    LUT_BASE,
+    
+    COUNT
+};
+
+enum class AnimatedSpriteId
+{
+    KID,
+    PAPER,
+    
+    COUNT
 };
 
 struct Rock
@@ -46,6 +66,37 @@ struct LiftedObjectInfo
     Vec2 offset;
     float32 placementOffsetX;
     float32 coordYPrev;
+};
+
+struct GameAssets
+{
+    LevelData levels[LevelId::COUNT];
+    
+    TextureGL textures[TextureId::COUNT];
+    AnimatedSprite animatedSprites[AnimatedSpriteId::COUNT];
+    
+#if 0
+    TextureGL textureRock;
+    
+    TextureGL texturePixel;
+    TextureGL textureFrameCorner;
+    TextureGL textureLutBase;
+    
+    AnimatedSprite spriteKid;
+    AnimatedSprite spritePaper;
+#endif
+    
+    Alphabet alphabet;
+    
+    FontFace fontFaceSmall;
+    FontFace fontFaceMedium;
+    
+    GLuint screenShader;
+    GLuint bloomExtractShader;
+    GLuint bloomBlendShader;
+    GLuint blurShader;
+    GLuint grainShader;
+    GLuint lutShader;
 };
 
 struct GameState
@@ -76,8 +127,11 @@ struct GameState
     GrabbedObjectInfo grabbedObject;
     LiftedObjectInfo liftedObject;
     
-    uint64 activeLevel;
-    LevelData levels[LEVELS_MAX];
+    AnimatedSpriteInstance kid;
+    AnimatedSpriteInstance paper;
+    Rock rock;
+    
+    LevelId activeLevelId;
     
     float32 grainTime;
     
@@ -90,33 +144,13 @@ struct GameState
     int floorVertexSelected;
 #endif
     
-    RenderState renderState;
+    FT_Library ftLibrary;
     
+    RenderState renderState;
     RectGL rectGL;
     TexturedRectGL texturedRectGL;
     LineGL lineGL;
     TextGL textGL;
-    
-    AnimatedSprite spriteKid;
-    AnimatedSprite spritePaper;
-    
-    AnimatedSpriteInstance kid;
-    AnimatedSpriteInstance paper;
-    
-    Rock rock;
-    TextureGL rockTexture;
-    
-    TextureGL frameCorner;
-    TextureGL pixelTexture;
-    
-    TextureGL lutBase;
-    TextureGL lut1;
-    
-    Alphabet alphabet;
-    
-    FT_Library ftLibrary;
-    FontFace fontFaceSmall;
-    FontFace fontFaceMedium;
     
     Framebuffer framebuffersColorDepth[NUM_FRAMEBUFFERS_COLOR_DEPTH];
     Framebuffer framebuffersColor[NUM_FRAMEBUFFERS_COLOR];
@@ -126,10 +160,5 @@ struct GameState
     GLuint screenQuadVertexBuffer;
     GLuint screenQuadUVBuffer;
     
-    GLuint screenShader;
-    GLuint bloomExtractShader;
-    GLuint bloomBlendShader;
-    GLuint blurShader;
-    GLuint grainShader;
-    GLuint lutShader;
+    GameAssets assets;
 };
