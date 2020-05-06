@@ -23,7 +23,7 @@ Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 
 
 enum class PlayerState
 {
-    GROUNDED = 0,
+    GROUNDED,
     JUMPING,
     FALLING,
     

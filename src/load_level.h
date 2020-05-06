@@ -12,7 +12,7 @@ const uint64 LEVEL_TRANSITIONS_MAX = 4;
 
 enum class LevelId
 {
-    NOTHING = 0,
+    NOTHING,
     OVERWORLD,
     
     COUNT
