@@ -7,9 +7,17 @@
 #include "load_png.h"
 #include "render.h"
 
-#define ANIMATION_MAX_FRAMES 32
-#define SPRITE_MAX_ANIMATIONS 8
-#define ANIMATION_QUEUE_MAX_LENGTH 4
+const uint64 ANIMATION_MAX_FRAMES = 32;
+const uint64 SPRITE_MAX_ANIMATIONS = 8;
+const uint64 ANIMATION_QUEUE_MAX_LENGTH = 4;
+
+enum class AnimatedSpriteId
+{
+    KID,
+    PAPER,
+    
+    COUNT
+};
 
 struct Animation
 {
@@ -36,17 +44,3 @@ struct AnimatedSprite
 
 bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32 pixelsPerUnit, MemoryBlock transient);
 void UnloadAnimatedSprite(AnimatedSprite* sprite);
-
-struct AnimatedSpriteInstance
-{
-    const AnimatedSprite* animatedSprite;
-    
-    HashKey activeAnimationKey;
-    int activeFrame;
-    int activeFrameRepeat;
-    float32 activeFrameTime;
-};
-
-Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, const Array<HashKey>& nextAnimations);
-void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, SpriteDataGL* spriteDataGL,
-                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal);

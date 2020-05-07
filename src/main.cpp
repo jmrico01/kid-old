@@ -52,34 +52,34 @@ inline int RandInt(int min, int max)
 	return rand() % (max - min) + min;
 }
 
-internal const LevelData* GetLevelData(const GameAssets& assets, LevelId levelId)
+const LevelData* GetLevelData(const GameAssets& assets, LevelId levelId)
 {
     DEBUG_ASSERT(levelId < LevelId::COUNT);
     return &assets.levels[(int)levelId];
 }
-internal LevelData* GetLevelData(GameAssets* assets, LevelId levelId)
+LevelData* GetLevelData(GameAssets* assets, LevelId levelId)
 {
     DEBUG_ASSERT(levelId < LevelId::COUNT);
     return &assets->levels[(int)levelId];
 }
 
-internal const AnimatedSprite* GetAnimatedSprite(const GameAssets& assets, AnimatedSpriteId animatedSpriteId)
+const AnimatedSprite* GetAnimatedSprite(const GameAssets& assets, AnimatedSpriteId animatedSpriteId)
 {
     DEBUG_ASSERT(animatedSpriteId < AnimatedSpriteId::COUNT);
     return &assets.animatedSprites[(int)animatedSpriteId];
 }
-internal AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedSpriteId)
+AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedSpriteId)
 {
     DEBUG_ASSERT(animatedSpriteId < AnimatedSpriteId::COUNT);
     return &assets->animatedSprites[(int)animatedSpriteId];
 }
 
-internal const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId)
+const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId)
 {
     DEBUG_ASSERT(textureId < TextureId::COUNT);
     return &assets.textures[(int)textureId];
 }
-internal TextureGL* GetTexture(GameAssets* assets, TextureId textureId)
+TextureGL* GetTexture(GameAssets* assets, TextureId textureId)
 {
     DEBUG_ASSERT(textureId < TextureId::COUNT);
     return &assets->textures[(int)textureId];
@@ -184,7 +184,7 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 
 internal bool SetActiveLevel(GameState* gameState, LevelId levelId, Vec2 startCoords, MemoryBlock transient)
 {
-	LevelData* levelData = &gameState->assets.levels[(int)levelId];
+	LevelData* levelData = GetLevelData(&gameState->assets, levelId);
 	if (!levelData->loaded) {
 		if (!LoadLevelData(levelData, levelId, gameState->refPixelsPerUnit, transient)) {
 			LOG_ERROR("Failed to load level data for level %d\n", levelId);
@@ -387,7 +387,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	if (gameState->playerState == PlayerState::JUMPING) {
 		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
 	}
-	Vec2 rootMotion = UpdateAnimatedSprite(&gameState->kid, animDeltaTime, nextAnimations.ToArray());
+	Vec2 rootMotion = UpdateAnimatedSprite(&gameState->kid, gameState->assets, animDeltaTime, nextAnimations.ToArray());
 	if (gameState->playerState == PlayerState::JUMPING) {
 		rootMotion *= gameState->playerJumpMag;
 	}
@@ -573,7 +573,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
     
 	Array<HashKey> paperNextAnims;
 	paperNextAnims.size = 0;
-	UpdateAnimatedSprite(&gameState->paper, deltaTime, paperNextAnims);
+	UpdateAnimatedSprite(&gameState->paper, gameState->assets, deltaTime, paperNextAnims);
     
 	if (gameState->kmKey) {
 		return;
@@ -643,10 +643,11 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 		playerAngle = -playerAngle;
 	}
 	Quat playerRot = QuatFromAngleUnitAxis(playerAngle, Vec3::unitZ);
-	Vec2 playerSize = ToVec2(gameState->kid.animatedSprite->textureSize) / gameState->refPixelsPerUnit;
+    const AnimatedSprite* kidSprite = GetAnimatedSprite(gameState->assets, AnimatedSpriteId::KID);
+	Vec2 playerSize = ToVec2(kidSprite->textureSize) / gameState->refPixelsPerUnit;
 	Vec2 anchorUnused = Vec2::zero;
-	DrawAnimatedSprite(gameState->kid, spriteDataGL, playerPos, playerSize, anchorUnused, playerRot,
-                       1.0f, !gameState->facingRight);
+	DrawAnimatedSprite(gameState->kid, gameState->assets, spriteDataGL,
+                       playerPos, playerSize, anchorUnused, playerRot, 1.0f, !gameState->facingRight);
     
 	{ // level sprites
 		for (uint64 i = 0; i < levelData->sprites.size; i++) {
@@ -712,7 +713,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 	const float32 aspectRatio = (float32)screenInfo.size.x / screenInfo.size.y;
 	const float32 screenHeightUnits = (float32)gameState->refPixelScreenHeight / gameState->refPixelsPerUnit;
 	const Vec2 screenSizeWorld = { screenHeightUnits * aspectRatio, screenHeightUnits };
-	DrawAnimatedSprite(gameState->paper, spriteDataGL,
+	DrawAnimatedSprite(gameState->paper, gameState->assets, spriteDataGL,
                        Vec2::zero, screenSizeWorld, Vec2::one / 2.0f, Quat::one, 0.5f,
                        false);
     
@@ -799,6 +800,7 @@ platformFuncs.glFunctions.name;
 		gameState->grabbedObject.coordsPtr = nullptr;
 		gameState->liftedObject.spritePtr = nullptr;
         
+        // TODO eh, idk... sure
 		for (int i = 0; i < (int)LevelId::COUNT; i++) {
 			gameState->assets.levels[i].loaded = false;
 		}
@@ -916,7 +918,7 @@ platformFuncs.glFunctions.name;
 		if (!LoadAnimatedSprite(spriteKid, ToString("kid"), gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
-		gameState->kid.animatedSprite = spriteKid;
+		gameState->kid.animatedSpriteId = AnimatedSpriteId::KID;
 		gameState->kid.activeAnimationKey = spriteKid->startAnimationKey;
 		gameState->kid.activeFrame = 0;
 		gameState->kid.activeFrameRepeat = 0;
@@ -929,7 +931,7 @@ platformFuncs.glFunctions.name;
 		if (!LoadAnimatedSprite(spritePaper, ToString("paper"), gameState->refPixelsPerUnit, memory->transient)) {
             DEBUG_PANIC("Failed to load paper animation sprite\n");
         }
-        gameState->paper.animatedSprite = spritePaper;
+        gameState->paper.animatedSpriteId = AnimatedSpriteId::PAPER;
         gameState->paper.activeAnimationKey = spritePaper->startAnimationKey;
         gameState->paper.activeFrame = 0;
         gameState->paper.activeFrameRepeat = 0;
@@ -1391,7 +1393,7 @@ platformFuncs.glFunctions.name;
     else if (gameState->kmKey) {
         LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
         
-        FloorCollider* floor = &GetLevelData(&gameState->assets, gameState->activeLevelId)->floor;
+        FloorCollider* floor = &(GetLevelData(&gameState->assets, gameState->activeLevelId)->floor);
         
         const FontFace& fontMedium = gameState->assets.fontFaceMedium;
         const FontFace& fontSmall = gameState->assets.fontFaceSmall;

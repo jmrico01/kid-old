@@ -19,8 +19,6 @@ const uint64 NUM_FRAMEBUFFERS_COLOR_DEPTH = 1;
 const uint64 NUM_FRAMEBUFFERS_COLOR = 2;
 const uint64 NUM_FRAMEBUFFERS_GRAY = 1;
 
-Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);
-
 enum class PlayerState
 {
     GROUNDED,
@@ -36,14 +34,6 @@ enum class TextureId
     PIXEL,
     FRAME_CORNER,
     LUT_BASE,
-    
-    COUNT
-};
-
-enum class AnimatedSpriteId
-{
-    KID,
-    PAPER,
     
     COUNT
 };
@@ -98,6 +88,21 @@ struct GameAssets
     GLuint grainShader;
     GLuint lutShader;
 };
+
+struct AnimatedSpriteInstance
+{
+    AnimatedSpriteId animatedSpriteId;
+    
+    HashKey activeAnimationKey;
+    int activeFrame;
+    int activeFrameRepeat;
+    float32 activeFrameTime;
+};
+
+Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, const GameAssets& assets, float32 deltaTime,
+                          const Array<HashKey>& nextAnimations);
+void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& assets, SpriteDataGL* spriteDataGL,
+                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal);
 
 struct GameState
 {
@@ -162,3 +167,14 @@ struct GameState
     
     GameAssets assets;
 };
+
+Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);
+
+const LevelData* GetLevelData(const GameAssets& assets, LevelId levelId);
+LevelData* GetLevelData(GameAssets* assets, LevelId levelId);
+
+const AnimatedSprite* GetAnimatedSprite(const GameAssets& assets, AnimatedSpriteId animatedSpriteId);
+AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedSpriteId);
+
+const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId);
+TextureGL* GetTexture(GameAssets* assets, TextureId textureId);

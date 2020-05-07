@@ -23,9 +23,11 @@ const char KEYWORD_ROOTMOTION       [KEYWORD_MAX_LENGTH] = "rootmotion";
 const char KEYWORD_START            [KEYWORD_MAX_LENGTH] = "start";
 const char KEYWORD_COMMENT          [KEYWORD_MAX_LENGTH] = "//";
 
-Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, const Array<HashKey>& nextAnimations)
+Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, const GameAssets& assets, float32 deltaTime,
+                          const Array<HashKey>& nextAnimations)
 {
-    const Animation* activeAnimation = sprite->animatedSprite->animations.GetValue(sprite->activeAnimationKey);
+    const AnimatedSprite* animatedSprite = GetAnimatedSprite(assets, sprite->animatedSpriteId);
+    const Animation* activeAnimation = animatedSprite->animations.GetValue(sprite->activeAnimationKey);
     Vec2 rootMotion = Vec2::zero;
     
     sprite->activeFrameTime += deltaTime;
@@ -45,7 +47,7 @@ Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, con
                 sprite->activeAnimationKey = nextAnimations[i];
                 sprite->activeFrame = *exitToFrame;
                 
-                activeAnimation = sprite->animatedSprite->animations.GetValue(sprite->activeAnimationKey);
+                activeAnimation = animatedSprite->animations.GetValue(sprite->activeAnimationKey);
                 // TODO transitions between rootfollow-enabled animations don't work for now
                 //rootMotion += (activeAnimation->frameRootMotion[activeFrame] - rootMotionPrev);
             }
@@ -75,10 +77,11 @@ Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, float32 deltaTime, con
     return rootMotion;
 }
 
-void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, SpriteDataGL* spriteDataGL,
+void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& assets, SpriteDataGL* spriteDataGL,
                         Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal)
 {
-    const Animation* activeAnimation = sprite.animatedSprite->animations.GetValue(sprite.activeAnimationKey);
+    const AnimatedSprite* animatedSprite = GetAnimatedSprite(assets, sprite.animatedSpriteId);
+    const Animation* activeAnimation = animatedSprite->animations.GetValue(sprite.activeAnimationKey);
     Vec2 animAnchor = anchor;
     if (activeAnimation->rootMotion) {
         animAnchor = activeAnimation->frameRootAnchor[sprite.activeFrame];
