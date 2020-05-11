@@ -3,8 +3,8 @@
 #include <km_common/km_lib.h>
 #include <km_platform/main_platform.h>
 
+#include "asset_texture.h"
 #include "opengl.h"
-#include "load_png.h"
 #include "render.h"
 
 const uint64 ANIMATION_MAX_FRAMES = 32;

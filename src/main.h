@@ -5,12 +5,13 @@
 #include <km_common/km_math.h>
 
 #include "alphabet.h"
-#include "animation.h"
+#include "asset.h"
+#include "asset_animation.h"
+#include "asset_level.h"
+#include "asset_texture.h"
 #include "audio.h"
 #include "collision.h"
 #include "framebuffer.h"
-#include "load_level.h"
-#include "load_png.h"
 #include "opengl.h"
 #include "opengl_base.h"
 #include "text.h"
@@ -24,16 +25,6 @@ enum class PlayerState
     GROUNDED,
     JUMPING,
     FALLING,
-    
-    COUNT
-};
-
-enum class TextureId
-{
-    ROCK,
-    PIXEL,
-    FRAME_CORNER,
-    LUT_BASE,
     
     COUNT
 };
@@ -58,37 +49,6 @@ struct LiftedObjectInfo
     float32 coordYPrev;
 };
 
-struct GameAssets
-{
-    LevelData levels[LevelId::COUNT];
-    
-    TextureGL textures[TextureId::COUNT];
-    AnimatedSprite animatedSprites[AnimatedSpriteId::COUNT];
-    
-#if 0
-    TextureGL textureRock;
-    
-    TextureGL texturePixel;
-    TextureGL textureFrameCorner;
-    TextureGL textureLutBase;
-    
-    AnimatedSprite spriteKid;
-    AnimatedSprite spritePaper;
-#endif
-    
-    Alphabet alphabet;
-    
-    FontFace fontFaceSmall;
-    FontFace fontFaceMedium;
-    
-    GLuint screenShader;
-    GLuint bloomExtractShader;
-    GLuint bloomBlendShader;
-    GLuint blurShader;
-    GLuint grainShader;
-    GLuint lutShader;
-};
-
 struct AnimatedSpriteInstance
 {
     AnimatedSpriteId animatedSpriteId;
@@ -98,11 +58,6 @@ struct AnimatedSpriteInstance
     int activeFrameRepeat;
     float32 activeFrameTime;
 };
-
-Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, const GameAssets& assets, float32 deltaTime,
-                          const Array<HashKey>& nextAnimations);
-void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& assets, SpriteDataGL* spriteDataGL,
-                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal);
 
 struct GameState
 {
@@ -170,11 +125,7 @@ struct GameState
 
 Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);
 
-const LevelData* GetLevelData(const GameAssets& assets, LevelId levelId);
-LevelData* GetLevelData(GameAssets* assets, LevelId levelId);
-
-const AnimatedSprite* GetAnimatedSprite(const GameAssets& assets, AnimatedSpriteId animatedSpriteId);
-AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedSpriteId);
-
-const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId);
-TextureGL* GetTexture(GameAssets* assets, TextureId textureId);
+Vec2 UpdateAnimatedSprite(AnimatedSpriteInstance* sprite, const GameAssets& assets, float32 deltaTime,
+                          const Array<HashKey>& nextAnimations);
+void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& assets, SpriteDataGL* spriteDataGL,
+                        Vec2 pos, Vec2 size, Vec2 anchor, Quat rot, float32 alpha, bool flipHorizontal);

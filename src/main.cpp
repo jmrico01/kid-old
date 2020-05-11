@@ -52,39 +52,6 @@ inline int RandInt(int min, int max)
 	return rand() % (max - min) + min;
 }
 
-const LevelData* GetLevelData(const GameAssets& assets, LevelId levelId)
-{
-    DEBUG_ASSERT(levelId < LevelId::COUNT);
-    return &assets.levels[(int)levelId];
-}
-LevelData* GetLevelData(GameAssets* assets, LevelId levelId)
-{
-    DEBUG_ASSERT(levelId < LevelId::COUNT);
-    return &assets->levels[(int)levelId];
-}
-
-const AnimatedSprite* GetAnimatedSprite(const GameAssets& assets, AnimatedSpriteId animatedSpriteId)
-{
-    DEBUG_ASSERT(animatedSpriteId < AnimatedSpriteId::COUNT);
-    return &assets.animatedSprites[(int)animatedSpriteId];
-}
-AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedSpriteId)
-{
-    DEBUG_ASSERT(animatedSpriteId < AnimatedSpriteId::COUNT);
-    return &assets->animatedSprites[(int)animatedSpriteId];
-}
-
-const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId)
-{
-    DEBUG_ASSERT(textureId < TextureId::COUNT);
-    return &assets.textures[(int)textureId];
-}
-TextureGL* GetTexture(GameAssets* assets, TextureId textureId)
-{
-    DEBUG_ASSERT(textureId < TextureId::COUNT);
-    return &assets->textures[(int)textureId];
-}
-
 internal float32 ScaleExponentToWorldScale(float32 exponent)
 {
 	const float32 SCALE_MIN = 0.1f;
@@ -1540,15 +1507,16 @@ platformFuncs.glFunctions.name;
 }
 
 #include "alphabet.cpp"
-#include "animation.cpp"
+#include "asset.cpp"
+#include "asset_animation.cpp"
+#include "asset_audio.cpp"
+#include "asset_level.cpp"
+#include "asset_texture.cpp"
 #include "audio.cpp"
 #include "collision.cpp"
 #include "framebuffer.cpp"
 #include "imgui.cpp"
-#include "load_level.cpp"
-#include "load_png.cpp"
 #include "load_psd.cpp"
-#include "load_wav.cpp"
 #include "opengl_base.cpp"
 #include "particles.cpp"
 #include "post.cpp"

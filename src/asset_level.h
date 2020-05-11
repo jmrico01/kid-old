@@ -51,6 +51,7 @@ struct LevelData
 	FloorCollider floor;
 	FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
     
+    // FixedArray<TextureGL, LEVEL_SPRITES_MAX> sprites;
 	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
     
 	FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;

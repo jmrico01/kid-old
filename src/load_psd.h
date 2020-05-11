@@ -1,6 +1,6 @@
 #pragma once
 
-#include "load_png.h"
+#include "asset_texture.h"
 
 #include <km_common/km_lib.h>
 

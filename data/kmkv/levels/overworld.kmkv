@@ -1,0 +1,11 @@
+ground GROUND_COLLISION
+
+// TODO: these animations behave differently in-game
+
+// These are triggered by an event (aurora hits the ground, iceberg gets shattered)
+anim AURORA_ANIM
+anim ICEBERG_ANIM
+
+// These are simple, looped anims
+anim INUIT_ANIM
+anim SMOKE_ANIM

@@ -2,7 +2,7 @@
 
 #include <km_common/km_defines.h>
 
-#include "load_wav.h"
+#include "asset_audio.h"
 
 struct Sound
 {

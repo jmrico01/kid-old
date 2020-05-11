@@ -12,9 +12,9 @@ struct TextureGL
 };
 
 bool LoadTexture(const uint8* data, GLint width, GLint height, GLint format,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);
+                 GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);
 void UnloadTexture(const TextureGL& textureGL);
 
 template <typename Allocator>
 bool LoadTextureFromPng(Allocator* allocator, const char* filePath,
-	GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);
+                        GLint magFilter, GLint minFilter, GLint wrapS, GLint wrapT, TextureGL* outTextureGL);

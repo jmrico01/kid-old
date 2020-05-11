@@ -3,7 +3,7 @@
 #include <km_common/km_lib.h>
 #include <km_platform/main_platform.h>
 
-#include "load_png.h"
+#include "asset_texture.h"
 #include "opengl_base.h"
 #include "text.h"
 
