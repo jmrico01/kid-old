@@ -455,19 +455,18 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
     
 	if (wasInteractKeyPressed) {
 		if (gameState->liftedObject.spritePtr == nullptr) {
-			const FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX>& sprites = levelData->sprites;
-			TextureWithPosition* newLiftedObject = nullptr;
+			SpriteMetadata* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
-			for (uint64 i = 0; i < sprites.size; i++) {
-				TextureWithPosition* sprite = const_cast<TextureWithPosition*>(&sprites[i]);
-				if (sprite->type != SpriteType::OBJECT) {
+			for (uint64 i = 0; i < levelData->spriteMetadata.size; i++) {
+				SpriteMetadata* spriteMetadata = const_cast<SpriteMetadata*>(&levelData->spriteMetadata[i]);
+				if (spriteMetadata->type != SpriteType::OBJECT) {
 					continue;
 				}
                 
-				Vec2 toCoords = sprite->coords - gameState->playerCoords;
+				Vec2 toCoords = spriteMetadata->coords - gameState->playerCoords;
 				float32 coordDist = Mag(toCoords);
 				if (coordDist < minDist) {
-					newLiftedObject = sprite;
+					newLiftedObject = spriteMetadata;
 					minDist = coordDist;
 				}
 			}
@@ -481,19 +480,19 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			}
 		}
 		else {
-			TextureWithPosition* spritePtr = gameState->liftedObject.spritePtr;
+			SpriteMetadata* spriteMetadata = gameState->liftedObject.spritePtr;
 			float32 placementOffsetX = gameState->liftedObject.placementOffsetX;
-			if (spritePtr->flipped) {
+			if (spriteMetadata->flipped) {
 				placementOffsetX = -placementOffsetX;
 			}
-			spritePtr->coords.x += placementOffsetX;
-			spritePtr->coords.y = gameState->liftedObject.coordYPrev;
+			spriteMetadata->coords.x += placementOffsetX;
+			spriteMetadata->coords.y = gameState->liftedObject.coordYPrev;
 			//spritePtr->restAngle += PI_F / 2.0f;
 			gameState->liftedObject.spritePtr = nullptr;
 		}
 	}
     
-	TextureWithPosition* liftedSprite = gameState->liftedObject.spritePtr;
+	SpriteMetadata* liftedSprite = gameState->liftedObject.spritePtr;
 	if (liftedSprite != nullptr) {
 		liftedSprite->coords = gameState->playerCoords;
 		liftedSprite->flipped = !gameState->facingRight;
@@ -618,17 +617,18 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
     
 	{ // level sprites
 		for (uint64 i = 0; i < levelData->sprites.size; i++) {
-			const TextureWithPosition* sprite = &levelData->sprites[i];
+            const TextureGL* sprite = &levelData->sprites[i];
+			const SpriteMetadata* spriteMetadata = &levelData->spriteMetadata[i];
 			Vec2 pos;
 			Quat baseRot;
 			Quat rot;
-			if (sprite->type == SpriteType::OBJECT) {
-				baseRot = QuatFromAngleUnitAxis(-sprite->restAngle, Vec3::unitZ);
+			if (spriteMetadata->type == SpriteType::OBJECT) {
+				baseRot = QuatFromAngleUnitAxis(-spriteMetadata->restAngle, Vec3::unitZ);
                 
 				Vec2 floorPos, floorNormal;
-				floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
-				pos = floorPos + floorNormal * sprite->coords.y;
-				if (sprite == gameState->liftedObject.spritePtr) {
+				floor.GetInfoFromCoordX(spriteMetadata->coords.x, &floorPos, &floorNormal);
+				pos = floorPos + floorNormal * spriteMetadata->coords.y;
+				if (spriteMetadata == gameState->liftedObject.spritePtr) {
 					rot = playerRot;
 				}
 				else {
@@ -640,20 +640,20 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 				}
 			}
 			else {
-				pos = sprite->pos;
+				pos = spriteMetadata->pos;
 				baseRot = Quat::one;
 				rot = Quat::one;
 			}
-			if (sprite->type == SpriteType::LABEL) {
+			if (spriteMetadata->type == SpriteType::LABEL) {
 				Vec2 offset = WrappedWorldOffset(playerPos, pos, floor.length);
 				if (AbsFloat32(offset.x) > 1.0f || offset.y < 0.0f || offset.y > 2.5f) {
 					continue;
 				}
 			}
-			Vec2 size = ToVec2(sprite->texture.size) / gameState->refPixelsPerUnit;
-			Mat4 transform = CalculateTransform(pos, size, sprite->anchor,
-                                                baseRot, rot, sprite->flipped);
-			PushSprite(spriteDataGL, transform, 1.0f, sprite->texture.textureID);
+			Vec2 size = ToVec2(sprite->size) / gameState->refPixelsPerUnit;
+			Mat4 transform = CalculateTransform(pos, size, spriteMetadata->anchor,
+                                                baseRot, rot, spriteMetadata->flipped);
+			PushSprite(spriteDataGL, transform, 1.0f, sprite->textureID);
 		}
 	}
     
@@ -1217,15 +1217,16 @@ platformFuncs.glFunctions.name;
             
 			// sprites
 			for (uint64 i = 0; i < levelData->sprites.size; i++) {
-				if (levelData->sprites[i].type != SpriteType::OBJECT) {
+				if (levelData->spriteMetadata[i].type != SpriteType::OBJECT) {
 					continue;
 				}
 				const float32 POINT_CROSS_OFFSET = 0.05f;
 				Vec4 centerColor = Vec4 { 0.0f, 1.0f, 1.0f, 1.0f };
 				Vec4 boundsColor = Vec4 { 1.0f, 0.0f, 1.0f, 1.0f };
-				const TextureWithPosition& sprite = levelData->sprites[i];
+                const TextureGL& sprite = levelData->sprites[i];
+				const SpriteMetadata& spriteMetadata = levelData->spriteMetadata[i];
 				lineData->count = 2;
-				Vec2 worldPos = floor.GetWorldPosFromCoords(sprite.pos);
+				Vec2 worldPos = floor.GetWorldPosFromCoords(spriteMetadata.pos);
 				Vec3 pos = ToVec3(worldPos, 0.0f);
 				lineData->pos[0] = pos - Vec3::unitX * POINT_CROSS_OFFSET;
 				lineData->pos[1] = pos + Vec3::unitX * POINT_CROSS_OFFSET;
@@ -1233,10 +1234,10 @@ platformFuncs.glFunctions.name;
 				lineData->pos[0] = pos - Vec3::unitY * POINT_CROSS_OFFSET;
 				lineData->pos[1] = pos + Vec3::unitY * POINT_CROSS_OFFSET;
 				DrawLine(gameState->lineGL, viewProjection, lineData, centerColor);
-				Vec2 worldSize = ToVec2(sprite.texture.size) / gameState->refPixelsPerUnit;
+				Vec2 worldSize = ToVec2(sprite.size) / gameState->refPixelsPerUnit;
 				Vec2 anchorOffset = Vec2 {
-					sprite.anchor.x * worldSize.x,
-					sprite.anchor.y * worldSize.y
+					spriteMetadata.anchor.x * worldSize.x,
+					spriteMetadata.anchor.y * worldSize.y
 				};
 				Vec3 origin = ToVec3(worldPos - anchorOffset, 0.0f);
 				// TODO rotate sprite box

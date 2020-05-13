@@ -25,6 +25,7 @@ enum class SpriteType
 	LABEL
 };
 
+#if 0
 struct TextureWithPosition
 {
 	union {
@@ -34,6 +35,19 @@ struct TextureWithPosition
 	Vec2 anchor;
 	float32 restAngle;
 	TextureGL texture;
+	SpriteType type;
+    bool flipped;
+};
+#endif
+
+struct SpriteMetadata
+{
+	union {
+		Vec2 pos;
+		Vec2 coords;
+	};
+	Vec2 anchor;
+	float32 restAngle;
 	SpriteType type;
     bool flipped;
 };
@@ -51,8 +65,9 @@ struct LevelData
 	FloorCollider floor;
 	FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
     
-    // FixedArray<TextureGL, LEVEL_SPRITES_MAX> sprites;
-	FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
+    FixedArray<TextureGL, LEVEL_SPRITES_MAX> sprites;
+    FixedArray<SpriteMetadata, LEVEL_SPRITES_MAX> spriteMetadata;
+	// FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
     
 	FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
     

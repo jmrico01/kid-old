@@ -262,23 +262,24 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			continue;
 		}
         
-		TextureWithPosition* sprite = levelData->sprites.Append();
+		TextureGL* sprite = levelData->sprites.Append();
 		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
-                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, &sprite->texture)) {
+                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, sprite)) {
 			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
                       layer.name.size, layer.name.data, filePath.size, filePath.data);
 			return false;
 		}
         
-		sprite->type = spriteType;
+        SpriteMetadata* spriteMetadata = levelData->spriteMetadata.Append();
+		spriteMetadata->type = spriteType;
 		Vec2Int offset = Vec2Int {
 			layer.left,
 			psdFile.size.y - layer.bottom
 		};
-		sprite->pos = ToVec2(offset) / pixelsPerUnit;
-		sprite->anchor = Vec2::zero;
-		sprite->restAngle = 0.0f;
-		sprite->flipped = false;
+		spriteMetadata->pos = ToVec2(offset) / pixelsPerUnit;
+		spriteMetadata->anchor = Vec2::zero;
+		spriteMetadata->restAngle = 0.0f;
+		spriteMetadata->flipped = false;
 	}
     
 	filePath.Clear();
@@ -490,19 +491,20 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 	}
     
 	for (uint64 i = 0; i < levelData->sprites.size; i++) {
-		TextureWithPosition* sprite = &levelData->sprites[i];
-		if (sprite->type == SpriteType::OBJECT) {
-			Vec2 worldSize = ToVec2(sprite->texture.size) / pixelsPerUnit;
-			Vec2 coords = levelData->floor.GetCoordsFromWorldPos(sprite->pos + worldSize / 2.0f);
+        const TextureGL* sprite = &levelData->sprites[i];
+		SpriteMetadata* spriteMetadata = &levelData->spriteMetadata[i];
+		if (spriteMetadata->type == SpriteType::OBJECT) {
+			Vec2 worldSize = ToVec2(sprite->size) / pixelsPerUnit;
+			Vec2 coords = levelData->floor.GetCoordsFromWorldPos(spriteMetadata->pos + worldSize / 2.0f);
             
-			sprite->coords = coords;
-			sprite->anchor = Vec2::one / 2.0f;
+			spriteMetadata->coords = coords;
+			spriteMetadata->anchor = Vec2::one / 2.0f;
             
 			Vec2 floorPos, floorNormal;
-			levelData->floor.GetInfoFromCoordX(sprite->coords.x, &floorPos, &floorNormal);
-			sprite->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
+			levelData->floor.GetInfoFromCoordX(spriteMetadata->coords.x, &floorPos, &floorNormal);
+			spriteMetadata->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
 			if (floorNormal.x > 0.0f) {
-				sprite->restAngle = -sprite->restAngle;
+				spriteMetadata->restAngle = -spriteMetadata->restAngle;
 			}
 		}
 	}
@@ -517,7 +519,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 void UnloadLevelData(LevelData* levelData)
 {
 	for (uint64 i = 0; i < levelData->sprites.size; i++) {
-		UnloadTexture(levelData->sprites[i].texture);
+		UnloadTexture(levelData->sprites[i]);
 	}
     
 	levelData->loaded = false;

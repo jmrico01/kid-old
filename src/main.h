@@ -43,7 +43,7 @@ struct GrabbedObjectInfo
 
 struct LiftedObjectInfo
 {
-    TextureWithPosition* spritePtr;
+    SpriteMetadata* spritePtr;
     Vec2 offset;
     float32 placementOffsetX;
     float32 coordYPrev;
