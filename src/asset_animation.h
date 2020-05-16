@@ -15,7 +15,7 @@ enum class AnimatedSpriteId
 {
     KID,
     PAPER,
-    
+
     COUNT
 };
 
@@ -42,5 +42,5 @@ struct AnimatedSprite
     Vec2Int textureSize;
 };
 
-bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32 pixelsPerUnit, MemoryBlock transient);
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixelsPerUnit, MemoryBlock transient);
 void UnloadAnimatedSprite(AnimatedSprite* sprite);

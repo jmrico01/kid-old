@@ -776,11 +776,11 @@ platformFuncs.glFunctions.name;
 		if (!SetActiveLevel(gameState, FIRST_LEVEL, startPos, memory->transient)) {
 			DEBUG_PANIC("Failed to load level %d\n", FIRST_LEVEL);
 		}
-        const Array<char> FIRST_LEVEL_NAME = GetLevelName(FIRST_LEVEL);
+        const_string FIRST_LEVEL_NAME = GetLevelName(FIRST_LEVEL);
 		char levelPsdPath[PATH_MAX_LENGTH];
 		stbsp_snprintf(levelPsdPath, PATH_MAX_LENGTH, "data/psd/%.*s.psd",
                        (int)FIRST_LEVEL_NAME.size, FIRST_LEVEL_NAME.data);
-		FileChangedSinceLastCall(ToString(levelPsdPath)); // TODO hacky. move this to SetActiveLevel?
+		FileChangedSinceLastCall(ToString((const char*)levelPsdPath)); // TODO hacky. move this to SetActiveLevel?
 
 		gameState->grainTime = 0.0f;
 
@@ -875,7 +875,7 @@ platformFuncs.glFunctions.name;
         const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
 		gameState->rock.coords = { levelData->floor.length - 10.0f, 0.0f };
 		gameState->rock.angle = 0.0f;
-		if (!LoadTextureFromPng(&allocator, "data/sprites/rock.png",
+		if (!LoadTextureFromPng(&allocator, ToString("data/sprites/rock.png"),
                                 GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                                 GetTexture(&gameState->assets, TextureId::ROCK))) {
 			DEBUG_PANIC("Failed to load rock\n");
@@ -909,24 +909,24 @@ platformFuncs.glFunctions.name;
         FileChangedSinceLastCall(ToString("data/psd/paper.psd"));
 
         // Game static sprites/textures
-        if (!LoadTextureFromPng(&allocator, "data/sprites/frame-corner.png",
+        if (!LoadTextureFromPng(&allocator, ToString("data/sprites/frame-corner.png"),
                                 GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                                 GetTexture(&gameState->assets, TextureId::FRAME_CORNER))) {
             DEBUG_PANIC("Failed to load frame corner texture\n");
         }
-        if (!LoadTextureFromPng(&allocator, "data/sprites/pixel.png",
+        if (!LoadTextureFromPng(&allocator, ToString("data/sprites/pixel.png"),
                                 GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                                 GetTexture(&gameState->assets, TextureId::PIXEL))) {
             DEBUG_PANIC("Failed to load pixel texture\n");
         }
 
 #if 0
-        if (!LoadTextureFromPng(&allocator, "data/luts/lutbase.png",
+        if (!LoadTextureFromPng(&allocator, ToString("data/luts/lutbase.png"),
                                 GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lutBase)) {
             DEBUG_PANIC("Failed to load base LUT\n");
         }
 
-        if (!LoadTextureFromPng(&allocator, "data/luts/kodak5205.png",
+        if (!LoadTextureFromPng(&allocator, ToString("data/luts/kodak5205.png"),
                                 GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lut1)) {
             DEBUG_PANIC("Failed to load base LUT\n");
         }
@@ -955,14 +955,14 @@ platformFuncs.glFunctions.name;
 		LOG_INFO("Updated screen-size-dependent info\n");
 	}
 
-	const Array<char> activeLevelName = GetLevelName(gameState->activeLevelId);
+    const_string activeLevelName = GetLevelName(gameState->activeLevelId);
 	FixedArray<char, PATH_MAX_LENGTH> levelPsdPath;
 	levelPsdPath.Clear();
     // TODO this part of the code shouldn't know about this path
 	levelPsdPath.Append(ToString("data/psd/"));
 	levelPsdPath.Append(activeLevelName);
 	levelPsdPath.Append(ToString(".psd"));
-	if (FileChangedSinceLastCall(levelPsdPath.ToArray())) {
+	if (FileChangedSinceLastCall(levelPsdPath.ToConstArray())) {
 		LOG_INFO("reloading level %.*s\n", (int)activeLevelName.size, activeLevelName.data);
         LevelData* activeLevelData = GetLevelData(&gameState->assets, gameState->activeLevelId);
         if (activeLevelData->loaded) {
@@ -1129,7 +1129,7 @@ platformFuncs.glFunctions.name;
         panelDebug.TitleBar(ToString("Stats"), &panelDebugMinimized, Vec4::zero, &fontMedium);
 
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime));
-		panelDebug.Text(Array<char>::empty);
+		panelDebug.Text(const_string::empty);
 
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
                                     gameState->playerCoords.x, gameState->playerCoords.y));
@@ -1373,7 +1373,7 @@ platformFuncs.glFunctions.name;
         panelKmKey.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2::zero);
         panelKmKey.TitleBar(ToString("KM KEY"), &panelKmKeyMinimized, Vec4::zero, &fontMedium);
 
-        const Array<char> activeLevelNameD = GetLevelName(gameState->activeLevelId);
+        const_string activeLevelNameD = GetLevelName(gameState->activeLevelId);
         panelKmKey.Text(AllocPrintf(&tempAllocator, "Loaded level: %.*s",
                                     (int)activeLevelNameD.size, activeLevelNameD.data));
 

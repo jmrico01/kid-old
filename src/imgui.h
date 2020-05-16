@@ -1,6 +1,7 @@
 #pragma once
 
 #include <km_common/km_lib.h>
+#include <km_common/km_string.h>
 
 const uint64 INPUT_BUFFER_MAX = 256;
 using InputString = FixedArray<char, INPUT_BUFFER_MAX>;
@@ -14,8 +15,8 @@ enum class PanelRenderCommandType
 using PanelRenderCommandFlags = uint8;
 namespace PanelRenderCommandFlag
 {
-    constexpr PanelRenderCommandFlags OVERRIDE_COLOR = 1 << 0;
-    constexpr PanelRenderCommandFlags OVERRIDE_ALPHA = 1 << 1;
+constexpr PanelRenderCommandFlags OVERRIDE_COLOR = 1 << 0;
+constexpr PanelRenderCommandFlags OVERRIDE_ALPHA = 1 << 1;
 }
 
 struct PanelRenderCommandRect
@@ -25,7 +26,7 @@ struct PanelRenderCommandRect
 
 struct PanelRenderCommandText
 {
-	Array<char> text; // NOTE we don't own this data
+    string text; // NOTE we don't own this data
 	const FontFace* font;
 };
 
@@ -46,8 +47,8 @@ struct PanelRenderCommand
 using PanelFlags = uint32;
 namespace PanelFlag
 {
-    constexpr PanelFlags GROW_UPWARDS = 1 << 0;
-    constexpr PanelFlags MINIMIZED    = 1 << 1;
+constexpr PanelFlags GROW_UPWARDS = 1 << 0;
+constexpr PanelFlags MINIMIZED    = 1 << 1;
 }
 
 struct Panel
@@ -60,25 +61,25 @@ struct Panel
 	DynamicArray<PanelRenderCommand> renderCommands;
 	const GameInput* input;
 	const FontFace* fontDefault;
-    
+
 	void Begin(const GameInput& input, const FontFace* fontDefault, PanelFlags flags,
                Vec2Int position, Vec2 anchor);
-    
-    void TitleBar(Array<char> text, bool* minimized = nullptr, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-    
-	void Text(Array<char> text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-    
-	bool Button(Array<char> text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-	bool Checkbox(bool* value, Array<char> text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-    
+
+    void TitleBar(const_string text, bool* minimized = nullptr, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
+
+	void Text(const_string text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
+
+	bool Button(const_string text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
+	bool Checkbox(bool* value, const_string text, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
+
     bool InputText(InputString* inputString, bool* focused, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-    
+
 	bool SliderFloat(float32* value, float32 min, float32 max, Vec4 color = Vec4::zero, const FontFace* font = nullptr);
-    
+
 	template <typename Allocator>
         void Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int borderSize,
                   Vec4 defaultColor, Vec4 backgroundColor, Allocator* allocator);
-    
+
     // Unimplemented ...
 	int SliderInt();
 	float32 InputFloat();

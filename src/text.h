@@ -4,7 +4,9 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #define internal static
+
 #include <km_common/km_math.h>
+#include <km_common/km_string.h>
 #include <km_platform/main_platform.h>
 
 #include "opengl.h"
@@ -45,12 +47,12 @@ TextGL InitTextGL(Allocator* allocator);
 template <typename Allocator>
 FontFace LoadFontFace(Allocator* allocator, FT_Library library, const char* path, uint32 height);
 
-int GetTextWidth(const FontFace& face, Array<char> text);
+int GetTextWidth(const FontFace& face, const_string text);
 template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	Array<char> text, Vec2Int pos, Vec4 color,
-	Allocator* allocator);
+              const_string text, Vec2Int pos, Vec4 color,
+              Allocator* allocator);
 template <typename Allocator>
 void DrawText(TextGL textGL, const FontFace& face, ScreenInfo screenInfo,
-	Array<char> text, Vec2Int pos, Vec2 anchor, Vec4 color,
-	Allocator* allocator);
+              const_string text, Vec2Int pos, Vec2 anchor, Vec4 color,
+              Allocator* allocator);

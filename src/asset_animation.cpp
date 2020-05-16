@@ -90,7 +90,7 @@ void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& 
     PushSprite(spriteDataGL, transform, alpha, activeAnimation->frameTextures[sprite.activeFrame].textureID);
 }
 
-bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32 pixelsPerUnit, MemoryBlock transient)
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixelsPerUnit, MemoryBlock transient)
 {
     LinearAllocator allocator(transient.size, transient.memory);
 
@@ -160,7 +160,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32
                         continue;
                     }
                     uint64 parentIndex = psdFile.layers[i].parentIndex;
-                    if (!StringEquals(psdFile.layers[parentIndex].name.ToArray(), value.ToArray())) {
+                    if (!StringEquals(psdFile.layers[parentIndex].name.ToArray(), value)) {
                         continue;
                     }
                     float64 start = psdFile.layers[i].timelineStart;
@@ -201,7 +201,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32
         }
         else if (StringEquals(keyword, ToString("fps"))) { // TODO won't need this anymore
             int fps;
-            if (!StringToIntBase10(value.ToArray(), &fps)) {
+            if (!StringToIntBase10(value, &fps)) {
                 LOG_ERROR("Animation file fps parse failed (%.*s)\n", filePath.size, filePath.data);
                 return false;
             }
@@ -223,12 +223,12 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32
             Array<char> next;
             ReadElementInSplitString(&value, &next, ' ');
             int exitFromFrame;
-            if (*(element.data) == '*') {
+            if (*(value.data) == '*') {
                 // wildcard
                 exitFromFrame = -1;
             }
             else {
-                if (!StringToIntBase10(element, &exitFromFrame)) {
+                if (!StringToIntBase10(value, &exitFromFrame)) {
                     LOG_ERROR("Animation file invalid exit-from frame (%.*s)\n",
                               filePath.size, filePath.data);
                     return false;
@@ -240,21 +240,21 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const Array<char>& name, float32
                           filePath.size, filePath.data);
                 return false;
             }
-            element = next;
-            ReadElementInSplitString(&element, &next, ' ');
+            value = next;
+            ReadElementInSplitString(&value, &next, ' ');
             HashKey exitToAnim;
-            exitToAnim.WriteString(element);
+            exitToAnim.WriteString(value);
 
             if (next.size == 0) {
                 LOG_ERROR("Animation file missing exit-to frame (%.*s)\n",
                           filePath.size, filePath.data);
                 return false;
             }
-            element = next;
-            ReadElementInSplitString(&element, &next, '\n');
+            value = next;
+            ReadElementInSplitString(&value, &next, '\n');
             int exitToFrame;
             {
-                if (!StringToIntBase10(element, &exitToFrame)) {
+                if (!StringToIntBase10(value, &exitToFrame)) {
                     LOG_ERROR("Animation file invalid exit-to frame (%.*s)\n",
                               filePath.size, filePath.data);
                     return false;

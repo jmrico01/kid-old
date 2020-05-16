@@ -1,6 +1,7 @@
 #pragma once
 
 #include <km_common/km_defines.h>
+#include <km_common/km_string.h>
 #include <km_platform/main_platform.h>
 
 #include "collision.h"
@@ -14,7 +15,7 @@ enum class LevelId
 {
     NOTHING,
     OVERWORLD,
-    
+
     COUNT
 };
 
@@ -64,22 +65,21 @@ struct LevelData
 {
 	FloorCollider floor;
 	FixedArray<LineCollider, LINE_COLLIDERS_MAX> lineColliders;
-    
+
     FixedArray<TextureGL, LEVEL_SPRITES_MAX> sprites;
     FixedArray<SpriteMetadata, LEVEL_SPRITES_MAX> spriteMetadata;
-	// FixedArray<TextureWithPosition, LEVEL_SPRITES_MAX> sprites;
-    
+
 	FixedArray<LevelTransition, LEVEL_TRANSITIONS_MAX> levelTransitions;
-    
+
 	bool lockedCamera;
 	Vec2 cameraCoords;
 	bool bounded;
 	Vec2 bounds;
-    
+
 	bool loaded;
 };
 
-const Array<char> GetLevelName(LevelId levelId);
+const_string GetLevelName(LevelId levelId);
 
 bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit, MemoryBlock transient);
 void UnloadLevelData(LevelData* levelData);

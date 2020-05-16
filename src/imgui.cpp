@@ -10,7 +10,7 @@ void Panel::Begin(const GameInput& input, const FontFace* fontDefault, PanelFlag
                   Vec2Int position, Vec2 anchor)
 {
 	DEBUG_ASSERT(fontDefault != nullptr);
-    
+
     this->flags = flags;
 	this->position = position;
 	this->positionCurrent = position;
@@ -32,7 +32,7 @@ void Panel::Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int bo
     };
     Vec2Int backgroundSize = size + borderSize * 2;
 	DrawRect(rectGL, screenInfo, position + backgroundOffset, anchor, backgroundSize, backgroundColor);
-    
+
 	for (uint64 i = 0; i < renderCommands.size; i++) {
         const auto& command = renderCommands[i];
         Vec4 color = command.flags & PanelRenderCommandFlag::OVERRIDE_COLOR ? command.color : defaultColor;
@@ -51,10 +51,10 @@ void Panel::Draw(ScreenInfo screenInfo, RectGL rectGL, TextGL textGL, Vec2Int bo
 	}
 }
 
-void Panel::TitleBar(Array<char> text, bool* minimized, Vec4 color, const FontFace* font)
+void Panel::TitleBar(const_string text, bool* minimized, Vec4 color, const FontFace* font)
 {
     DEBUG_ASSERT(renderCommands.size == 0);
-    
+
     if (minimized == nullptr) {
         Text(text, color, font);
     }
@@ -68,23 +68,23 @@ void Panel::TitleBar(Array<char> text, bool* minimized, Vec4 color, const FontFa
     }
 }
 
-void Panel::Text(Array<char> text, Vec4 color, const FontFace* font)
+void Panel::Text(const_string text, Vec4 color, const FontFace* font)
 {
     if (flags & PanelFlag::MINIMIZED) {
         return;
     }
-    
+
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
-    
+
 	PanelRenderCommand* newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::TEXT;
     newCommand->flags = color == Vec4::zero ? 0 : PanelRenderCommandFlag::OVERRIDE_COLOR;
 	newCommand->position = positionCurrent;
 	newCommand->color = color;
 	newCommand->anchor = anchor;
-	newCommand->commandText.text = text;
+	newCommand->commandText.text = ToNonConstString(text);
 	newCommand->commandText.font = fontToUse;
-    
+
 	int sizeX = (int)(GetTextWidth(*fontToUse, text) * MARGIN_FRACTION);
 	int sizeY = (int)(fontToUse->height * MARGIN_FRACTION);
 	if (flags & PanelFlag::GROW_UPWARDS) {
@@ -97,16 +97,16 @@ void Panel::Text(Array<char> text, Vec4 color, const FontFace* font)
 	size.y += sizeY;
 }
 
-bool Panel::Button(Array<char> text, Vec4 color, const FontFace* font)
+bool Panel::Button(const_string text, Vec4 color, const FontFace* font)
 {
     if (flags & PanelFlag::MINIMIZED) {
         return false;
     }
-    
+
 	const float32 PRESSED_ALPHA = 1.0f;
 	const float32 HOVERED_ALPHA = 0.65f;
 	const float32 IDLE_ALPHA = 0.3f;
-    
+
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
     Vec2Int textSize = { GetTextWidth(*fontToUse, text), (int)fontToUse->height };
     Vec2Int boxSize = { (int)(textSize.x * MARGIN_FRACTION), (int)(textSize.y * MARGIN_FRACTION) };
@@ -122,9 +122,9 @@ bool Panel::Button(Array<char> text, Vec4 color, const FontFace* font)
     const bool hovered = IsInside(input->mousePos, boxRect);
     const bool pressed = hovered && input->mouseButtons[0].isDown;
     const bool changed = pressed && input->mouseButtons[0].transitions == 1;
-    
+
 	PanelRenderCommand* newCommand;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
     newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
@@ -136,16 +136,16 @@ bool Panel::Button(Array<char> text, Vec4 color, const FontFace* font)
 	newCommand->color = color;
     newCommand->color.a = pressed ? PRESSED_ALPHA : hovered ? HOVERED_ALPHA : IDLE_ALPHA;
 	newCommand->commandRect.size = boxSize;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::TEXT;
     newCommand->flags = color == Vec4::zero ? 0 : PanelRenderCommandFlag::OVERRIDE_COLOR;
 	newCommand->position = positionCurrent;
 	newCommand->anchor = anchor;
 	newCommand->color = color;
-	newCommand->commandText.text = text;
+	newCommand->commandText.text = ToNonConstString(text);
 	newCommand->commandText.font = fontToUse;
-    
+
     const int sizeX = (int)(boxSize.x * MARGIN_FRACTION);
 	const int sizeY = (int)(boxSize.y * MARGIN_FRACTION);
 	if (flags & PanelFlag::GROW_UPWARDS) {
@@ -156,22 +156,22 @@ bool Panel::Button(Array<char> text, Vec4 color, const FontFace* font)
 	}
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
-    
+
     return changed;
 }
 
-bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* font)
+bool Panel::Checkbox(bool* value, const_string text, Vec4 color, const FontFace* font)
 {
 	DEBUG_ASSERT(value != nullptr);
     if (flags & PanelFlag::MINIMIZED) {
         return false;
     }
-    
+
 	const float32 CHECKED_ALPHA   = 1.0f;
 	const float32 HOVERED_ALPHA   = 0.65f;
 	const float32 UNCHECKED_ALPHA = 0.3f;
     bool valueChanged = false;
-    
+
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
     const int fontHeight = fontToUse->height;
     const Vec2Int boxOffset = Vec2Int {
@@ -191,9 +191,9 @@ bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* 
         valueChanged = true;
 	}
     const float32 boxAlpha = *value ? CHECKED_ALPHA : (hover ? HOVERED_ALPHA : UNCHECKED_ALPHA);
-    
+
 	PanelRenderCommand* newCommand;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
     newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
@@ -205,16 +205,16 @@ bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* 
 	newCommand->color = color;
     newCommand->color.a = boxAlpha;
 	newCommand->commandRect.size = boxSize2;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::TEXT;
     newCommand->flags = color == Vec4::zero ? 0 : PanelRenderCommandFlag::OVERRIDE_COLOR;
 	newCommand->position = positionCurrent + Vec2Int { Lerp(fontHeight, -fontHeight, anchor.x), 0 };
 	newCommand->anchor = anchor;
 	newCommand->color = color;
-	newCommand->commandText.text = text;
+	newCommand->commandText.text = ToNonConstString(text);
 	newCommand->commandText.font = fontToUse;
-    
+
     const int sizeX = (int)(GetTextWidth(*fontToUse, text) * MARGIN_FRACTION) + fontHeight;
 	const int sizeY = (int)(fontHeight * MARGIN_FRACTION);
 	if (flags & PanelFlag::GROW_UPWARDS) {
@@ -225,7 +225,7 @@ bool Panel::Checkbox(bool* value, Array<char> text, Vec4 color, const FontFace* 
 	}
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
-    
+
 	return valueChanged;
 }
 
@@ -235,17 +235,17 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
     if (flags & PanelFlag::MINIMIZED) {
         return false;
     }
-    
+
 	const Vec2Int sliderBarSize = Vec2Int { 200, 5 };
 	const Vec2Int sliderSize = Vec2Int { 10, 30 };
 	const int totalHeight = 40;
     const float32 SLIDER_HOVER_ALPHA = 0.9f;
     const float32 SLIDER_ALPHA = 0.6f;
     const float32 BACKGROUND_BAR_ALPHA = 0.4f;
-    
+
 	// const FontFace* fontToUse = font == nullptr ? fontDefault : font;
 	float32 sliderT = (*value - min) / (max - min);
-    
+
 	bool valueChanged = false;
 	RectInt sliderMouseRect;
 	sliderMouseRect.min = Vec2Int {
@@ -263,7 +263,7 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
 		*value = newSliderT * (max - min) + min;
 		valueChanged = true;
 	}
-    
+
 	int sliderOffset = totalHeight / 2;
 	Vec2Int pos = positionCurrent;
 	if (flags & PanelFlag::GROW_UPWARDS) {
@@ -272,9 +272,9 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
 	else {
 		pos.y -= sliderOffset;
 	}
-    
+
 	PanelRenderCommand* newCommand;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
     newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
@@ -283,7 +283,7 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
 	newCommand->color = color;
     newCommand->color.a = BACKGROUND_BAR_ALPHA;
 	newCommand->commandRect.size = sliderBarSize;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
 	newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
@@ -295,7 +295,7 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
     newCommand->color = color;
 	newCommand->color.a = hover ? SLIDER_HOVER_ALPHA : SLIDER_ALPHA;
 	newCommand->commandRect.size = sliderSize;
-    
+
 	if (flags & PanelFlag::GROW_UPWARDS) {
 		positionCurrent.y += totalHeight;
 	}
@@ -304,7 +304,7 @@ bool Panel::SliderFloat(float32* value, float32 min, float32 max, Vec4 color, co
 	}
 	size.x = MaxInt(size.x, sliderBarSize.x);
     size.y += totalHeight;
-    
+
 	return valueChanged;
 }
 
@@ -314,7 +314,7 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
     if (flags & PanelFlag::MINIMIZED) {
         return false;
     }
-    
+
     bool inputChanged = false;
     if (*focused) {
         for (uint64 i = 0; i < input->keyboardStringLen; i++) {
@@ -326,7 +326,7 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
                 inputChanged = true;
                 continue;
             }
-            
+
             if (inputString->size >= INPUT_BUFFER_MAX) {
                 continue;
             }
@@ -334,12 +334,12 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
             inputString->Append(c);
         }
     }
-    
+
 	const float32 PRESSED_ALPHA = 0.5f;
 	const float32 HOVERED_ALPHA = 0.2f;
 	const float32 IDLE_ALPHA = 0.0f;
     const int BOX_MIN_WIDTH = 20;
-    
+
 	const FontFace* fontToUse = font == nullptr ? fontDefault : font;
     Vec2Int textSize = { GetTextWidth(*fontToUse, inputString->ToArray()), (int)fontToUse->height };
     Vec2Int boxSize = { (int)(textSize.x * MARGIN_FRACTION), (int)(textSize.y * MARGIN_FRACTION) };
@@ -361,9 +361,9 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
     if (justPressed) {
         *focused = hovered;
     }
-    
+
 	PanelRenderCommand* newCommand;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::RECT;
     newCommand->flags = PanelRenderCommandFlag::OVERRIDE_ALPHA;
@@ -375,7 +375,7 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
 	newCommand->color = color;
     newCommand->color.a = pressed ? PRESSED_ALPHA : hovered ? HOVERED_ALPHA : IDLE_ALPHA;
 	newCommand->commandRect.size = boxSize;
-    
+
 	newCommand = renderCommands.Append();
 	newCommand->type = PanelRenderCommandType::TEXT;
     newCommand->flags = color == Vec4::zero ? 0 : PanelRenderCommandFlag::OVERRIDE_COLOR;
@@ -384,7 +384,7 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
 	newCommand->color = color;
 	newCommand->commandText.text = inputString->ToArray();
 	newCommand->commandText.font = fontToUse;
-    
+
     const int sizeX = (int)(boxSize.x * MARGIN_FRACTION);
 	const int sizeY = (int)(boxSize.y * MARGIN_FRACTION);
 	if (flags & PanelFlag::GROW_UPWARDS) {
@@ -395,6 +395,6 @@ bool Panel::InputText(InputString* inputString, bool* focused, Vec4 color, const
 	}
 	size.x = MaxInt(size.x, sizeX);
 	size.y += sizeY;
-    
+
     return inputChanged;
 }

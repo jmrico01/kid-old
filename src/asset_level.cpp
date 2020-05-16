@@ -4,7 +4,7 @@
 #include <km_common/km_os.h>
 #include <stb_sprintf.h>
 
-static const Array<char> LEVEL_NAMES[] = {
+static const_string LEVEL_NAMES[] = {
     ToString("nothing"),
     ToString("overworld")
 };
@@ -170,7 +170,7 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-const Array<char> GetLevelName(LevelId levelId)
+const_string GetLevelName(LevelId levelId)
 {
     DEBUG_ASSERT(C_ARRAY_LENGTH(LEVEL_NAMES) == (int)LevelId::COUNT);
     DEBUG_ASSERT(levelId < LevelId::COUNT);
@@ -193,7 +193,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 	levelData->lockedCamera = false;
 	levelData->bounded = false;
 
-    const Array<char> levelName = GetLevelName(levelId);
+    const_string levelName = GetLevelName(levelId);
 
 	FixedArray<char, PATH_MAX_LENGTH> filePath;
 	filePath.Clear();
@@ -206,6 +206,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		return false;
 	}
 
+    Array<char> groundLayerName = {};
 	Array<char> fileString = {
         .size = levelFile.size,
         .data = (char*)levelFile.data
@@ -225,10 +226,10 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		fileString.data += read;
 
         if (StringEquals(keyword, ToString("ground"))) {
-            // TODO
+            groundLayerName = value;
         }
         else if (StringEquals(keyword, ToString("anim"))) {
-            // TODO
+            // TODO use these
         }
 		else if (StringEquals(keyword, ToString("bounds"))) {
 			Vec2 parsedBounds;
@@ -268,8 +269,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			DEBUG_ASSERT(levelData->levelTransitions.size < LEVEL_TRANSITIONS_MAX);
             LevelTransition* transition = levelData->levelTransitions.Append();
 
-			Array<char> keywordTransition;
-			Array<char> valueTransition;
+			Array<char> keywordTransition, valueTransition;
 			while (true) {
 				int readTransition = ReadNextKeywordValue(value, &keywordTransition, &valueTransition);
 				if (readTransition < 0) {
@@ -403,6 +403,11 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		}
 	}
 
+    if (groundLayerName.size == 0) {
+        LOG_ERROR("Level file missing ground layer name (%.*s\n", filePath.size, filePath.data);
+        return false;
+    }
+
 	filePath.Clear();
 	filePath.Append(ToString("data/psd/"));
 	filePath.Append(levelName);
@@ -419,7 +424,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		const auto& allocatorState = allocator.SaveState();
 		defer (allocator.LoadState(allocatorState));
 
-		if (StringContains(layer.name.ToArray(), ToString("GROUND"))) {
+		if (StringEquals(layer.name.ToArray(), groundLayerName)) {
 			if (levelData->floor.line.size > 0) {
 				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %.*s\n",
                           layer.name.size, layer.name.data, filePath.size, filePath.data);
@@ -488,6 +493,11 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		spriteMetadata->restAngle = 0.0f;
 		spriteMetadata->flipped = false;
 	}
+
+    if (levelData->floor.line.size == 0) {
+        LOG_ERROR("Level ground collision not initialized (%.*s)\n", filePath.size, filePath.data);
+        return false;
+    }
 
 	for (uint64 i = 0; i < levelData->sprites.size; i++) {
         const TextureGL* sprite = &levelData->sprites[i];
