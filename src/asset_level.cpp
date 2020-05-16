@@ -25,14 +25,14 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 {
 	const int NUM_PIXELS = imageAlpha.size.x * imageAlpha.size.y;
 	const Vec2Int PIXEL_NULL = Vec2Int { -1, -1 };
-    
+
 	FixedArray<Vec2Int, 4> neighborOffsets4;
 	neighborOffsets4.size = 0;
 	neighborOffsets4.Append(Vec2Int { -1,  0 });
 	neighborOffsets4.Append(Vec2Int {  0,  1 });
 	neighborOffsets4.Append(Vec2Int {  1,  0 });
 	neighborOffsets4.Append(Vec2Int {  0, -1 });
-    
+
 	FixedArray<Vec2Int, 8> neighborOffsets8;
 	neighborOffsets8.size = 0;
 	neighborOffsets8.Append(Vec2Int { -1,  0 });
@@ -43,7 +43,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 	neighborOffsets8.Append(Vec2Int {  1, -1 });
 	neighborOffsets8.Append(Vec2Int {  0, -1 });
 	neighborOffsets8.Append(Vec2Int { -1, -1 });
-    
+
 	bool* isEdge = (bool*)allocator->Allocate(NUM_PIXELS * sizeof(bool));
 	if (isEdge == nullptr) {
 		LOG_ERROR("Not enough memory for isEdge array\n");
@@ -56,7 +56,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 		return false;
 	}
 	defer (allocator->Free(neighborsVisited));
-    
+
 	Vec2Int startPixel = PIXEL_NULL;
 	for (int y = 0; y < imageAlpha.size.y; y++) {
 		for (int x = 0; x < imageAlpha.size.x; x++) {
@@ -86,12 +86,12 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 			}
 		}
 	}
-    
+
 	if (startPixel == PIXEL_NULL) {
 		LOG_ERROR("No edge pixels found\n");
 		return false;
 	}
-    
+
 	Vec2Int pixel = startPixel;
 	outLoop->Append(startPixel);
 	do {
@@ -105,7 +105,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 				break;
 			}
 			neighborsVisited[index]++;
-            
+
 			Vec2Int neighbor = pixel + neighborOffsets8[offsetIndex];
 			if (!PixelInBounds(neighbor, imageAlpha.size) || neighbor == prev) {
 				continue;
@@ -131,7 +131,7 @@ internal bool GetLoop(const ImageData& imageAlpha, Allocator* allocator,
 			pixel = next;
 		}
 	} while (pixel != startPixel);
-    
+
 	return true;
 }
 
@@ -157,7 +157,7 @@ internal bool IsLoopClockwise(const Array<Vec2Int>& loop)
 		sumAngleMetric += determinant;
 		prevVector = vector;
 	}
-    
+
 	return sumAngleMetric >= 0;
 }
 
@@ -174,7 +174,7 @@ const Array<char> GetLevelName(LevelId levelId)
 {
     DEBUG_ASSERT(C_ARRAY_LENGTH(LEVEL_NAMES) == (int)LevelId::COUNT);
     DEBUG_ASSERT(levelId < LevelId::COUNT);
-    
+
     return LEVEL_NAMES[(int)levelId];
 }
 
@@ -182,106 +182,20 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 {
     DEBUG_ASSERT(levelId < LevelId::COUNT);
 	DEBUG_ASSERT(!levelData->loaded);
-    
+
 	LinearAllocator allocator(transient.size, transient.memory);
-    
+
 	levelData->sprites.Clear();
 	levelData->levelTransitions.Clear();
 	levelData->lineColliders.Clear();
 	levelData->floor.line.Clear();
-    
+
 	levelData->lockedCamera = false;
 	levelData->bounded = false;
-    
+
     const Array<char> levelName = GetLevelName(levelId);
-    
+
 	FixedArray<char, PATH_MAX_LENGTH> filePath;
-	filePath.Clear();
-	filePath.Append(ToString("data/psd/"));
-	filePath.Append(levelName);
-	filePath.Append(ToString(".psd"));
-	PsdFile psdFile;
-	if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
-		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
-		return false;
-	}
-    
-	for (uint64 i = 0; i < psdFile.layers.size; i++) {
-		PsdLayerInfo& layer = psdFile.layers[i];
-        
-		const auto& allocatorState = allocator.SaveState();
-		defer (allocator.LoadState(allocatorState));
-        
-		if (StringContains(layer.name.ToArray(), ToString("ground_"))) {
-			if (levelData->floor.line.size > 0) {
-				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %.*s\n",
-                          layer.name.size, layer.name.data, filePath.size, filePath.data);
-				return false;
-			}
-			ImageData imageAlpha;
-			if (!psdFile.LoadLayerImageData(i, LayerChannelID::ALPHA, &allocator, &imageAlpha)) {
-				LOG_ERROR("Failed to load ground layer %.*s image data for %.*s\n",
-                          layer.name.size, layer.name.data, filePath.size, filePath.data);
-				return false;
-			}
-            
-			DynamicArray<Vec2Int> loop;
-			if (!GetLoop(imageAlpha, &allocator, &loop)) {
-				LOG_ERROR("Failed to get loop from ground edges\n");
-				return false;
-			}
-            
-			DownsampleLoop(&loop.ToArray(), 10);
-			if (!IsLoopClockwise(loop.ToArray())) {
-				InvertLoop(&loop.ToArray());
-			}
-            
-			Vec2Int origin = Vec2Int {
-				layer.left,
-				psdFile.size.y - layer.bottom
-			};
-			for (uint64 v = 0; v < loop.size; v++) {
-				Vec2 pos = ToVec2(loop[v] + origin) / pixelsPerUnit;
-				levelData->floor.line.Append(pos);
-			}
-			levelData->floor.PrecomputeSampleVerticesFromLine();
-		}
-        
-		if (!layer.visible) {
-			continue;
-		}
-        
-		SpriteType spriteType = SpriteType::BACKGROUND;
-		if (StringContains(layer.name.ToArray(), ToString("obj_"))) {
-			spriteType = SpriteType::OBJECT;
-		}
-		else if (StringContains(layer.name.ToArray(), ToString("label_"))) {
-			spriteType = SpriteType::LABEL;
-		}
-		else if (StringContains(layer.name.ToArray(), ToString("x_"))) {
-			continue;
-		}
-        
-		TextureGL* sprite = levelData->sprites.Append();
-		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
-                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, sprite)) {
-			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
-                      layer.name.size, layer.name.data, filePath.size, filePath.data);
-			return false;
-		}
-        
-        SpriteMetadata* spriteMetadata = levelData->spriteMetadata.Append();
-		spriteMetadata->type = spriteType;
-		Vec2Int offset = Vec2Int {
-			layer.left,
-			psdFile.size.y - layer.bottom
-		};
-		spriteMetadata->pos = ToVec2(offset) / pixelsPerUnit;
-		spriteMetadata->anchor = Vec2::zero;
-		spriteMetadata->restAngle = 0.0f;
-		spriteMetadata->flipped = false;
-	}
-    
 	filePath.Clear();
 	filePath.Append(ToString("data/kmkv/levels/"));
 	filePath.Append(levelName);
@@ -291,12 +205,12 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		LOG_ERROR("Failed to load level data file %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
-    
-	Array<char> fileString;
-	fileString.size = levelFile.size;
-	fileString.data = (char*)levelFile.data;
-	FixedArray<char, KEYWORD_MAX_LENGTH> keyword;
-	DynamicArray<char> value;
+
+	Array<char> fileString = {
+        .size = levelFile.size,
+        .data = (char*)levelFile.data
+    };
+    Array<char> keyword, value;
 	while (true) {
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
@@ -309,12 +223,17 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		}
 		fileString.size -= read;
 		fileString.data += read;
-        
-		if (StringEquals(keyword.ToArray(), ToString("bounds"))) {
+
+        if (StringEquals(keyword, ToString("ground"))) {
+            // TODO
+        }
+        else if (StringEquals(keyword, ToString("anim"))) {
+            // TODO
+        }
+		else if (StringEquals(keyword, ToString("bounds"))) {
 			Vec2 parsedBounds;
 			int parsedElements;
-			if (!StringToElementArray(value.ToArray(), ' ', true,
-                                      StringToFloat32, 2, parsedBounds.e, &parsedElements)) {
+			if (!StringToElementArray(value, ' ', true, StringToFloat32, 2, parsedBounds.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level bounds %.*s (%.*s)\n",
                           value.size, value.data, filePath.size, filePath.data);
 				return false;
@@ -324,15 +243,14 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                           value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
-            
+
 			levelData->bounded = true;
 			levelData->bounds = parsedBounds;
 		}
-		else if (StringEquals(keyword.ToArray(), ToString("lockcamera"))) {
+		else if (StringEquals(keyword, ToString("lockcamera"))) {
 			Vec2 coords;
 			int parsedElements;
-			if (!StringToElementArray(value.ToArray(), ' ', true,
-                                      StringToFloat32, 2, coords.e, &parsedElements)) {
+			if (!StringToElementArray(value, ' ', true, StringToFloat32, 2, coords.e, &parsedElements)) {
 				LOG_ERROR("Failed to parse level lock camera coords %.*s (%.*s)\n",
                           value.size, value.data, filePath.size, filePath.data);
 				return false;
@@ -342,20 +260,18 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                           value.size, value.data, filePath.size, filePath.data);
 				return false;
 			}
-            
+
 			levelData->lockedCamera = true;
 			levelData->cameraCoords = coords;
 		}
-		else if (StringEquals(keyword.ToArray(), ToString("transition"))) {
+		else if (StringEquals(keyword, ToString("transition"))) {
 			DEBUG_ASSERT(levelData->levelTransitions.size < LEVEL_TRANSITIONS_MAX);
             LevelTransition* transition = levelData->levelTransitions.Append();
-            
-			Array<char> transitionString = value.ToArray();
-			FixedArray<char, KEYWORD_MAX_LENGTH> keywordTransition;
-			DynamicArray<char> valueTransition;
+
+			Array<char> keywordTransition;
+			Array<char> valueTransition;
 			while (true) {
-				int readTransition = ReadNextKeywordValue(transitionString,
-                                                          &keywordTransition, &valueTransition);
+				int readTransition = ReadNextKeywordValue(value, &keywordTransition, &valueTransition);
 				if (readTransition < 0) {
 					LOG_ERROR("Sprite metadata file keyword/value error (%.*s)\n",
                               filePath.size, filePath.data);
@@ -364,14 +280,13 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 				else if (readTransition == 0) {
 					break;
 				}
-				transitionString.size -= readTransition;
-				transitionString.data += readTransition;
-                
-				if (StringEquals(keywordTransition.ToArray(), ToString("coords"))) {
+				value.size -= readTransition;
+				value.data += readTransition;
+
+				if (StringEquals(keywordTransition, ToString("coords"))) {
 					Vec2 coords;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
-                                              StringToFloat32, 2, coords.e, &parsedElements)) {
+					if (!StringToElementArray(valueTransition, ' ', true, StringToFloat32, 2, coords.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition coords %.*s (%.*s)\n",
                                   valueTransition.size, valueTransition.data,
                                   filePath.size, filePath.data);
@@ -383,14 +298,13 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                                   filePath.size, filePath.data);
 						return false;
 					}
-                    
+
 					transition->coords = coords;
 				}
-				else if (StringEquals(keywordTransition.ToArray(), ToString("range"))) {
+				else if (StringEquals(keywordTransition, ToString("range"))) {
 					Vec2 range;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
-                                              StringToFloat32, 2, range.e, &parsedElements)) {
+					if (!StringToElementArray(valueTransition, ' ', true, StringToFloat32, 2, range.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition range %.*s (%.*s)\n",
                                   valueTransition.size, valueTransition.data,
                                   filePath.size, filePath.data);
@@ -402,10 +316,10 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                                   filePath.size, filePath.data);
 						return false;
 					}
-                    
+
 					transition->range = range;
 				}
-				else if (StringEquals(keywordTransition.ToArray(), ToString("tolevel"))) {
+				else if (StringEquals(keywordTransition, ToString("tolevel"))) {
                     // TODO fix this translation
 					uint64 toLevel = 0; // LevelNameToId(valueTransition.ToArray());
 					if (toLevel == C_ARRAY_LENGTH(LEVEL_NAMES)) {
@@ -414,13 +328,13 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                                   filePath.size, filePath.data);
 						return false;
 					}
-                    
+
 					transition->toLevel = toLevel;
 				}
-				else if (StringEquals(keywordTransition.ToArray(), ToString("tocoords"))) {
+				else if (StringEquals(keywordTransition, ToString("tocoords"))) {
 					Vec2 toCoords;
 					int parsedElements;
-					if (!StringToElementArray(valueTransition.ToArray(), ' ', true,
+					if (!StringToElementArray(valueTransition, ' ', true,
                                               StringToFloat32, 2, toCoords.e, &parsedElements)) {
 						LOG_ERROR("Failed to parse transition to-coords %.*s (%.*s)\n",
                                   valueTransition.size, valueTransition.data,
@@ -433,7 +347,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                                   filePath.size, filePath.data);
 						return false;
 					}
-                    
+
 					transition->toCoords = toCoords;
 				}
 				else {
@@ -444,23 +358,22 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 				}
 			}
 		}
-		else if (StringEquals(keyword.ToArray(), ToString("line"))) {
+		else if (StringEquals(keyword, ToString("line"))) {
 			DEBUG_ASSERT(levelData->lineColliders.size < LINE_COLLIDERS_MAX);
-            
+
 			LineCollider* lineCollider = levelData->lineColliders.Append();
 			lineCollider->line.size = 0;
-            
-			Array<char> element = value.ToArray();
+
 			while (true) {
 				Array<char> next;
-				ReadElementInSplitString(&element, &next, '\n');
-                
+				ReadElementInSplitString(&value, &next, '\n');
+
 				Array<char> trimmed;
-				TrimWhitespace(element, &trimmed);
+				TrimWhitespace(value, &trimmed);
 				if (trimmed.size == 0) {
 					break;
 				}
-                
+
 				Vec2 pos;
 				int parsedElements;
 				if (!StringToElementArray(trimmed, ',', true,
@@ -474,13 +387,13 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
                               trimmed.size, trimmed.data, filePath.size, filePath.data);
 					return false;
 				}
-                
+
 				lineCollider->line.Append(pos);
-                
-				element = next;
+
+                value = next;
 			}
 		}
-		else if (StringEquals(keyword.ToArray(), ToString("//"))) {
+		else if (StringEquals(keyword, ToString("//"))) {
 			// comment, ignore
 		}
 		else {
@@ -489,17 +402,103 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			return false;
 		}
 	}
-    
+
+	filePath.Clear();
+	filePath.Append(ToString("data/psd/"));
+	filePath.Append(levelName);
+	filePath.Append(ToString(".psd"));
+	PsdFile psdFile;
+	if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
+		LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
+		return false;
+	}
+
+	for (uint64 i = 0; i < psdFile.layers.size; i++) {
+		PsdLayerInfo& layer = psdFile.layers[i];
+
+		const auto& allocatorState = allocator.SaveState();
+		defer (allocator.LoadState(allocatorState));
+
+		if (StringContains(layer.name.ToArray(), ToString("GROUND"))) {
+			if (levelData->floor.line.size > 0) {
+				LOG_ERROR("Found more than 1 ground_ layer: %.*s for %.*s\n",
+                          layer.name.size, layer.name.data, filePath.size, filePath.data);
+				return false;
+			}
+			ImageData imageAlpha;
+			if (!psdFile.LoadLayerImageData(i, LayerChannelID::ALPHA, &allocator, &imageAlpha)) {
+				LOG_ERROR("Failed to load ground layer %.*s image data for %.*s\n",
+                          layer.name.size, layer.name.data, filePath.size, filePath.data);
+				return false;
+			}
+
+			DynamicArray<Vec2Int> loop;
+			if (!GetLoop(imageAlpha, &allocator, &loop)) {
+				LOG_ERROR("Failed to get loop from ground edges\n");
+				return false;
+			}
+
+			DownsampleLoop(&loop.ToArray(), 10);
+			if (!IsLoopClockwise(loop.ToArray())) {
+				InvertLoop(&loop.ToArray());
+			}
+
+			Vec2Int origin = Vec2Int {
+				layer.left,
+				psdFile.size.y - layer.bottom
+			};
+			for (uint64 v = 0; v < loop.size; v++) {
+				Vec2 pos = ToVec2(loop[v] + origin) / pixelsPerUnit;
+				levelData->floor.line.Append(pos);
+			}
+			levelData->floor.PrecomputeSampleVerticesFromLine();
+		}
+
+		if (!layer.visible) {
+			continue;
+		}
+
+		SpriteType spriteType = SpriteType::BACKGROUND;
+		if (StringContains(layer.name.ToArray(), ToString("obj_"))) {
+			spriteType = SpriteType::OBJECT;
+		}
+		else if (StringContains(layer.name.ToArray(), ToString("label_"))) {
+			spriteType = SpriteType::LABEL;
+		}
+		else if (StringContains(layer.name.ToArray(), ToString("x_"))) {
+			continue;
+		}
+
+		TextureGL* sprite = levelData->sprites.Append();
+		if (!psdFile.LoadLayerTextureGL(i, LayerChannelID::ALL, GL_LINEAR, GL_LINEAR,
+                                        GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &allocator, sprite)) {
+			LOG_ERROR("Failed to load layer %.*s to OpenGL for %.*s\n",
+                      layer.name.size, layer.name.data, filePath.size, filePath.data);
+			return false;
+		}
+
+        SpriteMetadata* spriteMetadata = levelData->spriteMetadata.Append();
+		spriteMetadata->type = spriteType;
+		Vec2Int offset = Vec2Int {
+			layer.left,
+			psdFile.size.y - layer.bottom
+		};
+		spriteMetadata->pos = ToVec2(offset) / pixelsPerUnit;
+		spriteMetadata->anchor = Vec2::zero;
+		spriteMetadata->restAngle = 0.0f;
+		spriteMetadata->flipped = false;
+	}
+
 	for (uint64 i = 0; i < levelData->sprites.size; i++) {
         const TextureGL* sprite = &levelData->sprites[i];
 		SpriteMetadata* spriteMetadata = &levelData->spriteMetadata[i];
 		if (spriteMetadata->type == SpriteType::OBJECT) {
 			Vec2 worldSize = ToVec2(sprite->size) / pixelsPerUnit;
 			Vec2 coords = levelData->floor.GetCoordsFromWorldPos(spriteMetadata->pos + worldSize / 2.0f);
-            
+
 			spriteMetadata->coords = coords;
 			spriteMetadata->anchor = Vec2::one / 2.0f;
-            
+
 			Vec2 floorPos, floorNormal;
 			levelData->floor.GetInfoFromCoordX(spriteMetadata->coords.x, &floorPos, &floorNormal);
 			spriteMetadata->restAngle = acosf(Dot(Vec2::unitY, floorNormal));
@@ -508,11 +507,11 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			}
 		}
 	}
-    
+
 	levelData->loaded = true;
-    
+
 	LOG_INFO("Loaded level data from file %.*s\n", filePath.size, filePath.data);
-    
+
 	return true;
 }
 
@@ -521,6 +520,6 @@ void UnloadLevelData(LevelData* levelData)
 	for (uint64 i = 0; i < levelData->sprites.size; i++) {
 		UnloadTexture(levelData->sprites[i]);
 	}
-    
+
 	levelData->loaded = false;
 }
