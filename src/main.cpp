@@ -149,35 +149,43 @@ Vec2 ScreenToWorld(Vec2Int screenPos, ScreenInfo screenInfo,
 	return Vec2 { result.x, result.y };
 }
 
-internal bool SetActiveLevel(GameState* gameState, LevelId levelId, Vec2 startCoords, MemoryBlock transient)
+internal bool SetActiveLevel(LevelState* levelState, GameAssets* assets, LevelId levelId,
+                             Vec2 startCoords, float32 pixelsPerUnit, MemoryBlock transient)
 {
-	LevelData* levelData = GetLevelData(&gameState->assets, levelId);
-	if (!levelData->loaded) {
-		if (!LoadLevelData(levelData, levelId, gameState->refPixelsPerUnit, transient)) {
-			LOG_ERROR("Failed to load level data for level %d\n", levelId);
-			return false;
-		}
-	}
+	const LevelData* levelData = GetLevelData(assets, levelId);
+    if (levelData == nullptr) {
+        levelData = LoadLevel(assets, levelId, pixelsPerUnit, transient);
+        if (levelData == nullptr) {
+            LOG_ERROR("Failed to load level %d\n", levelId);
+            return false;
+        }
+    }
 
-	gameState->activeLevelId = levelId;
+	levelState->activeLevelId = levelId;
 
-	gameState->playerCoords = startCoords;
-	gameState->playerVel = Vec2::zero;
+	levelState->playerCoords = startCoords;
+	levelState->playerVel = Vec2::zero;
+    levelState->facingRight = true;
+    levelState->currentPlatform = nullptr;
+    levelState->grabbedObject.coordsPtr = nullptr;
+    levelState->liftedObject.spritePtr = nullptr;
+
 	if (startCoords.y > 0.0f) {
-		gameState->playerState = PlayerState::FALLING;
+		levelState->playerState = PlayerState::FALLING;
 	}
 	else {
-		gameState->playerState = PlayerState::GROUNDED;
-		gameState->kid.activeAnimationKey.WriteString(KID_ANIMATION_IDLE);
-		gameState->kid.activeFrame = 0;
-		gameState->kid.activeFrameRepeat = 0;
-		gameState->kid.activeFrameTime = 0.0f;
+		levelState->playerState = PlayerState::GROUNDED;
+		levelState->kid.activeAnimationKey.WriteString(KID_ANIMATION_IDLE);
+		levelState->kid.activeFrame = 0;
+		levelState->kid.activeFrameRepeat = 0;
+		levelState->kid.activeFrameTime = 0.0f;
 	}
+
 	if (levelData->lockedCamera) {
-		gameState->cameraCoords = levelData->cameraCoords;
+		levelState->cameraCoords = levelData->cameraCoords;
 	}
 	else {
-		gameState->cameraCoords = startCoords;
+		levelState->cameraCoords = startCoords;
 	}
 
 	return true;
@@ -218,22 +226,25 @@ internal bool IsGrabbableObjectInRange(Vec2 playerCoords, GrabbedObjectInfo obje
 internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInput& input,
                           MemoryBlock transient)
 {
-    bool isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
+    LevelState* levelState = &gameState->levelState;
+
+    const bool isInteractKeyPressed = IsKeyPressed(input, KM_KEY_E)
 		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown);
-	bool wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
+	const bool wasInteractKeyPressed = WasKeyPressed(input, KM_KEY_E)
 		|| (input.controllers[0].isConnected && input.controllers[0].b.isDown
             && input.controllers[0].b.transitions == 1);
 
 	if (wasInteractKeyPressed) {
-		const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
+		const LevelData* levelData = GetLevelData(gameState->assets, levelState->activeLevelId);
 		for (uint64 i = 0; i < levelData->levelTransitions.size; i++) {
-			Vec2 toPlayer = WrappedWorldOffset(gameState->playerCoords, levelData->levelTransitions[i].coords,
+			Vec2 toPlayer = WrappedWorldOffset(levelState->playerCoords, levelData->levelTransitions[i].coords,
                                                levelData->floor.length);
 			if (AbsFloat32(toPlayer.x) <= levelData->levelTransitions[i].range.x
                 && AbsFloat32(toPlayer.y) <= levelData->levelTransitions[i].range.y) {
 				LevelId newLevelId = (LevelId)levelData->levelTransitions[i].toLevel;
 				Vec2 startCoords = levelData->levelTransitions[i].toCoords;
-				if (!SetActiveLevel(gameState, newLevelId, startCoords, transient)) {
+				if (!SetActiveLevel(levelState, &gameState->assets, newLevelId, startCoords,
+                                    gameState->refPixelsPerUnit, transient)) {
 					DEBUG_PANIC("Failed to load level %llu\n", i);
 				}
 				break;
@@ -241,7 +252,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		}
 	}
 
-	const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
+	const LevelData* levelData = GetLevelData(gameState->assets, levelState->activeLevelId);
 
 	HashKey ANIM_IDLE(KID_ANIMATION_IDLE);
 	HashKey ANIM_WALK(KID_ANIMATION_WALK);
@@ -257,87 +268,87 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	float32 speedMultiplier = 1.0f;
 
-	gameState->playerVel.x = 0.0f;
+	levelState->playerVel.x = 0.0f;
 
 	// Skip player input on INTERNAL build if kmKey flag is on
 	if (!gameState->kmKey) {
         float32 speed = PLAYER_WALK_SPEED * speedMultiplier;
-        if (gameState->playerState == PlayerState::JUMPING) {
-            speed /= Lerp(gameState->playerJumpMag, 1.0f, 0.3f);
+        if (levelState->playerState == PlayerState::JUMPING) {
+            speed /= Lerp(levelState->playerJumpMag, 1.0f, 0.3f);
         }
 
         if (IsKeyPressed(input, KM_KEY_A) || IsKeyPressed(input, KM_KEY_ARROW_LEFT)) {
-            gameState->playerVel.x = -speed;
-            gameState->facingRight = false;
+            levelState->playerVel.x = -speed;
+            levelState->facingRight = false;
         }
         if (IsKeyPressed(input, KM_KEY_D) || IsKeyPressed(input, KM_KEY_ARROW_RIGHT)) {
-            gameState->playerVel.x = speed;
-            gameState->facingRight = true;
+            levelState->playerVel.x = speed;
+            levelState->facingRight = true;
         }
         if (input.controllers[0].isConnected) {
             float32 leftStickX = input.controllers[0].leftEnd.x;
             if (leftStickX < 0.0f) {
-                gameState->playerVel.x = -speed;
-                gameState->facingRight = false;
+                levelState->playerVel.x = -speed;
+                levelState->facingRight = false;
             }
             else if (leftStickX > 0.0f) {
-                gameState->playerVel.x = speed;
-                gameState->facingRight = true;
+                levelState->playerVel.x = speed;
+                levelState->facingRight = true;
             }
         }
 
         bool fallPressed = IsKeyPressed(input, KM_KEY_S)
             || IsKeyPressed(input, KM_KEY_ARROW_DOWN)
             || (input.controllers[0].isConnected && input.controllers[0].leftEnd.y < 0.0f);
-        if (gameState->playerState == PlayerState::GROUNDED && fallPressed
-            && gameState->currentPlatform != nullptr) {
-            gameState->playerState = PlayerState::FALLING;
-            gameState->currentPlatform = nullptr;
-            gameState->playerCoords.y -= LINE_COLLIDER_MARGIN;
+        if (levelState->playerState == PlayerState::GROUNDED && fallPressed
+            && levelState->currentPlatform != nullptr) {
+            levelState->playerState = PlayerState::FALLING;
+            levelState->currentPlatform = nullptr;
+            levelState->playerCoords.y -= LINE_COLLIDER_MARGIN;
         }
 
         bool jumpPressed = IsKeyPressed(input, KM_KEY_SPACE)
             || IsKeyPressed(input, KM_KEY_ARROW_UP)
             || (input.controllers[0].isConnected && input.controllers[0].a.isDown);
-        if (gameState->playerState == PlayerState::GROUNDED && jumpPressed
-            && !KeyCompare(gameState->kid.activeAnimationKey, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
-            gameState->playerState = PlayerState::JUMPING;
-            gameState->currentPlatform = nullptr;
-            gameState->playerJumpHolding = true;
-            gameState->playerJumpHold = 0.0f;
-            gameState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
+        if (levelState->playerState == PlayerState::GROUNDED && jumpPressed
+            && !KeyCompare(levelState->kid.activeAnimationKey, ANIM_FALL) /* TODO fall anim + grounded state seems sketchy */) {
+            levelState->playerState = PlayerState::JUMPING;
+            levelState->currentPlatform = nullptr;
+            levelState->playerJumpHolding = true;
+            levelState->playerJumpHold = 0.0f;
+            levelState->playerJumpMag = PLAYER_JUMP_MAG_MAX;
             gameState->audioState.soundJump.playing = true;
             gameState->audioState.soundJump.sampleIndex = 0;
         }
 
-        if (gameState->playerJumpHolding) {
-            gameState->playerJumpHold += deltaTime;
-            if (gameState->playerState == PlayerState::JUMPING && !jumpPressed) {
-                gameState->playerJumpHolding = false;
-                float32 timeT = gameState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
+        if (levelState->playerJumpHolding) {
+            levelState->playerJumpHold += deltaTime;
+            if (levelState->playerState == PlayerState::JUMPING && !jumpPressed) {
+                levelState->playerJumpHolding = false;
+                float32 timeT = levelState->playerJumpHold - PLAYER_JUMP_HOLD_DURATION_MIN
                     / (PLAYER_JUMP_HOLD_DURATION_MAX - PLAYER_JUMP_HOLD_DURATION_MIN);
                 timeT = ClampFloat32(timeT, 0.0f, 1.0f);
                 timeT = sqrtf(timeT);
-                gameState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
+                levelState->playerJumpMag = Lerp(PLAYER_JUMP_MAG_MIN, PLAYER_JUMP_MAG_MAX, timeT);
             }
         }
 	}
 
 	FixedArray<HashKey, 4> nextAnimations;
 	nextAnimations.size = 0;
-	if (gameState->playerState == PlayerState::JUMPING) {
-		if (!KeyCompare(gameState->kid.activeAnimationKey, ANIM_JUMP)) {
+	if (levelState->playerState == PlayerState::JUMPING) {
+		if (!KeyCompare(levelState->kid.activeAnimationKey, ANIM_JUMP)) {
 			nextAnimations.Append(ANIM_JUMP);
 		}
 		else {
 			nextAnimations.Append(ANIM_FALL);
 		}
 	}
-	else if (gameState->playerState == PlayerState::FALLING) {
+	else if (levelState->playerState == PlayerState::FALLING) {
 		nextAnimations.Append(ANIM_FALL);
 	}
-	else if (gameState->playerState == PlayerState::GROUNDED) {
-		if (gameState->playerVel.x != 0) {
+	else if (levelState->playerState == PlayerState::GROUNDED) {
+		if (levelState->playerVel.x != 0) {
 			nextAnimations.Append(ANIM_WALK);
 			nextAnimations.Append(ANIM_LAND);
 		}
@@ -348,35 +359,35 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	float32 animDeltaTime = deltaTime;
-	if (gameState->playerState == PlayerState::GROUNDED) {
+	if (levelState->playerState == PlayerState::GROUNDED) {
 		animDeltaTime *= speedMultiplier;
 	}
-	if (gameState->playerState == PlayerState::JUMPING) {
-		animDeltaTime /= Lerp(gameState->playerJumpMag, 1.0f, 0.5f);
+	if (levelState->playerState == PlayerState::JUMPING) {
+		animDeltaTime /= Lerp(levelState->playerJumpMag, 1.0f, 0.5f);
 	}
-	Vec2 rootMotion = UpdateAnimatedSprite(&gameState->kid, gameState->assets, animDeltaTime, nextAnimations.ToArray());
-	if (gameState->playerState == PlayerState::JUMPING) {
-		rootMotion *= gameState->playerJumpMag;
+	Vec2 rootMotion = UpdateAnimatedSprite(&levelState->kid, gameState->assets, animDeltaTime, nextAnimations.ToArray());
+	if (levelState->playerState == PlayerState::JUMPING) {
+		rootMotion *= levelState->playerJumpMag;
 	}
 
-	if (gameState->playerState == PlayerState::JUMPING
-        && KeyCompare(gameState->kid.activeAnimationKey, ANIM_FALL)) {
-		gameState->playerState = PlayerState::FALLING;
+	if (levelState->playerState == PlayerState::JUMPING
+        && KeyCompare(levelState->kid.activeAnimationKey, ANIM_FALL)) {
+		levelState->playerState = PlayerState::FALLING;
 	}
 
 	const FloorCollider& floor = levelData->floor;
 
-	Vec2 deltaCoords = gameState->playerVel * deltaTime + rootMotion;
+	Vec2 deltaCoords = levelState->playerVel * deltaTime + rootMotion;
 
-	Vec2 playerPos = floor.GetWorldPosFromCoords(gameState->playerCoords);
-	Vec2 playerPosNew = floor.GetWorldPosFromCoords(gameState->playerCoords + deltaCoords);
+	Vec2 playerPos = floor.GetWorldPosFromCoords(levelState->playerCoords);
+	Vec2 playerPosNew = floor.GetWorldPosFromCoords(levelState->playerCoords + deltaCoords);
 	Vec2 deltaPos = playerPosNew - playerPos;
 
 	FixedArray<LineColliderIntersect, LINE_COLLIDERS_MAX> intersects;
 	GetLineColliderIntersections(levelData->lineColliders.ToArray(), playerPos, deltaPos,
                                  LINE_COLLIDER_MARGIN, &intersects);
 	for (uint64 i = 0; i < intersects.size; i++) {
-		if (gameState->currentPlatform == intersects[i].collider) {
+		if (levelState->currentPlatform == intersects[i].collider) {
 			continue;
 		}
 
@@ -386,14 +397,14 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			newDeltaCoordX = deltaCoords.x * tX;
 		}
 		Vec2 newFloorPos, newFloorNormal;
-		floor.GetInfoFromCoordX(gameState->playerCoords.x + newDeltaCoordX, &newFloorPos, &newFloorNormal);
+		floor.GetInfoFromCoordX(levelState->playerCoords.x + newDeltaCoordX, &newFloorPos, &newFloorNormal);
 
 		const float32 COS_WALK_ANGLE = cosf(PI_F / 4.0f);
 		float32 dotCollisionFloorNormal = Dot(newFloorNormal, intersects[i].normal);
 		if (AbsFloat32(dotCollisionFloorNormal) >= COS_WALK_ANGLE) {
 			// Walkable floor
-			if (gameState->playerState == PlayerState::FALLING) {
-				gameState->currentPlatform = intersects[i].collider;
+			if (levelState->playerState == PlayerState::FALLING) {
+				levelState->currentPlatform = intersects[i].collider;
 				deltaCoords.x = newDeltaCoordX;
 			}
 		}
@@ -404,25 +415,25 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	}
 
 	float32 floorHeightCoord = 0.0f;
-	if (gameState->currentPlatform != nullptr) {
+	if (levelState->currentPlatform != nullptr) {
 		float32 platformHeight;
-		bool playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(*gameState->currentPlatform, floor,
-                                                                       gameState->playerCoords.x + deltaCoords.x,
+		bool playerOverPlatform = GetLineColliderCoordYFromFloorCoordX(*levelState->currentPlatform, floor,
+                                                                       levelState->playerCoords.x + deltaCoords.x,
                                                                        &platformHeight);
 		if (playerOverPlatform) {
 			floorHeightCoord = platformHeight;
 		}
 		else {
-			gameState->currentPlatform = nullptr;
-			gameState->playerState = PlayerState::FALLING;
+			levelState->currentPlatform = nullptr;
+			levelState->playerState = PlayerState::FALLING;
 		}
 	}
 
-	Vec2 playerCoordsNew = gameState->playerCoords + deltaCoords;
-	if (playerCoordsNew.y < floorHeightCoord || gameState->currentPlatform != nullptr) {
+	Vec2 playerCoordsNew = levelState->playerCoords + deltaCoords;
+	if (playerCoordsNew.y < floorHeightCoord || levelState->currentPlatform != nullptr) {
 		playerCoordsNew.y = floorHeightCoord;
-		gameState->prevFloorCoordY = floorHeightCoord;
-		gameState->playerState = PlayerState::GROUNDED;
+		levelState->prevFloorCoordY = floorHeightCoord;
+		levelState->playerState = PlayerState::GROUNDED;
 	}
 
     const TextureGL* textureRock = GetTexture(gameState->assets, TextureId::ROCK);
@@ -435,7 +446,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 
 	const float32 GRAB_RANGE = 0.2f;
 
-	if (isInteractKeyPressed && gameState->grabbedObject.coordsPtr == nullptr) {
+	if (isInteractKeyPressed && levelState->grabbedObject.coordsPtr == nullptr) {
 		FixedArray<GrabbedObjectInfo, 10> candidates;
 		candidates.size = 0;
 		Vec2 rockSize = ToVec2(textureRock->size) / gameState->refPixelsPerUnit;
@@ -446,15 +457,15 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
                               Vec2 { 0.0f, rockRadius * 2.0f }
                           });
 		for (uint64 i = 0; i < candidates.size; i++) {
-			if (IsGrabbableObjectInRange(gameState->playerCoords, candidates[i], floor.length)) {
-				gameState->grabbedObject = candidates[i];
+			if (IsGrabbableObjectInRange(levelState->playerCoords, candidates[i], floor.length)) {
+				levelState->grabbedObject = candidates[i];
 				break;
 			}
 		}
 	}
 
 	if (wasInteractKeyPressed) {
-		if (gameState->liftedObject.spritePtr == nullptr) {
+		if (levelState->liftedObject.spritePtr == nullptr) {
 			SpriteMetadata* newLiftedObject = nullptr;
 			float32 minDist = 2.0f;
 			for (uint64 i = 0; i < levelData->spriteMetadata.size; i++) {
@@ -463,7 +474,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 					continue;
 				}
 
-				Vec2 toCoords = spriteMetadata->coords - gameState->playerCoords;
+				Vec2 toCoords = spriteMetadata->coords - levelState->playerCoords;
 				float32 coordDist = Mag(toCoords);
 				if (coordDist < minDist) {
 					newLiftedObject = spriteMetadata;
@@ -472,42 +483,42 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			}
 
 			if (newLiftedObject != nullptr) {
-				gameState->liftedObject.offset = Vec2 { -0.25f, 1.9f };
-				gameState->liftedObject.placementOffsetX = 1.2f;
-				gameState->liftedObject.coordYPrev = newLiftedObject->coords.y;
-				gameState->liftedObject.spritePtr = newLiftedObject;
-				//gameState->liftedObject.spritePtr->restAngle -= PI_F / 2.0f;
+				levelState->liftedObject.offset = Vec2 { -0.25f, 1.9f };
+				levelState->liftedObject.placementOffsetX = 1.2f;
+				levelState->liftedObject.coordYPrev = newLiftedObject->coords.y;
+				levelState->liftedObject.spritePtr = newLiftedObject;
+				//levelState->liftedObject.spritePtr->restAngle -= PI_F / 2.0f;
 			}
 		}
 		else {
-			SpriteMetadata* spriteMetadata = gameState->liftedObject.spritePtr;
-			float32 placementOffsetX = gameState->liftedObject.placementOffsetX;
+			SpriteMetadata* spriteMetadata = levelState->liftedObject.spritePtr;
+			float32 placementOffsetX = levelState->liftedObject.placementOffsetX;
 			if (spriteMetadata->flipped) {
 				placementOffsetX = -placementOffsetX;
 			}
 			spriteMetadata->coords.x += placementOffsetX;
-			spriteMetadata->coords.y = gameState->liftedObject.coordYPrev;
+			spriteMetadata->coords.y = levelState->liftedObject.coordYPrev;
 			//spritePtr->restAngle += PI_F / 2.0f;
-			gameState->liftedObject.spritePtr = nullptr;
+			levelState->liftedObject.spritePtr = nullptr;
 		}
 	}
 
-	SpriteMetadata* liftedSprite = gameState->liftedObject.spritePtr;
+	SpriteMetadata* liftedSprite = levelState->liftedObject.spritePtr;
 	if (liftedSprite != nullptr) {
-		liftedSprite->coords = gameState->playerCoords;
-		liftedSprite->flipped = !gameState->facingRight;
-		Vec2 offset = gameState->liftedObject.offset;
+		liftedSprite->coords = levelState->playerCoords;
+		liftedSprite->flipped = !levelState->facingRight;
+		Vec2 offset = levelState->liftedObject.offset;
 		if (liftedSprite->flipped) {
 			offset.x = -offset.x;
 		}
 		liftedSprite->coords += offset;
 	}
 
-	if (gameState->grabbedObject.coordsPtr != nullptr) {
-		if (IsGrabbableObjectInRange(gameState->playerCoords, gameState->grabbedObject, floor.length)
+	if (levelState->grabbedObject.coordsPtr != nullptr) {
+		if (IsGrabbableObjectInRange(levelState->playerCoords, levelState->grabbedObject, floor.length)
             && isInteractKeyPressed) {
-			float32 deltaX = playerCoordsNew.x - gameState->playerCoords.x;
-			Vec2* coordsPtr = gameState->grabbedObject.coordsPtr;
+			float32 deltaX = playerCoordsNew.x - levelState->playerCoords.x;
+			Vec2* coordsPtr = levelState->grabbedObject.coordsPtr;
 			coordsPtr->x += deltaX;
 			if (coordsPtr->x < 0.0f) {
 				coordsPtr->x += floor.length;
@@ -517,15 +528,15 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			}
 		}
 		else {
-			gameState->grabbedObject.coordsPtr = nullptr;
+			levelState->grabbedObject.coordsPtr = nullptr;
 		}
 	}
 
 	if (levelData->bounded) {
-		if (gameState->playerCoords.x >= levelData->bounds.x && playerCoordsNew.x < levelData->bounds.x) {
+		if (levelState->playerCoords.x >= levelData->bounds.x && playerCoordsNew.x < levelData->bounds.x) {
 			playerCoordsNew.x = levelData->bounds.x;
 		}
-		if (gameState->playerCoords.x <= levelData->bounds.y && playerCoordsNew.x > levelData->bounds.y) {
+		if (levelState->playerCoords.x <= levelData->bounds.y && playerCoordsNew.x > levelData->bounds.y) {
 			playerCoordsNew.x = levelData->bounds.y;
 		}
 	}
@@ -535,7 +546,7 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 	else if (playerCoordsNew.x > floor.length) {
 		playerCoordsNew.x -= floor.length;
 	}
-	gameState->playerCoords = playerCoordsNew;
+	levelState->playerCoords = playerCoordsNew;
 
 	Array<HashKey> paperNextAnims;
 	paperNextAnims.size = 0;
@@ -549,25 +560,25 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 		const float32 CAMERA_FOLLOW_ACCEL_DIST_MIN = 3.0f;
 		const float32 CAMERA_FOLLOW_ACCEL_DIST_MAX = 10.0f;
 		float32 cameraFollowLerpMag = 0.08f;
-		Vec2 cameraCoordsTarget = gameState->playerCoords;
-		if (cameraCoordsTarget.y > gameState->prevFloorCoordY) {
-			cameraCoordsTarget.y = gameState->prevFloorCoordY;
+		Vec2 cameraCoordsTarget = levelState->playerCoords;
+		if (cameraCoordsTarget.y > levelState->prevFloorCoordY) {
+			cameraCoordsTarget.y = levelState->prevFloorCoordY;
 		}
 
 		// Wrap camera if necessary
-		float32 dist = Mag(cameraCoordsTarget - gameState->cameraCoords);
-		Vec2 cameraCoordsWrap = gameState->cameraCoords;
+		float32 dist = Mag(cameraCoordsTarget - levelState->cameraCoords);
+		Vec2 cameraCoordsWrap = levelState->cameraCoords;
 		cameraCoordsWrap.x += floor.length;
 		float32 altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
 		if (altDist < dist) {
-			gameState->cameraCoords = cameraCoordsWrap;
+			levelState->cameraCoords = cameraCoordsWrap;
 			dist = altDist;
 		}
 		else {
 			cameraCoordsWrap.x -= floor.length * 2.0f;
 			altDist = Mag(cameraCoordsTarget - cameraCoordsWrap);
 			if (altDist < dist) {
-				gameState->cameraCoords = cameraCoordsWrap;
+				levelState->cameraCoords = cameraCoordsWrap;
 				dist = altDist;
 			}
 		}
@@ -578,32 +589,31 @@ internal void UpdateWorld(GameState* gameState, float32 deltaTime, const GameInp
 			lerpMagAccelT = ClampFloat32(lerpMagAccelT, 0.0f, 1.0f);
 			cameraFollowLerpMag += (1.0f - cameraFollowLerpMag) * lerpMagAccelT;
 		}
-		gameState->cameraCoords = Lerp(gameState->cameraCoords, cameraCoordsTarget,
-                                       cameraFollowLerpMag);
+		levelState->cameraCoords = Lerp(levelState->cameraCoords, cameraCoordsTarget, cameraFollowLerpMag);
 	}
 
 	Vec2 camFloorPos, camFloorNormal;
-	floor.GetInfoFromCoordX(gameState->cameraCoords.x, &camFloorPos, &camFloorNormal);
+	floor.GetInfoFromCoordX(levelState->cameraCoords.x, &camFloorPos, &camFloorNormal);
 	float32 angle = acosf(Dot(Vec2::unitY, camFloorNormal));
 	if (camFloorNormal.x > 0.0f) {
 		angle = -angle;
 	}
-	gameState->cameraPos = camFloorPos + camFloorNormal * gameState->cameraCoords.y;
-	gameState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
+	levelState->cameraPos = camFloorPos + camFloorNormal * levelState->cameraCoords.y;
+	levelState->cameraRot = QuatFromAngleUnitAxis(angle, Vec3::unitZ);
 }
 
 internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
                         Mat4 projection, ScreenInfo screenInfo)
 {
-	const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
+    const LevelState* levelState = &gameState->levelState;
+    const LevelData* levelData = GetLevelData(gameState->assets, levelState->activeLevelId);
 	const FloorCollider& floor = levelData->floor;
 
 	spriteDataGL->numSprites = 0;
 
 	Vec2 playerFloorPos, playerFloorNormal;
-	floor.GetInfoFromCoordX(gameState->playerCoords.x,
-                            &playerFloorPos, &playerFloorNormal);
-	Vec2 playerPos = playerFloorPos + playerFloorNormal * gameState->playerCoords.y;
+	floor.GetInfoFromCoordX(levelState->playerCoords.x, &playerFloorPos, &playerFloorNormal);
+	Vec2 playerPos = playerFloorPos + playerFloorNormal * levelState->playerCoords.y;
 	float32 playerAngle = acosf(Dot(Vec2::unitY, playerFloorNormal));
 	if (playerFloorNormal.x > 0.0f) {
 		playerAngle = -playerAngle;
@@ -612,8 +622,8 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
     const AnimatedSprite* kidSprite = GetAnimatedSprite(gameState->assets, AnimatedSpriteId::KID);
 	Vec2 playerSize = ToVec2(kidSprite->textureSize) / gameState->refPixelsPerUnit;
 	Vec2 anchorUnused = Vec2::zero;
-	DrawAnimatedSprite(gameState->kid, gameState->assets, spriteDataGL,
-                       playerPos, playerSize, anchorUnused, playerRot, 1.0f, !gameState->facingRight);
+	DrawAnimatedSprite(levelState->kid, gameState->assets, spriteDataGL,
+                       playerPos, playerSize, anchorUnused, playerRot, 1.0f, !levelState->facingRight);
 
 	{ // level sprites
 		for (uint64 i = 0; i < levelData->sprites.size; i++) {
@@ -628,7 +638,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 				Vec2 floorPos, floorNormal;
 				floor.GetInfoFromCoordX(spriteMetadata->coords.x, &floorPos, &floorNormal);
 				pos = floorPos + floorNormal * spriteMetadata->coords.y;
-				if (spriteMetadata == gameState->liftedObject.spritePtr) {
+				if (spriteMetadata == levelState->liftedObject.spritePtr) {
 					rot = playerRot;
 				}
 				else {
@@ -666,7 +676,7 @@ internal void DrawWorld(const GameState* gameState, SpriteDataGL* spriteDataGL,
 		PushSprite(spriteDataGL, transform, 1.0f, textureRock->textureID);
 	}
 
-	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
+	Mat4 view = CalculateViewMatrix(levelState->cameraPos, levelState->cameraRot,
                                     gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
 	DrawSprites(gameState->renderState, *spriteDataGL, projection * view);
 
@@ -759,21 +769,14 @@ platformFuncs.glFunctions.name;
 		gameState->borderRadius = 20;
 		gameState->cameraOffsetFracY = -1.0f / 2.8f;
 
-		// Game data
-		gameState->playerVel = Vec2::zero;
-		gameState->facingRight = true;
-		gameState->currentPlatform = nullptr;
-
-		gameState->grabbedObject.coordsPtr = nullptr;
-		gameState->liftedObject.spritePtr = nullptr;
-
         // TODO eh, idk... sure
 		for (int i = 0; i < (int)LevelId::COUNT; i++) {
 			gameState->assets.levels[i].loaded = false;
 		}
 		const LevelId FIRST_LEVEL = LevelId::OVERWORLD;
-        Vec2 startPos = { 152.0f, 1.0f };
-		if (!SetActiveLevel(gameState, FIRST_LEVEL, startPos, memory->transient)) {
+        Vec2 startPos = { 83.9f, 1.0f };
+		if (!SetActiveLevel(&gameState->levelState, &gameState->assets, FIRST_LEVEL, startPos,
+                            gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to load level %d\n", FIRST_LEVEL);
 		}
         const_string FIRST_LEVEL_NAME = GetLevelName(FIRST_LEVEL);
@@ -872,7 +875,7 @@ platformFuncs.glFunctions.name;
                                                         "data/fonts/ocr-a/regular.ttf", 24);
 
         // Game objects
-        const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
+        const LevelData* levelData = GetLevelData(gameState->assets, gameState->levelState.activeLevelId);
 		gameState->rock.coords = { levelData->floor.length - 10.0f, 0.0f };
 		gameState->rock.angle = 0.0f;
 		if (!LoadTextureFromPng(&allocator, ToString("data/sprites/rock.png"),
@@ -885,11 +888,11 @@ platformFuncs.glFunctions.name;
 		if (!LoadAnimatedSprite(spriteKid, ToString("kid"), gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to load kid animation sprite\n");
 		}
-		gameState->kid.animatedSpriteId = AnimatedSpriteId::KID;
-		gameState->kid.activeAnimationKey = spriteKid->startAnimationKey;
-		gameState->kid.activeFrame = 0;
-		gameState->kid.activeFrameRepeat = 0;
-		gameState->kid.activeFrameTime = 0.0f;
+		gameState->levelState.kid.animatedSpriteId = AnimatedSpriteId::KID;
+        gameState->levelState.kid.activeAnimationKey = spriteKid->startAnimationKey;
+        gameState->levelState.kid.activeFrame = 0;
+        gameState->levelState.kid.activeFrameRepeat = 0;
+        gameState->levelState.kid.activeFrameTime = 0.0f;
 		// TODO priming file changed... hmm
 		FileChangedSinceLastCall(ToString("data/kmkv/animations/kid.kmkv"));
 		FileChangedSinceLastCall(ToString("data/psd/kid.psd"));
@@ -955,7 +958,7 @@ platformFuncs.glFunctions.name;
 		LOG_INFO("Updated screen-size-dependent info\n");
 	}
 
-    const_string activeLevelName = GetLevelName(gameState->activeLevelId);
+    const_string activeLevelName = GetLevelName(gameState->levelState.activeLevelId);
 	FixedArray<char, PATH_MAX_LENGTH> levelPsdPath;
 	levelPsdPath.Clear();
     // TODO this part of the code shouldn't know about this path
@@ -964,12 +967,13 @@ platformFuncs.glFunctions.name;
 	levelPsdPath.Append(ToString(".psd"));
 	if (FileChangedSinceLastCall(levelPsdPath.ToConstArray())) {
 		LOG_INFO("reloading level %.*s\n", (int)activeLevelName.size, activeLevelName.data);
-        LevelData* activeLevelData = GetLevelData(&gameState->assets, gameState->activeLevelId);
+        LevelData* activeLevelData = GetLevelData(&gameState->assets, gameState->levelState.activeLevelId);
         if (activeLevelData->loaded) {
 			UnloadLevelData(activeLevelData);
 		}
 
-		if (!SetActiveLevel(gameState, gameState->activeLevelId, gameState->playerCoords, memory->transient)) {
+		if (!SetActiveLevel(&gameState->levelState, &gameState->assets, gameState->levelState.activeLevelId,
+                            gameState->levelState.playerCoords, gameState->refPixelsPerUnit, memory->transient)) {
 			DEBUG_PANIC("Failed to reload level %.*s\n",
                         (int)activeLevelName.size, activeLevelName.data);
 		}
@@ -1080,7 +1084,7 @@ platformFuncs.glFunctions.name;
 	OutputAudio(audio, gameState, input, memory->transient);
 
     // ------------------------------ Debug -----------------------------------
-	Mat4 view = CalculateViewMatrix(gameState->cameraPos, gameState->cameraRot,
+	Mat4 view = CalculateViewMatrix(gameState->levelState.cameraPos, gameState->levelState.cameraRot,
                                     gameState->refPixelScreenHeight, gameState->refPixelsPerUnit, gameState->cameraOffsetFracY);
 
 	bool wasDebugKeyPressed = WasKeyPressed(input, KM_KEY_G)
@@ -1103,9 +1107,10 @@ platformFuncs.glFunctions.name;
 
 	if (gameState->debugView) {
 		LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
+        const LevelState* levelState = &gameState->levelState;
 
 		const Mat4 viewProjection = projection * view;
-		const LevelData* levelData = GetLevelData(gameState->assets, gameState->activeLevelId);
+		const LevelData* levelData = GetLevelData(gameState->assets, levelState->activeLevelId);
 		const FloorCollider& floor = levelData->floor;
 
 		const FontFace& fontMedium = gameState->assets.fontFaceMedium;
@@ -1129,23 +1134,23 @@ platformFuncs.glFunctions.name;
         panelDebug.TitleBar(ToString("Stats"), &panelDebugMinimized, Vec4::zero, &fontMedium);
 
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f --- FPS", 1.0f / deltaTime));
-		panelDebug.Text(const_string::empty);
+		panelDebug.Text(string::empty);
 
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- CRD",
-                                    gameState->playerCoords.x, gameState->playerCoords.y));
-		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(gameState->playerCoords);
+                                    levelState->playerCoords.x, levelState->playerCoords.y));
+		Vec2 playerPosWorld = floor.GetWorldPosFromCoords(levelState->playerCoords);
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f --- POS",
                                     playerPosWorld.x, playerPosWorld.y));
-		panelDebug.Text(Array<char>::empty);
+		panelDebug.Text(string::empty);
 
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMCRD",
-                                    gameState->cameraCoords.x, gameState->cameraCoords.y));
+                                    levelState->cameraCoords.x, levelState->cameraCoords.y));
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - CMPOS",
-                                    gameState->cameraPos.x, gameState->cameraPos.y));
-		panelDebug.Text(Array<char>::empty);
+                                    levelState->cameraPos.x, levelState->cameraPos.y));
+		panelDebug.Text(string::empty);
 
 		Vec2 mouseWorld = ScreenToWorld(input.mousePos, screenInfo,
-                                        gameState->cameraPos, gameState->cameraRot,
+                                        levelState->cameraPos, levelState->cameraRot,
                                         ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                         gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                         gameState->cameraOffsetFracY);
@@ -1153,10 +1158,10 @@ platformFuncs.glFunctions.name;
 		Vec2 mouseCoords = floor.GetCoordsFromWorldPos(mouseWorld);
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.2f|%.2f - MSCRD", mouseCoords.x, mouseCoords.y));
 
-		panelDebug.Text(Array<char>::empty);
+		panelDebug.Text(string::empty);
 
-		panelDebug.Text(AllocPrintf(&tempAllocator, "%d - STATE", gameState->playerState));
-		const HashKey& kidActiveAnimKey = gameState->kid.activeAnimationKey;
+		panelDebug.Text(AllocPrintf(&tempAllocator, "%d - STATE", levelState->playerState));
+		const HashKey& kidActiveAnimKey = levelState->kid.activeAnimationKey;
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.*s -- ANIM",
                                     (int)kidActiveAnimKey.string.size, kidActiveAnimKey.string.data));
 
@@ -1359,9 +1364,10 @@ platformFuncs.glFunctions.name;
                                      screenInfo, gameState->assets.fontFaceSmall, gameState->assets.fontFaceMedium);
     }
     else if (gameState->kmKey) {
+        LevelState* levelState = &gameState->levelState;
         LinearAllocator tempAllocator(memory->transient.size, memory->transient.memory);
 
-        FloorCollider* floor = &(GetLevelData(&gameState->assets, gameState->activeLevelId)->floor);
+        FloorCollider* floor = &(GetLevelData(&gameState->assets, levelState->activeLevelId)->floor);
 
         const FontFace& fontMedium = gameState->assets.fontFaceMedium;
         const FontFace& fontSmall = gameState->assets.fontFaceSmall;
@@ -1373,7 +1379,7 @@ platformFuncs.glFunctions.name;
         panelKmKey.Begin(input, &fontSmall, PanelFlag::GROW_UPWARDS, DEBUG_MARGIN_SCREEN, Vec2::zero);
         panelKmKey.TitleBar(ToString("KM KEY"), &panelKmKeyMinimized, Vec4::zero, &fontMedium);
 
-        const_string activeLevelNameD = GetLevelName(gameState->activeLevelId);
+        const_string activeLevelNameD = GetLevelName(levelState->activeLevelId);
         panelKmKey.Text(AllocPrintf(&tempAllocator, "Loaded level: %.*s",
                                     (int)activeLevelNameD.size, activeLevelNameD.data));
 
@@ -1389,12 +1395,12 @@ platformFuncs.glFunctions.name;
 
 
         Vec2 mouseWorldPosStart = ScreenToWorld(input.mousePos, screenInfo,
-                                                gameState->cameraPos, gameState->cameraRot,
+                                                levelState->cameraPos, levelState->cameraRot,
                                                 ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                                 gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                                 gameState->cameraOffsetFracY);
         Vec2 mouseWorldPosEnd = ScreenToWorld(input.mousePos + input.mouseDelta, screenInfo,
-                                              gameState->cameraPos, gameState->cameraRot,
+                                              levelState->cameraPos, levelState->cameraRot,
                                               ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                               gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                               gameState->cameraOffsetFracY);
@@ -1416,7 +1422,7 @@ platformFuncs.glFunctions.name;
                 Vec2Int mousePosPlusAnchor = input.mousePos + ANCHOR_OFFSET;
                 for (uint64 i = 0; i < floor->line.size; i++) {
                     Vec2Int boxPos = WorldToScreen(floor->line[i], screenInfo,
-                                                   gameState->cameraPos, gameState->cameraRot,
+                                                   levelState->cameraPos, levelState->cameraRot,
                                                    ScaleExponentToWorldScale(gameState->editorScaleExponent),
                                                    gameState->refPixelScreenHeight, gameState->refPixelsPerUnit,
                                                    gameState->cameraOffsetFracY);
@@ -1452,7 +1458,7 @@ platformFuncs.glFunctions.name;
 
             if (input.mouseButtons[0].isDown) {
                 if (gameState->floorVertexSelected == -1) {
-                    gameState->cameraPos -= mouseWorldDelta;
+                    levelState->cameraPos -= mouseWorldDelta;
                 }
                 else {
                     floor->line[gameState->floorVertexSelected] += mouseWorldDelta;
@@ -1482,7 +1488,7 @@ platformFuncs.glFunctions.name;
         }
         else {
             if (input.mouseButtons[0].isDown) {
-                gameState->cameraPos -= mouseWorldDelta;
+                levelState->cameraPos -= mouseWorldDelta;
             }
         }
 
@@ -1490,7 +1496,7 @@ platformFuncs.glFunctions.name;
             Vec2Int centerToMousePrev = (input.mousePos - input.mouseDelta) - screenInfo.size / 2;
             Vec2Int centerToMouse = input.mousePos - screenInfo.size / 2;
             float32 angle = AngleBetween(ToVec2(centerToMousePrev), ToVec2(centerToMouse));
-            gameState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * gameState->cameraRot;
+            levelState->cameraRot = QuatFromAngleUnitAxis(-angle, Vec3::unitZ) * levelState->cameraRot;
         }
 
         float32 editorScaleExponentDelta = input.mouseWheelDelta * 0.0002f;

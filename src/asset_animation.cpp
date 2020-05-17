@@ -90,7 +90,7 @@ void DrawAnimatedSprite(const AnimatedSpriteInstance& sprite, const GameAssets& 
     PushSprite(spriteDataGL, transform, alpha, activeAnimation->frameTextures[sprite.activeFrame].textureID);
 }
 
-bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixelsPerUnit, MemoryBlock transient)
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixelsPerUnit, MemoryBlock transient)
 {
     LinearAllocator allocator(transient.size, transient.memory);
 
@@ -100,7 +100,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixe
     filePath.Append(name);
     filePath.Append(ToString(".psd"));
     PsdFile psdFile;
-    if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
+    if (!LoadPsd(&psdFile, filePath.ToConstArray(), &allocator)) {
         LOG_ERROR("Failed to open and parse level PSD file %.*s\n", filePath.size, filePath.data);
         return false;
     }
@@ -117,11 +117,11 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixe
         return false;
     }
 
-    Array<char> fileString = {
+    string fileString = {
         .size = animFile.size,
         .data = (char*)animFile.data
     };
-    Array<char> keyword, value;
+    string keyword, value;
     HashKey currentAnimKey;
     Animation* currentAnim = nullptr;
     while (true) {
@@ -220,41 +220,40 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixe
                 return false;
             }
 
-            Array<char> next;
-            ReadElementInSplitString(&value, &next, ' ');
+            string next = NextSplitElement(&value, ' ');
             int exitFromFrame;
-            if (*(value.data) == '*') {
+            if (next.size > 0 && next[0] == '*') {
                 // wildcard
                 exitFromFrame = -1;
             }
             else {
-                if (!StringToIntBase10(value, &exitFromFrame)) {
+                if (!StringToIntBase10(next, &exitFromFrame)) {
                     LOG_ERROR("Animation file invalid exit-from frame (%.*s)\n",
                               filePath.size, filePath.data);
                     return false;
                 }
             }
 
-            if (next.size == 0) {
+            if (value.size == 0) {
                 LOG_ERROR("Animation file missing exit-to animation (%.*s)\n",
                           filePath.size, filePath.data);
                 return false;
             }
-            value = next;
-            ReadElementInSplitString(&value, &next, ' ');
-            HashKey exitToAnim;
-            exitToAnim.WriteString(value);
 
-            if (next.size == 0) {
+            next = NextSplitElement(&value, ' ');
+            HashKey exitToAnim;
+            exitToAnim.WriteString(next);
+
+            if (value.size == 0) {
                 LOG_ERROR("Animation file missing exit-to frame (%.*s)\n",
                           filePath.size, filePath.data);
                 return false;
             }
-            value = next;
-            ReadElementInSplitString(&value, &next, '\n');
+
+            next = NextSplitElement(&value, '\n');
             int exitToFrame;
             {
-                if (!StringToIntBase10(value, &exitToFrame)) {
+                if (!StringToIntBase10(next, &exitToFrame)) {
                     LOG_ERROR("Animation file invalid exit-to frame (%.*s)\n",
                               filePath.size, filePath.data);
                     return false;
@@ -282,11 +281,8 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixe
             Vec2 rootPosWorld0 = Vec2::zero;
             for (int i = 0; i < currentAnim->numFrames; i++) {
                 // Read root motion coordinate pair
-                Array<char> next;
-                ReadElementInSplitString(&value, &next, '\n');
-
-                Array<char> trimmed;
-                TrimWhitespace(value, &trimmed);
+                string next = NextSplitElement(&value, '\n');
+                string trimmed = TrimWhitespace(next);
 
                 // Parse root motion coordinate pair
                 Vec2Int rootPos;
@@ -321,7 +317,6 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixe
                 if (next.size == 0) {
                     break;
                 }
-                value = next;
             }
         }
         else if (StringEquals(keyword, ToString("start"))) {

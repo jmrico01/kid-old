@@ -28,7 +28,7 @@ void PlatformFlushLogs(LogState* logState)
             LogString(logState->buffer, bufferEnd);
         }
     }
-    
+
     logState->eventFirst = (logState->eventFirst + logState->eventCount) % LOG_EVENTS_MAX;
     logState->eventCount = 0;
     // uint64 toRead1, toRead2;
@@ -58,18 +58,18 @@ int main(int argc, char** argv)
     logState->eventFirst = 0;
     logState->eventCount = 0;
     logState_ = logState;
-    
+
     const uint64 memorySize = GIGABYTES(1);
     void* memory = malloc(memorySize);
-    
-    Array<char> psdFilePath = ToString("data/levels/overworld/overworld.psd");
+
+    const_string psdFilePath = ToString("data/levels/overworld/overworld.psd");
     PsdFile psdFile;
     if (!OpenPSD(&defaultAllocator_, psdFilePath, &psdFile)) {
         LOG_ERROR("Couldn't open overworld.psd file\n");
         LOG_FLUSH();
         return 1;
     }
-    
+
     uint64 layerInd = psdFile.layers.size;
     for (uint64 i = 0; i < psdFile.layers.size; i++) {
         if (StringEquals(psdFile.layers[i].name.ToArray(), ToString("bg"))) {
@@ -82,11 +82,11 @@ int main(int argc, char** argv)
         LOG_FLUSH();
         return 1;
     }
-    
+
     LOG_INFO("Starting benchmark\n");
-    
+
     const int ITERATIONS = 256;
-    
+
     ImageData imageData;
     uint64 cyclesStart = __rdtsc();
     for (int i = 0; i < ITERATIONS; i++) {
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
         }
     }
     uint64 cyclesEnd = __rdtsc();
-    
+
     uint64 totalCycles = cyclesEnd - cyclesStart;
     double cyclesPerIteration = (double)totalCycles / (double)ITERATIONS;
     double totalMegacycles = (double)totalCycles / 1000000.;
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
     LOG_INFO("    total elapsed: %.03f Mcycles\n", totalMegacycles);
     LOG_INFO("    per iteration: %.0f cycles\n", cyclesPerIteration);
     LOG_FLUSH();
-    
+
     return 0;
 }
 

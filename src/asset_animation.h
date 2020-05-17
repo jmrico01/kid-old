@@ -11,14 +11,6 @@ const uint64 ANIMATION_MAX_FRAMES = 32;
 const uint64 SPRITE_MAX_ANIMATIONS = 8;
 const uint64 ANIMATION_QUEUE_MAX_LENGTH = 4;
 
-enum class AnimatedSpriteId
-{
-    KID,
-    PAPER,
-
-    COUNT
-};
-
 struct Animation
 {
     int fps;
@@ -42,5 +34,5 @@ struct AnimatedSprite
     Vec2Int textureSize;
 };
 
-bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string& name, float32 pixelsPerUnit, MemoryBlock transient);
+bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixelsPerUnit, MemoryBlock transient);
 void UnloadAnimatedSprite(AnimatedSprite* sprite);

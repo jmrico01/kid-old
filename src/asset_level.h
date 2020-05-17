@@ -8,16 +8,8 @@
 #include "load_psd.h"
 
 const uint64 LINE_COLLIDERS_MAX = 16;
-const uint64 LEVEL_SPRITES_MAX = 32;
+const uint64 LEVEL_SPRITES_MAX = 64;
 const uint64 LEVEL_TRANSITIONS_MAX = 4;
-
-enum class LevelId
-{
-    NOTHING,
-    OVERWORLD,
-
-    COUNT
-};
 
 enum class SpriteType
 {
@@ -25,21 +17,6 @@ enum class SpriteType
 	OBJECT,
 	LABEL
 };
-
-#if 0
-struct TextureWithPosition
-{
-	union {
-		Vec2 pos;
-		Vec2 coords;
-	};
-	Vec2 anchor;
-	float32 restAngle;
-	TextureGL texture;
-	SpriteType type;
-    bool flipped;
-};
-#endif
 
 struct SpriteMetadata
 {
@@ -79,7 +56,5 @@ struct LevelData
 	bool loaded;
 };
 
-const_string GetLevelName(LevelId levelId);
-
-bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit, MemoryBlock transient);
+bool LoadLevelData(LevelData* levelData, const_string name, float32 pixelsPerUnit, MemoryBlock transient);
 void UnloadLevelData(LevelData* levelData);

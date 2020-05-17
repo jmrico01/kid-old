@@ -25,7 +25,7 @@ enum class PlayerState
     GROUNDED,
     JUMPING,
     FALLING,
-    
+
     COUNT
 };
 
@@ -52,28 +52,21 @@ struct LiftedObjectInfo
 struct AnimatedSpriteInstance
 {
     AnimatedSpriteId animatedSpriteId;
-    
+
     HashKey activeAnimationKey;
     int activeFrame;
     int activeFrameRepeat;
     float32 activeFrameTime;
 };
 
-struct GameState
+struct LevelState
 {
-    AudioState audioState;
-    
-    float32 aspectRatio;
-    int refPixelScreenHeight;
-    float32 refPixelsPerUnit;
-    float32 minBorderFrac;
-    int borderRadius;
-    float32 cameraOffsetFracY;
-    
+    LevelId activeLevelId;
+
     Vec2 cameraPos;
-    Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
+    Quat cameraRot;
     Vec2 cameraCoords;
-    
+
     float32 prevFloorCoordY;
     Vec2 playerCoords;
     Vec2 playerVel;
@@ -83,35 +76,68 @@ struct GameState
     float32 playerJumpMag;
     bool playerJumpHolding;
     float32 playerJumpHold;
-    
+
+    AnimatedSpriteInstance kid;
+
     GrabbedObjectInfo grabbedObject;
     LiftedObjectInfo liftedObject;
-    
-    AnimatedSpriteInstance kid;
+};
+
+struct GameState
+{
+    GameAssets assets;
+
     AnimatedSpriteInstance paper;
     Rock rock;
-    
-    LevelId activeLevelId;
-    
+
+    AudioState audioState;
+
+    float32 aspectRatio;
+    int refPixelScreenHeight;
+    float32 refPixelsPerUnit;
+    float32 minBorderFrac;
+    int borderRadius;
+    float32 cameraOffsetFracY;
     float32 grainTime;
-    
+
+    LevelState levelState;
+
+#if 0
+    Vec2 cameraPos;
+    Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
+    Vec2 cameraCoords;
+
+    float32 prevFloorCoordY;
+    Vec2 playerCoords;
+    Vec2 playerVel;
+    PlayerState playerState;
+    const LineCollider* currentPlatform;
+    bool facingRight;
+    float32 playerJumpMag;
+    bool playerJumpHolding;
+    float32 playerJumpHold;
+
+    GrabbedObjectInfo grabbedObject;
+    LiftedObjectInfo liftedObject;
+#endif
+
 #if GAME_INTERNAL
     bool kmKey;
     bool debugView;
     float32 editorScaleExponent;
-    
+
     // Editor
     int floorVertexSelected;
 #endif
-    
+
     FT_Library ftLibrary;
-    
+
     RenderState renderState;
     RectGL rectGL;
     TexturedRectGL texturedRectGL;
     LineGL lineGL;
     TextGL textGL;
-    
+
     Framebuffer framebuffersColorDepth[NUM_FRAMEBUFFERS_COLOR_DEPTH];
     Framebuffer framebuffersColor[NUM_FRAMEBUFFERS_COLOR];
     Framebuffer framebuffersGray[NUM_FRAMEBUFFERS_GRAY];
@@ -119,8 +145,6 @@ struct GameState
     GLuint screenQuadVertexArray;
     GLuint screenQuadVertexBuffer;
     GLuint screenQuadUVBuffer;
-    
-    GameAssets assets;
 };
 
 Vec2Int GetBorderSize(ScreenInfo screenInfo, float32 targetAspectRatio, float32 minBorderFrac);

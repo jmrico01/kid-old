@@ -20,7 +20,7 @@ enum class LayerChannelID
 	GREEN = 1,
 	BLUE  = 2,
 	ALPHA = 3,
-    
+
 	ALL
 };
 
@@ -57,14 +57,14 @@ struct PsdFile
 	Vec2Int size;
 	FixedArray<PsdLayerInfo, PSD_MAX_LAYERS> layers;
 	Array<uint8> file;
-    
+
 	template <typename Allocator>
         bool LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allocator* allocator,
                                 ImageData* outImageData);
 	template <typename Allocator>
         bool LoadLayerTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
                                 GLint minFilter, GLint wrapS, GLint wrapT, Allocator* allocator, TextureGL* outTextureGL);
-    
+
 	// TODO temp?
 	template <typename Allocator>
         bool LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID channel, GLint magFilter,
@@ -72,6 +72,6 @@ struct PsdFile
 };
 
 template <typename Allocator>
-bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator);
+bool LoadPsd(PsdFile* psdFile, const_string filePath, Allocator* allocator);
 template <typename Allocator>
 void FreePsd(PsdFile* psdFile, Allocator* allocator);

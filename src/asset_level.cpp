@@ -2,12 +2,8 @@
 
 #include <km_common/km_kmkv.h>
 #include <km_common/km_os.h>
+#include <km_common/km_string.h>
 #include <stb_sprintf.h>
-
-static const_string LEVEL_NAMES[] = {
-    ToString("nothing"),
-    ToString("overworld")
-};
 
 internal int ToFlatIndex(Vec2Int index, Vec2Int size)
 {
@@ -170,19 +166,8 @@ internal void InvertLoop(Array<Vec2Int>* loop)
 	}
 }
 
-const_string GetLevelName(LevelId levelId)
+bool LoadLevelData(LevelData* levelData, const_string name, float32 pixelsPerUnit, MemoryBlock transient)
 {
-    DEBUG_ASSERT(C_ARRAY_LENGTH(LEVEL_NAMES) == (int)LevelId::COUNT);
-    DEBUG_ASSERT(levelId < LevelId::COUNT);
-
-    return LEVEL_NAMES[(int)levelId];
-}
-
-bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit, MemoryBlock transient)
-{
-    DEBUG_ASSERT(levelId < LevelId::COUNT);
-	DEBUG_ASSERT(!levelData->loaded);
-
 	LinearAllocator allocator(transient.size, transient.memory);
 
 	levelData->sprites.Clear();
@@ -193,12 +178,10 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 	levelData->lockedCamera = false;
 	levelData->bounded = false;
 
-    const_string levelName = GetLevelName(levelId);
-
 	FixedArray<char, PATH_MAX_LENGTH> filePath;
 	filePath.Clear();
 	filePath.Append(ToString("data/kmkv/levels/"));
-	filePath.Append(levelName);
+	filePath.Append(name);
 	filePath.Append(ToString(".kmkv"));
 	Array<uint8> levelFile = LoadEntireFile(filePath.ToArray(), &allocator);
 	if (!levelFile.data) {
@@ -206,12 +189,12 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 		return false;
 	}
 
-    Array<char> groundLayerName = {};
-	Array<char> fileString = {
+    string groundLayerName = {};
+    string fileString = {
         .size = levelFile.size,
         .data = (char*)levelFile.data
     };
-    Array<char> keyword, value;
+    string keyword, value;
 	while (true) {
 		int read = ReadNextKeywordValue(fileString, &keyword, &value);
 		if (read < 0) {
@@ -269,7 +252,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			DEBUG_ASSERT(levelData->levelTransitions.size < LEVEL_TRANSITIONS_MAX);
             LevelTransition* transition = levelData->levelTransitions.Append();
 
-			Array<char> keywordTransition, valueTransition;
+            string keywordTransition, valueTransition;
 			while (true) {
 				int readTransition = ReadNextKeywordValue(value, &keywordTransition, &valueTransition);
 				if (readTransition < 0) {
@@ -365,11 +348,9 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 			lineCollider->line.size = 0;
 
 			while (true) {
-				Array<char> next;
-				ReadElementInSplitString(&value, &next, '\n');
+                string next = NextSplitElement(&value, '\n');
 
-				Array<char> trimmed;
-				TrimWhitespace(value, &trimmed);
+                string trimmed = TrimWhitespace(value);
 				if (trimmed.size == 0) {
 					break;
 				}
@@ -410,7 +391,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 
 	filePath.Clear();
 	filePath.Append(ToString("data/psd/"));
-	filePath.Append(levelName);
+	filePath.Append(name);
 	filePath.Append(ToString(".psd"));
 	PsdFile psdFile;
 	if (!LoadPsd(&psdFile, filePath.ToArray(), &allocator)) {
@@ -437,7 +418,7 @@ bool LoadLevelData(LevelData* levelData, LevelId levelId, float32 pixelsPerUnit,
 				return false;
 			}
 
-			DynamicArray<Vec2Int> loop;
+			DynamicArray<Vec2Int, LinearAllocator> loop(&allocator);
 			if (!GetLoop(imageAlpha, &allocator, &loop)) {
 				LOG_ERROR("Failed to get loop from ground edges\n");
 				return false;

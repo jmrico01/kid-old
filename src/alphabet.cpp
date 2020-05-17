@@ -532,7 +532,7 @@ void AlphabetAtlasUpdateAndRender(Alphabet* alphabet, const GameInput& input, Me
         panelLetter.Text(AllocPrintf(&tempAlloc, "x-offset: %d", letter.offsetX));
         panelLetter.Text(AllocPrintf(&tempAlloc, "flags: %d", letter.flags));
         panelLetter.Text(AllocPrintf(&tempAlloc, "ascii: %d", letter.ascii));
-        panelLetter.Text(Array<char>::empty);
+        panelLetter.Text(const_string::empty);
 
         panelLetter.Text(AllocPrintf(&tempAlloc, "letter %d: '%c'", hoveredLetter, (char)letter.ascii));
 

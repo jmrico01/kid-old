@@ -53,24 +53,24 @@ internal int32 ReadBigEndianInt32(const char bigEndian[4])
 }
 
 template <uint64 S>
-internal int ReadPascalString(const Array<char>& string, FixedArray<char, S>* outString)
+internal int ReadPascalString(const_string str, FixedArray<char, S>* outString)
 {
 	static_assert(S >= UINT8_MAX_VALUE, "pascal string buffer too small");
-    
-	uint8 length = string[0];
-	if (string.size < length) {
-		length = (uint8)string.size;
+
+	uint8 length = str[0];
+	if (str.size < length) {
+		length = (uint8)str.size;
 	}
-	MemCopy(outString->data, &string[1], length);
+	MemCopy(outString->data, &str[1], length);
 	outString->size = length;
 	return length + 1;
 }
 
 template <uint64 S>
-internal int ReadUnicodeString(const Array<char>& string, FixedArray<char, S>* outString)
+internal int ReadUnicodeString(const_string str, FixedArray<char, S>* outString)
 {
 	int parsedBytes = 0;
-	int32 stringLength = ReadBigEndianInt32(&string[parsedBytes]);
+	int32 stringLength = ReadBigEndianInt32(&str[parsedBytes]);
 	parsedBytes += 4;
 	if (stringLength > S) {
 		LOG_ERROR("unicode string too long (%d, max %d)\n", stringLength, S);
@@ -78,11 +78,11 @@ internal int ReadUnicodeString(const Array<char>& string, FixedArray<char, S>* o
 	}
 	outString->size = stringLength;
 	for (uint64 c = 0; c < outString->size; c++) {
-		int16 unicodeChar = ReadBigEndianInt16(&string[parsedBytes]);
+		int16 unicodeChar = ReadBigEndianInt16(&str[parsedBytes]);
 		parsedBytes += 2;
 		(*outString)[c] = (char)unicodeChar;
 	}
-    
+
 	return parsedBytes;
 }
 
@@ -102,68 +102,68 @@ struct PsdDescriptorItem
 		int32 integer;
 		PsdDescriptor* descriptorPtr;
 	};
-    
-	bool Load(const Array<char>& string, uint64* outParsedBytes);
+
+	bool Load(const_string str, uint64* outParsedBytes);
 };
 
 struct PsdDescriptor
 {
 	static const uint64 MAX_ITEMS = 64;
-    
+
 	FixedArray<char, STRING_MAX_SIZE> name;
 	HashTable<PsdDescriptorItem> items;
-    
-	bool Load(const Array<char>& string, uint64* outParsedBytes)
+
+	bool Load(const_string str, uint64* outParsedBytes)
 	{
 		uint64 parsedBytes = 0;
-        
-		int nameBytes = ReadUnicodeString(string.SliceFrom(parsedBytes), &name);
+
+		int nameBytes = ReadUnicodeString(str.SliceFrom(parsedBytes), &name);
 		if (nameBytes < 0) {
 			LOG_ERROR("Failed to parse descriptor name\n");
 			return false;
 		}
 		parsedBytes += nameBytes;
-        
-		int32 classIdLength = ReadBigEndianInt32(&string[parsedBytes]);
+
+		int32 classIdLength = ReadBigEndianInt32(&str[parsedBytes]);
 		parsedBytes += 4;
 		if (classIdLength == 0) {
 			classIdLength = 4;
 		}
 		parsedBytes += classIdLength;
-        
-		int32 descriptorItems = ReadBigEndianInt32(&string[parsedBytes]);
+
+		int32 descriptorItems = ReadBigEndianInt32(&str[parsedBytes]);
 		parsedBytes += 4;
 		for (int32 i = 0; i < descriptorItems; i++) {
-			int32 keyLength = ReadBigEndianInt32(&string[parsedBytes]);
+			int32 keyLength = ReadBigEndianInt32(&str[parsedBytes]);
 			parsedBytes += 4;
 			HashKey keyString;
 			if (keyLength == 0) {
 				keyLength = 4;
 			}
-			if (!keyString.WriteString(string.Slice(parsedBytes, parsedBytes + keyLength))) {
+			if (!keyString.WriteString(str.Slice(parsedBytes, parsedBytes + keyLength))) {
 				LOG_ERROR("key string too big (%d)\n", keyLength);
 				return false;
 			}
 			parsedBytes += keyLength;
-            
+
 			PsdDescriptorItem item;
 			uint64 itemBytes;
-			if (!item.Load(string.SliceFrom(parsedBytes), &itemBytes)) {
+			if (!item.Load(str.SliceFrom(parsedBytes), &itemBytes)) {
 				LOG_ERROR("Failed to load descriptor item %d\n", i);
 				return false;
 			}
 			parsedBytes += itemBytes;
-            
+
 			items.Add(keyString, item);
 		}
-        
+
 		*outParsedBytes = parsedBytes;
 		return true;
 	}
-    
+
 	template <typename T>
         const T* GetItemValue(const char* key) const;
-    
+
 	template <>
         const int32* GetItemValue<int32>(const char* key) const
 	{
@@ -176,7 +176,7 @@ struct PsdDescriptor
 		}
 		return &item->integer;
 	}
-    
+
 	template <>
         const PsdDescriptor* GetItemValue<PsdDescriptor>(const char* key) const
 	{
@@ -191,17 +191,17 @@ struct PsdDescriptor
 	}
 };
 
-bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
+bool PsdDescriptorItem::Load(const_string str, uint64* outParsedBytes)
 {
 	uint64 parsedBytes = 0;
-    
-	const Array<char> typeString = string.Slice(parsedBytes, parsedBytes + 4);
+
+    const_string typeString = str.Slice(parsedBytes, parsedBytes + 4);
 	parsedBytes += 4;
 	if (StringEquals(typeString, ToString("Objc"))) {
 		type = PsdDescriptorItemType::DESCRIPTOR;
 		descriptorPtr = new PsdDescriptor(); // TODO hmmm
 		uint64 descriptorBytes;
-		if (!descriptorPtr->Load(string.SliceFrom(parsedBytes), &descriptorBytes)) {
+		if (!descriptorPtr->Load(str.SliceFrom(parsedBytes), &descriptorBytes)) {
 			LOG_ERROR("failed to load descriptor in item\n");
 			return false;
 		}
@@ -209,12 +209,12 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	}
 	else if (StringEquals(typeString, ToString("VlLs"))) {
 		type = PsdDescriptorItemType::OTHER;
-		int32 listLength = ReadBigEndianInt32(&string[parsedBytes]);
+		int32 listLength = ReadBigEndianInt32(&str[parsedBytes]);
 		parsedBytes += 4;
 		for (int32 i = 0; i < listLength; i++) {
 			PsdDescriptorItem listItem;
 			uint64 listItemBytes;
-			if (!listItem.Load(string.SliceFrom(parsedBytes), &listItemBytes)) {
+			if (!listItem.Load(str.SliceFrom(parsedBytes), &listItemBytes)) {
 				LOG_ERROR("failed to load item in list\n");
 				return false;
 			}
@@ -229,7 +229,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	else if (StringEquals(typeString, ToString("TEXT"))) {
 		type = PsdDescriptorItemType::OTHER;
 		FixedArray<char, STRING_MAX_SIZE> stringData;
-		int stringBytes = ReadUnicodeString(string.SliceFrom(parsedBytes), &stringData);
+		int stringBytes = ReadUnicodeString(str.SliceFrom(parsedBytes), &stringData);
 		if (stringBytes < 0) {
 			LOG_ERROR("Failed to parse string in descriptor\n");
 			return false;
@@ -238,7 +238,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 	}
 	else if (StringEquals(typeString, ToString("long"))) {
 		type = PsdDescriptorItemType::INTEGER;
-		integer = ReadBigEndianInt32(&string[parsedBytes]);
+		integer = ReadBigEndianInt32(&str[parsedBytes]);
 		parsedBytes += 4;
 	}
 	else if (StringEquals(typeString, ToString("bool"))) {
@@ -250,7 +250,7 @@ bool PsdDescriptorItem::Load(const Array<char>& string, uint64* outParsedBytes)
 		LOG_ERROR("Unhandled descriptor type %.*s\n", typeString.size, typeString.data);
 		return false;
 	}
-    
+
 	*outParsedBytes = parsedBytes;
 	return true;
 }
@@ -290,15 +290,15 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 		return false;
 	}
 	defer (allocator->Free(layerRowLengths));
-    
+
 	uint64 dataIndex = 0;
-    
+
 	for (int r = 0; r < height; r++) {
 		int16 rowLengthBytes = ReadBigEndianInt16(&inData[dataIndex]);
 		dataIndex += 2;
 		layerRowLengths[r] = rowLengthBytes;
 	}
-    
+
 #if 1
 	for (int r = 0; r < height; r++) {
 		// Parse data in PackBits format
@@ -346,12 +346,12 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 				}
 			}
 		}
-        
+
 		if (pixelX != width) {
 			LOG_ERROR("PackBits row length mismatch: %d vs %d\n", pixelX, width);
 			return false;
 		}
-        
+
 		dataIndex += layerRowLengths[r];
 	}
 #else
@@ -399,16 +399,16 @@ internal bool ReadPackBitsData(const uint8* inData, Allocator* allocator, int wi
 				}
 			}
 		}
-        
+
 		if (pixelX != width) {
 			LOG_ERROR("PackBits row length mismatch: %d vs %d\n", pixelX, width);
 			return false;
 		}
-        
+
 		dataIndex += layerRowLengths[r];
 	}
 #endif
-    
+
 	return true;
 }
 
@@ -423,20 +423,20 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allo
 	}
 	int layerWidth = layerInfo.right - layerInfo.left;
 	int layerHeight = layerInfo.bottom - layerInfo.top;
-    
+
 	uint64 sizeLayerData = layerWidth * layerHeight * numChannelsDest;
 	uint8* layerData = (uint8*)allocator->Allocate(sizeLayerData);
 	if (!layerData) {
 		LOG_ERROR("Not enough memory for layer data, need %d\n", sizeLayerData);
 		return false;
 	}
-    
-	const Array<char> psdData = {
+
+    const_string psdData = {
 		.size = file.size,
-		.data = (char*)file.data
+		.data = (const char*)file.data
 	};
 	uint64 psdDataIndex = layerInfo.dataStart;
-    
+
 	for (uint8 c = 0; c < layerInfo.channels.size; c++) {
 		const LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
 		int channelOffsetDest = (int)layerChannelInfo.channelID;
@@ -447,12 +447,12 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allo
 			}
 			channelOffsetDest = 0;
 		}
-        
+
 		int16 compression = ReadBigEndianInt16(&psdData[psdDataIndex]);
 		// TODO hmm
 		const uint8* layerImageData = (uint8*)&psdData[psdDataIndex + 2];
 		psdDataIndex += layerChannelInfo.dataSize;
-        
+
 		switch (compression) {
 			case PsdCompression::RAW: {
 				ReadRawData(layerImageData, layerWidth, layerHeight,
@@ -471,7 +471,7 @@ bool PsdFile::LoadLayerImageData(uint64 layerIndex, LayerChannelID channel, Allo
 			} break;
 		}
 	}
-    
+
 	outImageData->size = { layerWidth, layerHeight };
 	outImageData->channels = numChannelsDest;
 	outImageData->data = layerData;
@@ -484,13 +484,13 @@ bool PsdFile::LoadLayerTextureGL(uint64 layerIndex, LayerChannelID channel, GLin
 {
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
-    
+
 	ImageData imageData;
 	if (!LoadLayerImageData(layerIndex, channel, allocator, &imageData)) {
 		LOG_ERROR("Failed to load layer image data");
 		return false;
 	}
-    
+
 	GLenum formatGL;
 	if (imageData.channels == 4) {
 		formatGL = GL_RGBA;
@@ -507,12 +507,12 @@ bool PsdFile::LoadLayerTextureGL(uint64 layerIndex, LayerChannelID channel, GLin
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, formatGL, imageData.size.x, imageData.size.y,
                  0, formatGL, GL_UNSIGNED_BYTE, (const GLvoid*)imageData.data);
-    
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-    
+
 	outTextureGL->textureID = textureID;
 	outTextureGL->size = imageData.size;
 	return true;
@@ -524,13 +524,13 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 {
 	const auto& allocatorState = allocator->SaveState();
 	defer (allocator->LoadState(allocatorState));
-    
+
 	ImageData imageDataSmall;
 	if (!LoadLayerImageData(layerIndex, channel, allocator, &imageDataSmall)) {
 		LOG_ERROR("Failed to load layer image data");
 		return false;
 	}
-    
+
 	ImageData imageData;
 	imageData.size = size;
 	imageData.channels = imageDataSmall.channels;
@@ -550,12 +550,12 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 				MemSet(&imageData.data[outPixelIndex], 0, imageData.channels);
 				continue;
 			}
-            
+
 			int inPixelIndex = ((y - layerBottom) * (layerInfo.right - layerInfo.left) + x - layerInfo.left) * imageData.channels;
 			MemCopy(&imageData.data[outPixelIndex], &imageDataSmall.data[inPixelIndex], imageData.channels);
 		}
 	}
-    
+
 	GLenum formatGL;
 	if (imageData.channels == 4) {
 		formatGL = GL_RGBA;
@@ -572,12 +572,12 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, formatGL, imageData.size.x, imageData.size.y,
                  0, formatGL, GL_UNSIGNED_BYTE, (const GLvoid*)imageData.data);
-    
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-    
+
 	outTextureGL->textureID = textureID;
 	outTextureGL->size = imageData.size;
 	return true;
@@ -586,74 +586,74 @@ bool PsdFile::LoadLayerAtPsdSizeTextureGL(uint64 layerIndex, LayerChannelID chan
 // Reference: Official Adobe File Formats specification document
 // https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
 template <typename Allocator>
-bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator)
+bool LoadPsd(PsdFile* psdFile, const_string filePath, Allocator* allocator)
 {
 	psdFile->file = LoadEntireFile(filePath, allocator);
 	if (psdFile->file.data == nullptr) {
 		LOG_ERROR("Failed to open PSD file at: %.*s\n", filePath.size, filePath.data);
 		return false;
 	}
-	const Array<char> psdData = {
+    const_string psdData = {
 		.size = psdFile->file.size,
-		.data = (char*)psdFile->file.data
+		.data = (const char*)psdFile->file.data
 	};
 	uint64 parsedBytes = 0;
-    
-	const Array<char> psdSignature = psdData.Slice(parsedBytes, parsedBytes + 4);
+
+    const_string psdSignature = psdData.Slice(parsedBytes, parsedBytes + 4);
 	parsedBytes += 4;
 	if (!StringEquals(psdSignature, ToString("8BPS"))) {
 		LOG_ERROR("Invalid PSD signature %.*s, expected 8BPS, on file %.*s\n",
                   psdSignature.size, psdSignature.data, filePath.size, filePath.data);
 		return false;
 	}
-    
+
 	int16 version = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
 	if (version != 1) {
 		LOG_ERROR("Expected PSD version 1, found %d\n", version);
 	}
-    
+
 	parsedBytes += 6; // reserved
-    
+
 	int16 channels = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
 	if (channels != 3 && channels != 4) {
 		LOG_ERROR("Expected 3 or 4 color channels (RGB or RGBA), found %d\n", channels);
 		return false;
 	}
-    
+
 	int32 height = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	int32 width = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	psdFile->size.x = width;
 	psdFile->size.y = height;
-    
+
 	int16 depth = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
 	if (depth != 8) {
 		LOG_ERROR("Unsupported color depth (not 8): %d\n", depth);
 		return false;
 	}
-    
+
 	int16 colorMode = ReadBigEndianInt16(&psdData[parsedBytes]);
 	parsedBytes += 2;
 	if (colorMode != PSD_COLOR_MODE_RGB) {
 		LOG_ERROR("Unsupported PSD color mode (non-RGB): %d\n", colorMode);
 		return false;
 	}
-    
+
 	// TODO unsafe file data traversal yada yada, have to check lengths against psdFile.size
 	int32 colorModeDataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	// Ignored data here
 	parsedBytes += colorModeDataLength;
-    
+
 	int32 imageResourcesLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	uint64 imageResourcesStart = parsedBytes;
 	while (parsedBytes < imageResourcesStart + imageResourcesLength) {
-		const Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
+        const_string signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 		parsedBytes += 4;
 		if (!StringEquals(signature, ToString("8BIM"))) {
 			LOG_ERROR("Invalid image resource signature %.*s, expected 8BIM, on file %.*s\n",
@@ -662,7 +662,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 		}
 		uint16 resourceId = ReadBigEndianInt16(&psdData[parsedBytes]);
 		parsedBytes += 2;
-        
+
 		FixedArray<char, 255> resourceName;
 		int nameBytes = ReadPascalString(psdData.SliceFrom(parsedBytes), &resourceName);
 		if (nameBytes == 0) {
@@ -672,10 +672,10 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 			nameBytes++;
 		}
 		parsedBytes += nameBytes;
-        
+
 		int32 dataSize = ReadBigEndianInt32(&psdData[parsedBytes]);
 		parsedBytes += 4;
-        
+
 		uint64 resourceStart = parsedBytes;
 		switch (resourceId) {
 			case PsdImageResource::LAYER_COMPS:
@@ -693,7 +693,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
                               filePath.size, filePath.data);
 					return false;
 				}
-                
+
 				PsdDescriptor descriptor;
 				uint64 descriptorBytes;
 				if (!descriptor.Load(psdData.SliceFrom(parsedBytes), &descriptorBytes)) {
@@ -706,13 +706,13 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				// LOG_INFO("Unhandled resource ID %x\n", resourceId);
 			} break;
 		}
-        
+
 		if (IsOdd(dataSize)) {
 			dataSize += 1;
 		}
 		parsedBytes = resourceStart + dataSize;
 	}
-    
+
 	int32 layerAndMaskInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 	parsedBytes += 4;
 	// uint64 layerAndMaskInfoStart = parsedBytes;
@@ -721,7 +721,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 		int32 layerInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 		parsedBytes += 4;
 		uint64 layerInfoStart = parsedBytes;
-        
+
 		int16 layerCount = ReadBigEndianInt16(&psdData[parsedBytes]);
 		parsedBytes += 2;
 		if (layerCount < 0) {
@@ -734,11 +734,11 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 		}
 		psdFile->layers.size = layerCount;
 		uint64 currentGroupEnd = psdFile->layers.size;
-        
+
 		for (uint64 layerIndex = 0; layerIndex < psdFile->layers.size; layerIndex++) {
 			PsdLayerInfo& layerInfo = psdFile->layers[layerIndex];
 			layerInfo.inTimeline = false;
-            
+
 			int32 top = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
 			int32 left = ReadBigEndianInt32(&psdData[parsedBytes]);
@@ -751,7 +751,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 			layerInfo.right = right;
 			layerInfo.top = top;
 			layerInfo.bottom = bottom;
-            
+
 			int16 layerChannels = ReadBigEndianInt16(&psdData[parsedBytes]);
 			parsedBytes += 2;
 			if (layerChannels != 3 && layerChannels != 4) {
@@ -760,7 +760,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				return false;
 			}
 			layerInfo.channels.size = layerChannels;
-            
+
 			for (int16 c = 0; c < layerChannels; c++) {
 				LayerChannelInfo& layerChannelInfo = layerInfo.channels[c];
 				int16 channelID = ReadBigEndianInt16(&psdData[parsedBytes]);
@@ -787,16 +787,16 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				parsedBytes += 4;
 				layerChannelInfo.dataSize = channelDataSize;
 			}
-            
-			Array<char> signature = psdData.Slice(parsedBytes, parsedBytes + 4);
+
+            const_string signature = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
 			if (!StringEquals(signature, ToString("8BIM"))) {
 				LOG_ERROR("Invalid blend mode signature %.*s, expected 8BIM, on file %.*s\n",
                           signature.size, signature.data, filePath.size, filePath.data);
 				return false;
 			}
-            
-			Array<char> blendModeKey = psdData.Slice(parsedBytes, parsedBytes + 4);
+
+            const_string blendModeKey = psdData.Slice(parsedBytes, parsedBytes + 4);
 			parsedBytes += 4;
 			if (StringEquals(blendModeKey, ToString("norm"))) {
 				layerInfo.blendMode = LayerBlendMode::NORMAL;
@@ -808,45 +808,45 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				LOG_ERROR("Unsupported blend mode %.*s\n", blendModeKey.size, blendModeKey.data);
 				return false;
 			}
-            
+
 			uint8 opacity = psdData[parsedBytes++];
 			layerInfo.opacity = opacity;
 			parsedBytes++; // uint8 clipping
 			uint8 flags = psdData[parsedBytes++];
 			layerInfo.visible = (flags & 0x02) == 0;
 			parsedBytes++; // filler
-            
+
 			int32 extraDataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
 			uint64 extraDataStart = parsedBytes;
-            
+
 			int32 layerMaskDataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
 			// Ignored data here
 			parsedBytes += layerMaskDataLength;
-            
+
 			int32 layerBlendingRangesLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 			parsedBytes += 4;
 			// Ignored data here
 			parsedBytes += layerBlendingRangesLength;
-            
+
 			int layerNameBytes = ReadPascalString(psdData.SliceFrom(parsedBytes), &layerInfo.name);
 			layerNameBytes = RoundToPowerOfTwo(layerNameBytes, 4);
 			parsedBytes += layerNameBytes;
-            
+
 			while (parsedBytes < extraDataStart + extraDataLength) {
-				signature = psdData.Slice(parsedBytes, parsedBytes + 4);
+				const_string signature2 = psdData.Slice(parsedBytes, parsedBytes + 4);
 				parsedBytes += 4;
-				if (!StringEquals(signature, ToString("8BIM")) && !StringEquals(signature, ToString("8B64"))) {
+				if (!StringEquals(signature2, ToString("8BIM")) && !StringEquals(signature2, ToString("8B64"))) {
 					LOG_ERROR("Invalid additional layer info, signature %.*s, expected 8BIM or 8B64, layer %.*s, file %.*s\n",
-                              signature.size, signature.data,
+                              signature2.size, signature2.data,
                               layerInfo.name.size, layerInfo.name.data,
                               filePath.size, filePath.data);
 					return false;
 				}
-				const Array<char> key = psdData.Slice(parsedBytes, parsedBytes + 4);
+                const_string key = psdData.Slice(parsedBytes, parsedBytes + 4);
 				parsedBytes += 4;
-                
+
 				int32 addLayerInfoLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 				parsedBytes += 4;
 				// Ignored data here
@@ -854,7 +854,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 					addLayerInfoLength++;
 				}
 				uint64 addLayerInfoStart = parsedBytes;
-                
+
 				if (StringEquals(key, ToString("lyid"))) {
 					if (addLayerInfoLength != 4) {
 						LOG_ERROR("layer \"%.*s\" ID length %d, expected 4\n",
@@ -892,17 +892,17 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 					int32 itemCount = ReadBigEndianInt32(&psdData[parsedBytes]);
 					parsedBytes += 4;
 					for (int32 i = 0; i < itemCount; i++) {
-						signature = psdData.Slice(parsedBytes, parsedBytes + 4);
+						const_string signature3 = psdData.Slice(parsedBytes, parsedBytes + 4);
 						parsedBytes += 4;
-						const Array<char> metadataKey = psdData.Slice(parsedBytes, parsedBytes + 4);
+                        const_string metadataKey = psdData.Slice(parsedBytes, parsedBytes + 4);
 						parsedBytes += 4;
 						parsedBytes++; // uint8 copyOnSheetDuplication = psdData[parsedBytes++];
 						parsedBytes += 3; // padding
 						int32 metadataLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 						parsedBytes += 4;
-                        
+
 						uint64 metadataStart = parsedBytes;
-						if (!StringEquals(signature, ToString("8BIM"))) {
+						if (!StringEquals(signature3, ToString("8BIM"))) {
 							// idk, spooky? skip!
 						}
 						else if (StringEquals(metadataKey, ToString("tmln"))) {
@@ -920,13 +920,13 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 								return false;
 							}
 							parsedBytes += descriptorBytes;
-                            
+
 							const PsdDescriptor* timeScope = descriptor.GetItemValue<PsdDescriptor>("timeScope");
 							if (timeScope == nullptr) {
 								LOG_ERROR("Failed to get timeScope in tmln descriptor\n");
 								return false;
 							}
-                            
+
 							const PsdDescriptor* timeStart = timeScope->GetItemValue<PsdDescriptor>("Strt");
 							if (timeStart == nullptr) {
 								LOG_ERROR("Failed to get Strt in timeScope for tmln descriptor\n");
@@ -938,7 +938,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 								return false;
 							}
 							layerInfo.timelineStart = startValue;
-                            
+
 							const PsdDescriptor* inTime = timeScope->GetItemValue<PsdDescriptor>("inTime");
 							if (inTime == nullptr) {
 								LOG_ERROR("Failed to get inTime in timeScope for tmln descriptor\n");
@@ -959,13 +959,13 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 								LOG_ERROR("Bad Strt value in timeScope for tmln descriptor\n");
 								return false;
 							}
-                            
+
 							if (inTimeValue > outTimeValue) {
 								LOG_ERROR("inTime > outTime in tmln descriptor\n");
 								return false;
 							}
 							layerInfo.timelineDuration = outTimeValue - inTimeValue;
-                            
+
 							layerInfo.inTimeline = true;
 						}
 						parsedBytes = metadataStart + metadataLength;
@@ -976,9 +976,9 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				}
 				parsedBytes = addLayerInfoStart + addLayerInfoLength;
 			}
-            
+
 			parsedBytes = extraDataStart + extraDataLength;
-            
+
 			// Temporarily point layer parent to the end of the group.
 			// Will be patched up when the start of the group is parsed.
 			if (currentGroupEnd != layerIndex) {
@@ -988,7 +988,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				layerInfo.parentIndex = psdFile->layers.size;
 			}
 		}
-        
+
 		for (uint64 l = 0; l < psdFile->layers.size; l++) {
 			PsdLayerInfo& layerInfo = psdFile->layers[l];
 			layerInfo.dataStart = parsedBytes;
@@ -996,20 +996,20 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 				parsedBytes += layerInfo.channels[c].dataSize;
 			}
 		}
-        
+
 		if (IsOdd(layerInfoLength)) {
 			layerInfoLength++;
 		}
 		parsedBytes = layerInfoStart + layerInfoLength;
-        
+
 		int32 globalLayerMaskLength = ReadBigEndianInt32(&psdData[parsedBytes]);
 		parsedBytes += 4;
 		// NOTE nothing here for now
 		parsedBytes += globalLayerMaskLength;
-        
+
 		// NOTE there are global additional layer info chunks here
 	}
-    
+
 	/*parsedBytes = layerAndMaskInfoStart + layerAndMaskInfoLength;
 	uint64 imageDataLength = psdFile.size - parsedBytes;
 	int16 compression = ReadBigEndianInt16(&psdData[parsedBytes]);
@@ -1021,7 +1021,7 @@ bool LoadPsd(PsdFile* psdFile, const Array<char>& filePath, Allocator* allocator
 		layerRowLengths[r] = rowLengthBytes;
 	}
 	LOG_INFO("image data length %d compression %d\n", imageDataLength, compression);*/
-    
+
 	return true;
 }
 
