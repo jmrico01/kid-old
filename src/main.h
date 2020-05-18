@@ -87,10 +87,10 @@ struct GameState
 {
     GameAssets assets;
 
+    AudioState audioState;
+
     AnimatedSpriteInstance paper;
     Rock rock;
-
-    AudioState audioState;
 
     float32 aspectRatio;
     int refPixelScreenHeight;
@@ -102,35 +102,10 @@ struct GameState
 
     LevelState levelState;
 
-#if 0
-    Vec2 cameraPos;
-    Quat cameraRot; // TODO Come on dude, who needs Quaternions in a 2D game
-    Vec2 cameraCoords;
-
-    float32 prevFloorCoordY;
-    Vec2 playerCoords;
-    Vec2 playerVel;
-    PlayerState playerState;
-    const LineCollider* currentPlatform;
-    bool facingRight;
-    float32 playerJumpMag;
-    bool playerJumpHolding;
-    float32 playerJumpHold;
-
-    GrabbedObjectInfo grabbedObject;
-    LiftedObjectInfo liftedObject;
-#endif
-
-#if GAME_INTERNAL
     bool kmKey;
     bool debugView;
     float32 editorScaleExponent;
-
-    // Editor
     int floorVertexSelected;
-#endif
-
-    FT_Library ftLibrary;
 
     RenderState renderState;
     RectGL rectGL;

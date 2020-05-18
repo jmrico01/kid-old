@@ -175,11 +175,16 @@ internal bool SetActiveLevel(LevelState* levelState, GameAssets* assets, LevelId
 	}
 	else {
 		levelState->playerState = PlayerState::GROUNDED;
-		levelState->kid.activeAnimationKey.WriteString(KID_ANIMATION_IDLE);
 		levelState->kid.activeFrame = 0;
 		levelState->kid.activeFrameRepeat = 0;
 		levelState->kid.activeFrameTime = 0.0f;
 	}
+
+    levelState->kid.animatedSpriteId = AnimatedSpriteId::KID;
+    levelState->kid.activeAnimationKey.WriteString(KID_ANIMATION_IDLE);
+    levelState->kid.activeFrame = 0;
+    levelState->kid.activeFrameRepeat = 0;
+    levelState->kid.activeFrameTime = 0.0f;
 
 	if (levelData->lockedCamera) {
 		levelState->cameraCoords = levelData->cameraCoords;
@@ -736,8 +741,6 @@ platformFuncs.glFunctions.name;
 	}
 
 	if (!memory->isInitialized) {
-        LinearAllocator allocator(memory->transient.size, memory->transient.memory);
-
 		// Very explicit depth testing setup (DEFAULT VALUES)
 		// NDC is left-handed with this setup
 		// (subtle left-handedness definition:
@@ -755,24 +758,30 @@ platformFuncs.glFunctions.name;
 
 		glLineWidth(1.0f);
 
-		// Execute constructors for everything in GameState
-		gameState = new (memory->permanent.memory) GameState();
+        // Execute constructors for everything in GameState
+        // TODO *puke*... need this for DynamicArray and HashTable objects... ugh
+        gameState = new (gameState) GameState();
 
-		if (!InitAudioState(&allocator, &gameState->audioState, audio)) {
-			DEBUG_PANIC("Failed to init audio state\n");
-		}
-
+        // Important to set refPixelsPerUnit before loading other stuff, because the value is used later
 		gameState->aspectRatio = 4.0f / 3.0f;
 		gameState->refPixelScreenHeight = 1440;
 		gameState->refPixelsPerUnit = 120.0f;
 		gameState->minBorderFrac = 0.05f;
 		gameState->borderRadius = 20;
 		gameState->cameraOffsetFracY = -1.0f / 2.8f;
+		gameState->grainTime = 0.0f;
 
-        // TODO eh, idk... sure
-		for (int i = 0; i < (int)LevelId::COUNT; i++) {
-			gameState->assets.levels[i].loaded = false;
-		}
+		gameState->debugView = false;
+		gameState->kmKey = false;
+		gameState->editorScaleExponent = 0.5f;
+		gameState->floorVertexSelected = -1;
+
+        if (!LoadOrRefreshAssets(&gameState->assets, gameState->refPixelsPerUnit, memory->transient)) {
+            DEBUG_PANIC("Failed to load game assets\n");
+        }
+
+        // Level loading
+        // TODO might wanna move this...
 		const LevelId FIRST_LEVEL = LevelId::OVERWORLD;
         Vec2 startPos = { 83.9f, 1.0f };
 		if (!SetActiveLevel(&gameState->levelState, &gameState->assets, FIRST_LEVEL, startPos,
@@ -785,13 +794,22 @@ platformFuncs.glFunctions.name;
                        (int)FIRST_LEVEL_NAME.size, FIRST_LEVEL_NAME.data);
 		FileChangedSinceLastCall(ToString((const char*)levelPsdPath)); // TODO hacky. move this to SetActiveLevel?
 
-		gameState->grainTime = 0.0f;
+        LinearAllocator allocator(memory->transient.size, memory->transient.memory);
 
-		gameState->debugView = false;
-		gameState->kmKey = false;
-		gameState->editorScaleExponent = 0.5f;
+		if (!InitAudioState(&allocator, &gameState->audioState, audio)) {
+			DEBUG_PANIC("Failed to init audio state\n");
+		}
 
-		gameState->floorVertexSelected = -1;
+        const AnimatedSprite* spritePaper = GetAnimatedSprite(gameState->assets, AnimatedSpriteId::PAPER);
+        gameState->paper.animatedSpriteId = AnimatedSpriteId::PAPER;
+        gameState->paper.activeAnimationKey = spritePaper->startAnimationKey;
+        gameState->paper.activeFrame = 0;
+        gameState->paper.activeFrameRepeat = 0;
+        gameState->paper.activeFrameTime = 0.0f;
+
+        const LevelData* levelData = GetLevelData(gameState->assets, gameState->levelState.activeLevelId);
+        gameState->rock.coords = { levelData->floor.length - 10.0f, 0.0f };
+        gameState->rock.angle = 0.0f;
 
 		// Rendering stuff
 		InitRenderState(&allocator, gameState->renderState);
@@ -821,8 +839,7 @@ platformFuncs.glFunctions.name;
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices,
                      GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(
-                              0, // match shader layout location
+		glVertexAttribPointer(0, // match shader layout location
                               2, // size (vec2)
                               GL_FLOAT, // type
                               GL_FALSE, // normalized?
@@ -842,8 +859,7 @@ platformFuncs.glFunctions.name;
 		};
 		glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(
-                              1, // match shader layout location
+		glVertexAttribPointer(1, // match shader layout location
                               2, // size (vec2)
                               GL_FLOAT, // type
                               GL_FALSE, // normalized?
@@ -852,88 +868,6 @@ platformFuncs.glFunctions.name;
                               );
 
 		glBindVertexArray(0);
-
-		gameState->assets.screenShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/screen.frag");
-		gameState->assets.bloomExtractShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/bloomExtract.frag");
-		gameState->assets.bloomBlendShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/bloomBlend.frag");
-		gameState->assets.blurShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/blur.frag");
-		gameState->assets.grainShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/grain.frag");
-		// gameState->lutShader = LoadShaders(&allocator, "shaders/screen.vert", "shaders/lut.frag");
-
-        // Fonts
-        if (!LoadAlphabet(memory->transient, &gameState->assets.alphabet)) {
-            DEBUG_PANIC("Failed to load alphabet\n");
-        }
-
-		FT_Error error = FT_Init_FreeType(&gameState->ftLibrary);
-		if (error) {
-			LOG_ERROR("FreeType init error: %d\n", error);
-		}
-		gameState->assets.fontFaceSmall = LoadFontFace(&allocator, gameState->ftLibrary,
-                                                       "data/fonts/ocr-a/regular.ttf", 18);
-		gameState->assets.fontFaceMedium = LoadFontFace(&allocator, gameState->ftLibrary,
-                                                        "data/fonts/ocr-a/regular.ttf", 24);
-
-        // Game objects
-        const LevelData* levelData = GetLevelData(gameState->assets, gameState->levelState.activeLevelId);
-		gameState->rock.coords = { levelData->floor.length - 10.0f, 0.0f };
-		gameState->rock.angle = 0.0f;
-		if (!LoadTextureFromPng(&allocator, ToString("data/sprites/rock.png"),
-                                GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                                GetTexture(&gameState->assets, TextureId::ROCK))) {
-			DEBUG_PANIC("Failed to load rock\n");
-		}
-
-        AnimatedSprite* spriteKid = GetAnimatedSprite(&gameState->assets, AnimatedSpriteId::KID);
-		if (!LoadAnimatedSprite(spriteKid, ToString("kid"), gameState->refPixelsPerUnit, memory->transient)) {
-			DEBUG_PANIC("Failed to load kid animation sprite\n");
-		}
-		gameState->levelState.kid.animatedSpriteId = AnimatedSpriteId::KID;
-        gameState->levelState.kid.activeAnimationKey = spriteKid->startAnimationKey;
-        gameState->levelState.kid.activeFrame = 0;
-        gameState->levelState.kid.activeFrameRepeat = 0;
-        gameState->levelState.kid.activeFrameTime = 0.0f;
-		// TODO priming file changed... hmm
-		FileChangedSinceLastCall(ToString("data/kmkv/animations/kid.kmkv"));
-		FileChangedSinceLastCall(ToString("data/psd/kid.psd"));
-
-        AnimatedSprite* spritePaper = GetAnimatedSprite(&gameState->assets, AnimatedSpriteId::PAPER);
-		if (!LoadAnimatedSprite(spritePaper, ToString("paper"), gameState->refPixelsPerUnit, memory->transient)) {
-            DEBUG_PANIC("Failed to load paper animation sprite\n");
-        }
-        gameState->paper.animatedSpriteId = AnimatedSpriteId::PAPER;
-        gameState->paper.activeAnimationKey = spritePaper->startAnimationKey;
-        gameState->paper.activeFrame = 0;
-        gameState->paper.activeFrameRepeat = 0;
-        gameState->paper.activeFrameTime = 0.0f;
-
-        // TODO priming file changed... hmm
-        FileChangedSinceLastCall(ToString("data/kmkv/animations/paper.kmkv"));
-        FileChangedSinceLastCall(ToString("data/psd/paper.psd"));
-
-        // Game static sprites/textures
-        if (!LoadTextureFromPng(&allocator, ToString("data/sprites/frame-corner.png"),
-                                GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                                GetTexture(&gameState->assets, TextureId::FRAME_CORNER))) {
-            DEBUG_PANIC("Failed to load frame corner texture\n");
-        }
-        if (!LoadTextureFromPng(&allocator, ToString("data/sprites/pixel.png"),
-                                GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                                GetTexture(&gameState->assets, TextureId::PIXEL))) {
-            DEBUG_PANIC("Failed to load pixel texture\n");
-        }
-
-#if 0
-        if (!LoadTextureFromPng(&allocator, ToString("data/luts/lutbase.png"),
-                                GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lutBase)) {
-            DEBUG_PANIC("Failed to load base LUT\n");
-        }
-
-        if (!LoadTextureFromPng(&allocator, ToString("data/luts/kodak5205.png"),
-                                GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, &gameState->lut1)) {
-            DEBUG_PANIC("Failed to load base LUT\n");
-        }
-#endif
 
         memory->isInitialized = true;
 	}

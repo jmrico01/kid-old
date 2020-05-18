@@ -42,6 +42,7 @@ struct GameAssets
 
     Alphabet alphabet;
 
+    FT_Library ftLibrary;
     FontFace fontFaceSmall;
     FontFace fontFaceMedium;
 
@@ -63,3 +64,5 @@ AnimatedSprite* GetAnimatedSprite(GameAssets* assets, AnimatedSpriteId animatedS
 
 const TextureGL* GetTexture(const GameAssets& assets, TextureId textureId);
 TextureGL* GetTexture(GameAssets* assets, TextureId textureId);
+
+bool LoadOrRefreshAssets(GameAssets* assets, float32 pixelsPerUnit, MemoryBlock transient);
