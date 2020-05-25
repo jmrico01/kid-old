@@ -337,7 +337,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixel
     // TODO maybe provide a friendlier way of iterating through HashTable
     for (uint32 k = 0; k < sprite->animations.capacity; k++) {
         const HashKey* animKey = &sprite->animations.pairs[k].key;
-        if (animKey->string.size == 0) {
+        if (animKey->s.size == 0) {
             continue;
         }
 
@@ -346,7 +346,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixel
             const HashTable<int>* frameExitToTable = &anim->frameExitTo[f];
             for (uint32 j = 0; j < frameExitToTable->capacity; j++) {
                 const HashKey* toAnimKey = &frameExitToTable->pairs[j].key;
-                if (toAnimKey->string.size == 0) {
+                if (toAnimKey->s.size == 0) {
                     continue;
                 }
 
@@ -355,7 +355,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixel
                     const Animation* toAnim = sprite->animations.GetValue(*toAnimKey);
                     if (toAnim == nullptr) {
                         LOG_ERROR("Animation file non-existent exit-to animation %.*s (%.*s)\n",
-                                  toAnimKey->string.size, toAnimKey->string.data, filePath.size, filePath.data);
+                                  toAnimKey->s.size, toAnimKey->s.data, filePath.size, filePath.data);
                         return false;
                     }
                     if (*exitToFrame >= toAnim->numFrames) {
@@ -374,7 +374,7 @@ bool LoadAnimatedSprite(AnimatedSprite* sprite, const_string name, float32 pixel
 void UnloadAnimatedSprite(AnimatedSprite* sprite)
 {
     for (uint32 k = 0; k < sprite->animations.capacity; k++) {
-        if (sprite->animations.pairs[k].key.string.size == 0) {
+        if (sprite->animations.pairs[k].key.s.size == 0) {
             continue;
         }
 

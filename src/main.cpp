@@ -1097,7 +1097,7 @@ platformFuncs.glFunctions.name;
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%d - STATE", levelState->playerState));
 		const HashKey& kidActiveAnimKey = levelState->kid.activeAnimationKey;
 		panelDebug.Text(AllocPrintf(&tempAllocator, "%.*s -- ANIM",
-                                    (int)kidActiveAnimKey.string.size, kidActiveAnimKey.string.data));
+                                    (int)kidActiveAnimKey.s.size, kidActiveAnimKey.s.data));
 
 		panelDebug.Draw(screenInfo, gameState->rectGL, gameState->textGL, DEBUG_BORDER_PANEL,
                         DEBUG_FONT_COLOR, DEBUG_BACKGROUND_COLOR, &tempAllocator);
